@@ -33,15 +33,15 @@ def get_proxies_world(url="https://www.freeproxy.world/?type=http&anonymity=&cou
                 port = cols[1].text.strip()
                 proxies.append(f'http://{ip}:{port}')
 
-            if proxy_type == 'socks5':
-                ip = cols[0].text.strip()
-                port = cols[1].text.strip()
-                proxies.append(f'socks5://{ip}:{port}')
+            # if proxy_type == 'socks5':
+            #     ip = cols[0].text.strip()
+            #     port = cols[1].text.strip()
+            #     proxies.append(f'socks5://{ip}:{port}')
 
-            if proxy_type == 'socks4':
-                ip = cols[0].text.strip()
-                port = cols[1].text.strip()
-                proxies.append(f'socks4://{ip}:{port}')
+            # if proxy_type == 'socks4':
+            #     ip = cols[0].text.strip()
+            #     port = cols[1].text.strip()
+            #     proxies.append(f'socks4://{ip}:{port}')
 
     return proxies
 
@@ -76,13 +76,13 @@ def get_proxies_cz(url="http://free-proxy.cz/en/proxylist/country/CA/all/date/al
                 port = cols[1].text.strip()
                 proxies.append(f'http://{ip}:{port}')
 
-            if proxy_type.lower() == 'socks5':
-                port = cols[1].text.strip()
-                proxies.append(f'socks5://{ip}:{port}')
+            # if proxy_type.lower() == 'socks5':
+            #     port = cols[1].text.strip()
+            #     proxies.append(f'socks5://{ip}:{port}')
 
-            if proxy_type.lower() == 'socks4':
-                port = cols[1].text.strip()
-                proxies.append(f'socks4://{ip}:{port}')
+            # if proxy_type.lower() == 'socks4':
+            #     port = cols[1].text.strip()
+            #     proxies.append(f'socks4://{ip}:{port}')
     return proxies
 
 def mk_user_agent():
@@ -218,27 +218,27 @@ def web_portal_issues(params):
     session = requests.Session()
 
     # sidney doesnt seem to care about https
-    if siteType == 'sidney':
-        proxies_list = get_proxies_world()
-    else:
-        proxies_list = get_proxies_cz()
-    # proxies_list = get_proxies_cz()
-    proxy = random.choice(proxies_list)
-    # proxy="23.227.38.198:80"
-    https_proxy = proxy.replace('http://', 'https://')
-    # do we just buy a proxy server for this scrapping
-    if siteType == 'sidney':
-        proxies={
-            'http': proxy,
-            # 'https': https_proxy
+    proxy_list = get_proxy_list()
 
-        }
-    else:
-        proxies={
-            'http': proxy,
-            # 'https': https_proxy
-        }
+    if len(proxy_list) > 0:
+        # proxies_list = get_proxies_cz()
+        proxy = random.choice(proxy_list)
+        # proxy="23.227.38.198:80"
+        https_proxy = proxy.replace('http://', 'https://')
+        # do we just buy a proxy server for this scrapping
+        if siteType == 'sidney':
+            proxies={
+                'http': proxy,
+                # 'https': https_proxy
 
+            }
+        else:
+            proxies={
+                'http': proxy,
+                # 'https': https_proxy
+            }
+    else:
+        proxies = {}
     session.headers.update({
         'User-Agent': mk_user_agent(),
     })
@@ -247,7 +247,23 @@ def web_portal_issues(params):
     print("proxies", proxies)
 
     # Make an initial GET request
-    page_load_resp = session.get(url,proxies=proxies)
+    try:
+        print(f"Attempting to get {url} with proxies: {proxies}")
+        page_load_resp = session.get(url, proxies=proxies, timeout=10) # Added a timeout
+        page_load_resp.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        print("Successfully fetched with proxies.")
+    except (requests.exceptions.ProxyError, requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as e:
+        print(f"Request with proxies failed: {e}")
+        print(f"Retrying {url} without proxies...")
+        try:
+            page_load_resp = session.get(url, timeout=10) # Retry without proxies
+            page_load_resp.raise_for_status()
+            print("Successfully fetched without proxies.")
+        except requests.exceptions.RequestException as e_no_proxy:
+            print(f"Request without proxies also failed: {e_no_proxy}")
+            # Handle the failure of both attempts, e.g., return None or raise the exception
+            page_load_resp = None
+            raise e
 
     # with open('selection_alberni.html', 'w', errors='ignore') as file:
     #     file.write(page_load_resp.text)
@@ -419,6 +435,42 @@ def web_portal_issues(params):
     }
     return data
 
+def get_proxy_list():
+    """
+    Tries a list of proxy fetching functions in order and returns
+    the first successfully retrieved list of proxies.
+
+    Args:
+        params (dict, optional): Parameters for fetching proxies.
+                                 Currently not used in this refactored version
+                                 but kept for compatibility with the original signature.
+                                 Defaults to None.
+
+    Returns:
+        list: A list of proxies if successful, otherwise an empty list.
+    """
+    # List of proxy fetching functions to try, in order of preference
+    proxy_fetchers = [
+        get_proxies_cz,
+        get_proxies_world,
+        # Add more proxy fetching functions here if needed
+        # e.g., get_proxies_another_source
+    ]
+
+    for fetcher_function in proxy_fetchers:
+        try:
+            print(f"Trying {fetcher_function.__name__}...")
+            proxies_list = fetcher_function()
+            # Check if the list is not None and not empty
+            if proxies_list:
+                print(f"Successfully fetched proxies using {fetcher_function.__name__}.")
+                return proxies_list
+            else:
+                print(f"{fetcher_function.__name__} returned an empty list or None.")
+        except Exception as e:
+            print(f"Error calling {fetcher_function.__name__}: {e}")
+            # Continue to the next fetcher function if an error occurs
+    return []
 
 def permit_development_tracker(params):
     # destructure, make sure we have base_url, starting path (relative url)
@@ -429,54 +481,39 @@ def permit_development_tracker(params):
     siteType = params.get('siteType', 'saanich')
 
 
-    # get start_date and end_date variables from the params
-    # assume this will not be called if this is not set
-    # start_date = params.get('start_date')
-    # end_date = params.get('end_date')
-
-    # # format these dates into "05/01/2024",
-    # if type(start_date) == str:
-    #     start_date = dateparser.parse(start_date)
-    #     start_date_fmt = start_date.strftime("%m/%d/%Y")
-    # else:
-    #     start_date_fmt = start_date.strftime("%m/%d/%Y")
-    # if type(end_date) == str:
-    #     end_date = dateparser.parse(end_date)
-    #     end_date_fmt = end_date.strftime("%m/%d/%Y")
-    # else:
-    #     end_date_fmt = end_date.strftime("%m/%d/%Y")
-
     url = f"{base_url}/{starting_url}"
 
     session = requests.Session()
-
+    proxies_list = []
+    proxies = None
     # sidney doesnt seem to care about https
-    if siteType == 'sidney':
-        proxies_list = get_proxies_world()
-    else:
-        proxies_list = get_proxies_cz()
+    proxies_list = get_proxy_list()
     # proxies_list = get_proxies_cz()
-    proxy = random.choice(proxies_list)
-    # proxy="23.227.38.198:80"
-    https_proxy = proxy.replace('http://', 'https://')
-    # do we just buy a proxy server for this scrapping
-    if siteType == 'sidney':
-        proxies={
-            'http': proxy,
-            # 'https': https_proxy
-
-        }
+    if len(proxies_list) > 0:
+        proxy = random.choice(proxies_list)
     else:
-        proxies={
-            'http': proxy,
-            # 'https': https_proxy
-        }
+        proxy = None
+    # proxy="23.227.38.198:80"
+    if proxy:
+        # do we just buy a proxy server for this scrapping
+        if siteType == 'sidney':
+            proxies={
+                'http': proxy,
+                # 'https': https_proxy
+
+            }
+        else:
+            proxies={
+                'http': proxy,
+                # 'https': https_proxy
+            }
+    else:
+        proxies = {}
 
     session.headers.update({
         'User-Agent': mk_user_agent(),
     })
 
-    # Make an initial GET request
     page_load_resp = session.get(url,proxies=proxies)
 
     # with open('selection_alberni.html', 'w', errors='ignore') as file:
@@ -648,17 +685,17 @@ if __name__ == "__main__":
     #     "starting_url": "apps/PIP/Pages/Search.aspx?templatename=PERMITSAPPL",
     #     'siteType': "northcowichan"
     # }
-    # params = {
-    #     "base_url": "https://online.portalberni.ca",
-    #     "starting_url": "WebApps/PIP/Pages/Search.aspx?templateName=permit reporting",
-    #     "siteType": "alberni",
-    #     "start_date": "11/01/2024",
-    #     "end_date": "11/16/2024"
-    # }
-    # data = web_portal_issues(params)
+    params = {
+        "base_url": "https://online.portalberni.ca",
+        "starting_url": "WebApps/PIP/Pages/Search.aspx?templateName=permit reporting",
+        "siteType": "alberni",
+        "start_date": "11/01/2024",
+        "end_date": "11/16/2024"
+    }
+    data = web_portal_issues(params)
 
-    # print(data.get("permits"))
-    entries = permit_development_tracker({})
-    print(entries)
+    print(data.get("permits"))
+    # entries = permit_development_tracker({})
+    # print(entries)
 
     # print(data.get("permits"))
