@@ -1,6 +1,7 @@
 import requests
 import re
 import random
+from datetime import datetime, timedelta
 import base64
 import dateparser
 from random_user_agent.user_agent import UserAgent
@@ -474,7 +475,9 @@ def get_proxy_list():
 
 def permit_development_tracker(params):
     # destructure, make sure we have base_url, starting path (relative url)
+    # https://tender.victoria.ca/
     base_url = params.get('base_url', 'https://online.saanich.ca/')
+    # webapps/ourcity/Prospero/Search.aspx
     starting_url = params.get('starting_url', 'Tempest/OurCity/Prospero/Search.aspx')
     # values should be issued or applied
 
@@ -516,9 +519,11 @@ def permit_development_tracker(params):
 
     page_load_resp = session.get(url,proxies=proxies)
 
-    # with open('selection_alberni.html', 'w', errors='ignore') as file:
+    # with open('testing.html', 'w', errors='ignore') as file:
     #     file.write(page_load_resp.text)
 
+
+    # print("trying to get data for ", url)
     soup = BeautifulSoup(page_load_resp.text, 'html.parser')
 
     # Extract dynamic fields from the HTML
@@ -555,36 +560,48 @@ def permit_development_tracker(params):
     current_iteration = 0
     current_page = None
     entries = []
+    
     while no_new_pages == False and current_iteration < iteration_limit:
         current_iteration += 1
         viewstate = soup.find(id="__VIEWSTATE")['value']
         eventvalidation = soup.find(id="__EVENTVALIDATION")['value']
-        new_payload = {
-            "__EVENTTARGET": "",
-            "__EVENTARGUMENT": "",
-            "__VIEWSTATE": viewstate,
-            "__VIEWSTATEGENERATOR": soup.find(id="__VIEWSTATEGENERATOR")['value'],
-            "__VIEWSTATEENCRYPTED": "",
-            "__EVENTVALIDATION": eventvalidation,
-            "ctl00$FeaturedContent$folderStatusRepeater$ctl00$folderStatusCheckBox": "ACTIVE",
-            "ctl00$FeaturedContent$folderTypeRepeater$ctl19$folderTypeCheckBox": "REZONING",
-            "ctl00$FeaturedContent$folderTypeRepeater$ctl22$folderTypeCheckBox": "SUBDIVISION",
-            "ctl00$FeaturedContent$folderStatusMobileRepeater$ctl00$folderStatusMobileCheckBox": "ACTIVE",
-            "ctl00$FeaturedContent$folderTypeMobileRepeater$ctl19$folderTypeMobileCheckBox": "REZONING",
-            "ctl00$FeaturedContent$folderTypeMobileRepeater$ctl22$folderTypeMobileCheckBox": "SUBDIVISION",
-            "ctl00$FeaturedContent$hdn_filterFolderTypeSelected": "REZONING,SUBDIVISION",
-            "ctl00$FeaturedContent$hdn_filterFolderStatusSelected": "ACTIVE",
-            "ctl00$FeaturedContent$SearchButton": "Search",
-            "__ASYNCPOST": True
-        }
+        if siteType == 'saanich':
+            new_payload = {
+                "__EVENTTARGET": "",
+                "__EVENTARGUMENT": "",
+                "__VIEWSTATE": viewstate,
+                "__VIEWSTATEGENERATOR": soup.find(id="__VIEWSTATEGENERATOR")['value'],
+                "__VIEWSTATEENCRYPTED": "",
+                "__EVENTVALIDATION": eventvalidation,
+                "ctl00$FeaturedContent$folderStatusRepeater$ctl00$folderStatusCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$folderStatusMobileRepeater$ctl00$folderStatusMobileCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$hdn_filterFolderStatusSelected": "ACTIVE",
+                "ctl00$FeaturedContent$SearchButton": "Search",
+                "__ASYNCPOST": True
+            }
+        elif siteType == 'victoria':
+              new_payload = {
+                "__EVENTTARGET": "",
+                "__EVENTARGUMENT": "",
+                "__VIEWSTATE": viewstate,
+                "__VIEWSTATEGENERATOR": soup.find(id="__VIEWSTATEGENERATOR")['value'],
+                "__VIEWSTATEENCRYPTED": "",
+                "__EVENTVALIDATION": eventvalidation,
+                "ctl00$FeaturedContent$folderStatusRepeater$ctl00$folderStatusCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$folderStatusMobileRepeater$ctl00$folderStatusMobileCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$hdn_filterFolderStatusSelected": "ACTIVE",
+                "ctl00$FeaturedContent$SearchButton": "Search",
+                "ctl00$FeaturedContent$dropdown_list": "Filter Search",
+                "__ASYNCPOST": True
+            } 
         if current_page:
             new_payload["ctl00$FeaturedContent$PageNumberHidden"] = current_page
             new_payload["ctl00$FeaturedContent$PageNumber"] = "ctl00$FeaturedContent$PageNumber"
         else:
             current_page = 1
-
-
+                
         page_data = session.post(url, data=new_payload, proxies=proxies)
+
         soup = BeautifulSoup(page_data.text, 'html.parser')
         # with open(f"basic_{current_iteration}.html", 'w', errors='ignore') as file:
         #     file.write(page_data.text)
@@ -640,17 +657,89 @@ def permit_development_tracker(params):
             if purpose_div:
                 data['purpose'] = purpose_div.get_text(strip=True)
 
-            # Extract Details Link
-            details_button = content_container.find("button", class_="details-btn")
-            if details_button and details_button.has_attr('onclick'):
-                onclick_attr = details_button['onclick']
-                # Example: "window.location = '../Prospero/Details.aspx?folderNumber=REZ00796'"
-                # We want to extract the URL part
-                if "../Prospero/Details.aspx?folderNumber=" in onclick_attr:
-                    link_start_index = onclick_attr.find("'") + 1
-                    link_end_index = onclick_attr.rfind("'")
-                    if link_start_index > 0 and link_end_index > link_start_index:
-                            data['details_link'] = onclick_attr[link_start_index:link_end_index]
+            for button_wrapper_div in content_container.find_all("div", onclick=True): # More direct: find divs with onclick
+                details_button = button_wrapper_div.find("button", class_="details-btn")
+                
+                if not details_button: # Ensure the div actually contains our specific button
+                    print("no details button found")
+                    continue
+                
+                # The relevant onclick is on button_wrapper_div (the parent div)
+                onclick_attr = button_wrapper_div.get('onclick') # Use .get() for safety
+
+                if onclick_attr:
+                    # Your original logic to extract the URL from the onclick string:
+                    # "window.location = '../Prospero/Details.aspx?folderNumber=REZ00796'"
+                    # This part looks for content between the first and last single quote.
+                    
+                    # We can make the check for "window.location = " more explicit if needed,
+                    # or keep your more general "../Prospero/Details.aspx?folderNumber=" check.
+                    # For extracting "content after =''", it means content within the single quotes.
+                    
+                    # Let's refine the extraction to be robust for "window.location = 'URL'"
+                    if "window.location = '" in onclick_attr and onclick_attr.strip().endswith("'"):
+                        try:
+                            # Extract the content between "window.location = '" and the trailing "'"
+                            start_pattern = "window.location = '"
+                            url_start_index = onclick_attr.find(start_pattern)
+                            
+                            if url_start_index != -1:
+                                actual_url_start = url_start_index + len(start_pattern)
+                                # Ensure we find the last single quote of this specific assignment
+                                # For simplicity, if the structure is consistently "window.location = '...'",
+                                # rfind("'") works.
+                                url_end_index = onclick_attr.rfind("'")
+                                
+                                if url_end_index > actual_url_start:
+                                    data['details_link'] = onclick_attr[actual_url_start:url_end_index]
+                                else:
+                                    data['details_link'] = None # Extraction failed
+                            else:
+                                data['details_link'] = None # Pattern not found
+                        except Exception:
+                            data['details_link'] = None # Error during parsing
+                    elif "../Prospero/Details.aspx?folderNumber=" in onclick_attr:
+                        # Fallback to your original specific string check and extraction logic
+                        # if the "window.location = " pattern isn't matched but the Prospero path is there.
+                        # This part assumes the URL is still wrapped in single quotes.
+                        link_start_index = onclick_attr.find("'") 
+                        if link_start_index != -1:
+                            link_start_index += 1 # Move past the first quote
+                            link_end_index = onclick_attr.rfind("'")
+                            if link_end_index > link_start_index:
+                                data['details_link'] = onclick_attr[link_start_index:link_end_index]
+                            else:
+                                data['details_link'] = None # Quotes not found as expected for URL
+                        else:
+                            data['details_link'] = None # Starting quote not found
+                    else:
+                        data['details_link'] = None # Onclick attribute present but not in a recognized URL format
+                else:
+                    data['details_link'] = None # Parent div does not have an onclick attribute
+            # adjust details_link if not None 
+
+            if data['details_link']:
+                # adjustment starting url
+                base_url = "https://online.saanich.ca/Tempest/OurCity/Prospero"
+                # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
+                data['details_link'] = base_url + data['details_link'].replace('../Prospero', '')
+            # # Extract Details Link
+            # details_button = content_container.find("button", class_="details-btn")
+            # # grab the parent div
+
+            # if details_button and details_button.has_attr('onclick'):
+            #     onclick_attr = details_button['onclick']
+            #     # Example: "window.location = '../Prospero/Details.aspx?folderNumber=REZ00796'"
+            #     # We want to extract the URL part
+            #     if "../Prospero/Details.aspx?folderNumber=" in onclick_attr:
+            #         link_start_index = onclick_attr.find("'") + 1
+            #         link_end_index = onclick_attr.rfind("'")
+            #         if link_start_index > 0 and link_end_index > link_start_index:
+            #                 data['details_link'] = onclick_attr[link_start_index:link_end_index]
+            #     else:
+            #         data['details_link'] = onclick_attr
+            # else:
+            #     data['details_link'] = None
 
             # Now you have a dictionary 'data' for each content_container
             # You can append it to a list, print it, or process it further
@@ -669,6 +758,81 @@ def permit_development_tracker(params):
     # return data
 # Optionally, you can parse the result to confirm the submission or to continue with further processing
 
+def calculate_target_date(ref_datetime=datetime.now()):
+    """
+    Calculates the target cutoff date based on the current day of the week.
+    - If today is Sunday, Monday, Tuesday, or Wednesday: target is last week's Thursday.
+    - If today is Thursday, Friday, or Saturday: target is the current week's Monday.
+    The returned date is the actual day to be used as a boundary; applications
+    must be *after* this day.
+    """
+    today_date = ref_datetime.date()  # Work with date objects for calculation
+    weekday = today_date.weekday()  # Monday is 0, ..., Sunday is 6
+
+    target_date_val = None
+
+    # Rule: If Sunday (6), Monday (0), Tuesday (1), or Wednesday (2), grab last week's Thursday.
+    # Thursday is weekday 3.
+    if weekday == 6 or weekday <= 2:  # Covers Sunday, Monday, Tuesday, Wednesday
+        # To get to the previous week's Thursday:
+        # If Mon (0): target is Mon - 4 days = last Thursday (e.g., Mon 20th -> Thu 16th)
+        # If Tue (1): target is Tue - 5 days = last Thursday (e.g., Tue 21st -> Thu 16th)
+        # If Wed (2): target is Wed - 6 days = last Thursday (e.g., Wed 22nd -> Thu 16th)
+        # If Sun (6): target is Sun - 10 days = last Thursday (e.g., Sun 26th -> Thu 16th)
+        # This can be calculated as today_date - timedelta(days=weekday + 4)
+        target_date_val = today_date - timedelta(days=weekday + 4)
+    # Rule: If past Thursday (3) and up to Saturday (5), grab Monday.
+    # Monday is weekday 0.
+    elif weekday >= 3 and weekday <= 5:  # Covers Thursday, Friday, Saturday
+        # To get to the current week's Monday:
+        # If Thu (3): target is Thu - 3 days = Monday (e.g., Thu 23rd -> Mon 20th)
+        # If Fri (4): target is Fri - 4 days = Monday (e.g., Fri 24th -> Mon 20th)
+        # If Sat (5): target is Sat - 5 days = Monday (e.g., Sat 25th -> Mon 20th)
+        # This can be calculated as today_date - timedelta(days=weekday - 0)
+        target_date_val = today_date - timedelta(days=weekday)
+    
+    # Fallback in case weekday logic is ever incomplete (should not happen for 0-6)
+    if target_date_val is None:
+        # This case should ideally not be reached if weekday is always 0-6.
+        # As a very basic fallback, could use yesterday, but specific handling might be needed.
+        print("Warning: Could not determine target_date_val based on weekday. Defaulting might occur or an error.")
+        # For safety, let's ensure it's a date, e.g., yesterday, or raise an error.
+        # For now, let's assume it's always set by the logic above.
+        # If this function MUST return a date, a more robust fallback is needed.
+        # However, the conditions for weekday 0-6 are exhaustive.
+        pass
+
+    return target_date_val # This is a date object
+
+
+def filter_saanich_permits(entries):
+    clean_entries = []
+    # filter out type Temporary Use Permit
+    for entry in entries:
+        if entry['type'] != 'Temporary Use Permit':
+            clean_entries.append(entry)
+
+    filtered_entries = []
+
+    target_filter_date = calculate_target_date()
+    print("looking for entries with target date", target_filter_date)
+    # filter out entries before today
+    for entry in clean_entries:
+        application_date = dateparser.parse(entry['application_date'])
+        if application_date is None:
+
+            print(f"Could not parse application_date '{application_date}' for entry ID {entry.get('id', 'N/A')}. Skipping.")
+            continue
+        
+        # We need to compare dates. Convert the parsed datetime to a date object.
+        application_actual_date = application_date.date()
+
+        # Keep the entry if its application_date is strictly after the target_filter_date
+        if application_actual_date >= target_filter_date:
+            # print(f"KEEPING entry ID {entry.get('id', 'N/A')}: app_date {application_actual_date} > target_date {target_filter_date}")
+            filtered_entries.append(entry)
+
+    return filtered_entries
 
 if __name__ == "__main__":
     # params = {
@@ -685,17 +849,30 @@ if __name__ == "__main__":
     #     "starting_url": "apps/PIP/Pages/Search.aspx?templatename=PERMITSAPPL",
     #     'siteType': "northcowichan"
     # }
-    params = {
-        "base_url": "https://online.portalberni.ca",
-        "starting_url": "WebApps/PIP/Pages/Search.aspx?templateName=permit reporting",
-        "siteType": "alberni",
-        "start_date": "11/01/2024",
-        "end_date": "11/16/2024"
-    }
-    data = web_portal_issues(params)
+    # params = {
+    #     "base_url": "https://online.portalberni.ca",
+    #     "starting_url": "WebApps/PIP/Pages/Search.aspx?templateName=permit reporting",
+    #     "siteType": "alberni",
+    #     "start_date": "11/01/2024",
+    #     "end_date": "11/16/2024"
+    # }
+    # data = web_portal_issues(params)
 
-    print(data.get("permits"))
-    # entries = permit_development_tracker({})
-    # print(entries)
+    # print(data.get("permits"))
+    params = {
+        # "base_url": "https://tender.victoria.ca",
+        # "starting_url": "webapps/ourcity/Prospero/Search.aspx",
+        # "siteType": "victoria"
+    }
+    entries = permit_development_tracker(params)
+    print(entries)
+    import json
+    # with open("data/saanich.json", "w") as f:
+    #     json.dump(entries, f)
+    # print("entries", entries)
+    filtered_entries = filter_saanich_permits(entries)
+
+    print("filtered_entries", filtered_entries)
+
 
     # print(data.get("permits"))
