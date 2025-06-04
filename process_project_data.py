@@ -228,6 +228,7 @@ def map_data(data):
         ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
+        entry['user_id'] = '2025060339'
         mapped_data.append(entry)
 
     if len(mapped_data) == 0:
