@@ -2,4 +2,4 @@ requests
 dateparser
 random_user_agent
 beautifulsoup4
-google-genai=1.18.0
+google-genai==1.18.0
