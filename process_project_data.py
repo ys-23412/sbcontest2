@@ -316,8 +316,8 @@ def map_data(data):
         # remove bad characters like ' and replace with sql safe characters
         entry['ys_description'] = entry['ys_description'].replace("'", "''")
         # strip everything past #, assume that means unit number
-        if '#' in entry['ys_description']:
-            entry['ys_description'] = entry['ys_description'].split('#')[0]
+        # if '#' in entry['ys_description']:
+        #     entry['ys_description'] = entry['ys_description'].split('#')[0]
        #  entry['ys_description'] = unmapped_entry['address'].split('#')[0]
         entry['ys_permit'] = unmapped_entry['folder_no']
         entry['ys_component'] = ys_component_id
