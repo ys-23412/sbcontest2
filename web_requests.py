@@ -593,7 +593,22 @@ def permit_development_tracker(params):
                 "ctl00$FeaturedContent$SearchButton": "Search",
                 "ctl00$FeaturedContent$dropdown_list": "Filter Search",
                 "__ASYNCPOST": True
-            } 
+            }
+        else:
+            new_payload = {
+                "__EVENTTARGET": "",
+                "__EVENTARGUMENT": "",
+                "__VIEWSTATE": viewstate,
+                "__VIEWSTATEGENERATOR": soup.find(id="__VIEWSTATEGENERATOR")['value'],
+                "__VIEWSTATEENCRYPTED": "",
+                "__EVENTVALIDATION": eventvalidation,
+                "ctl00$FeaturedContent$folderStatusRepeater$ctl00$folderStatusCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$folderStatusMobileRepeater$ctl00$folderStatusMobileCheckBox": "ACTIVE",
+                "ctl00$FeaturedContent$hdn_filterFolderStatusSelected": "ACTIVE",
+                "ctl00$FeaturedContent$SearchButton": "Search",
+                "ctl00$FeaturedContent$dropdown_list": "Filter Search",
+                "__ASYNCPOST": True
+            }
         if current_page:
             new_payload["ctl00$FeaturedContent$PageNumberHidden"] = current_page
             new_payload["ctl00$FeaturedContent$PageNumber"] = "ctl00$FeaturedContent$PageNumber"
@@ -805,7 +820,7 @@ def calculate_target_date(ref_datetime=datetime.now()):
     return target_date_val # This is a date object
 
 
-def filter_saanich_permits(entries):
+def filter_saanich_permits(entries, default_city_name="Saanich"):
     clean_entries = []
     # filter out type Temporary Use Permit
     for entry in entries:
@@ -863,6 +878,12 @@ if __name__ == "__main__":
         # "base_url": "https://tender.victoria.ca",
         # "starting_url": "webapps/ourcity/Prospero/Search.aspx",
         # "siteType": "victoria"
+    }
+
+    paramscentral = {
+        "base_url": "https://www.mycentralsaanich.ca",
+        "starting_url": "TempestLive/OURCITY/Prospero/Search.aspx",
+        "siteType": "centralSaanich"
     }
     entries = permit_development_tracker(params)
     print(entries)

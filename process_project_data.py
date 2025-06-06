@@ -2,6 +2,7 @@ import os
 import requests
 import time
 import json
+import re
 
 from datetime import datetime
 from google import genai
@@ -63,8 +64,7 @@ def find_correct_issue_date(issues, current_date):
         parsed_issues.append({'original_issue': issue, 'date_obj': issue_date})
 
     # Sort the issues by their date_obj
-    # rely on current sorting
-    # parsed_issues.sort(key=lambda x: x['date_obj'])
+    parsed_issues.sort(key=lambda x: x['date_obj'])
 
     # Get the weekday (Monday is 0, Sunday is 6)
     current_weekday = current_date.weekday()
@@ -149,18 +149,14 @@ def map_data(data):
         raise Exception("Failed to get latest issue")
     # parse response
     latest_issue = latest_issue.json()
-    # loop through data
-    # print(latest_issue)
 
-    # the city_ids that matter to me are 64, 74 and 75, either north, saanich or central
-    # assume hardcoded for now
     city_id = [64, 74, 75]
-    city_name = "Saanich"
+    default_city_name = "Saanich"
     file_type = agent_id
     file_name = "AutoHarvest"
 
     found_issue = find_correct_issue_date(latest_issue, datetime.now().date())
-    print(found_issue)
+    print("Using found issue", found_issue)
     ys_volume_id = found_issue['id']
 
     mapped_data = []
@@ -189,36 +185,59 @@ def map_data(data):
                 "project_type_id": <project_type_id>
             }}
         """
-    
-        response = client.models.generate_content(
-            model = "gemini-2.0-flash",
-            contents = [
-                prompt
-            ]
-        )
-        print("is the response ready?", response)
-        project_data = parse_json_string(response.text)
-        # grab project_type_id
-        project_type_id = project_data['project_type_id']
-        # add to entries_with_project_types
-        entry_copy['ys_project_type'] = project_type_id
-        # entry_copy['details_link'] = unclassified_entry['details_link']
-        entries_with_project_types.append(entry_copy)
+        try:
+            response = client.models.generate_content(
+                model = "gemini-2.0-flash",
+                contents = [
+                    prompt
+                ]
+            )
+
+            project_type_id = 0
+            project_data = parse_json_string(response.text)
+            # grab project_type_id
+            if project_data and 'project_type_id' in project_data:
+                # If JSON is valid and contains 'project_type_id', use its value
+                project_type_id = project_data['project_type_id']
+                print(f"Using project_type_id from JSON: {project_type_id}")
+            else:
+                # If JSON parsing failed or 'project_type_id' key is missing,
+                # fallback to regex to find the first two-digit number in the raw response text.
+                match = re.search(r'\b(\d{2})\b', response.text)
+                if match:
+                    # If a two-digit number is found, convert it to an integer
+                    project_type_id = int(match.group(1))
+                    print(f"Using project_type_id from regex: {project_type_id}")
+                else:
+                    # If no two-digit number is found via regex, keep default 0
+                    print("No project_type_id found in JSON or via regex. Defaulting to 0.")
+            # add to entries_with_project_types
+            entry_copy['ys_project_type'] = project_type_id
+            # entry_copy['details_link'] = unclassified_entry['details_link']
+            entries_with_project_types.append(entry_copy)
+        except Exception as e:
+            print("Failed to process entry", e)
+            entry_copy['ys_project_type'] = 0
+            entries_with_project_types.append(entry_copy)
         time.sleep(4)
 
     if len(entries_with_project_types) == 0:
-        raise Exception("No entries with project_types")
+        print("do entries have project types?", entries_with_project_types)
+        
 
     fill_entries_url = f"{api_url}/api_fill_entries.php"
     for unmapped_entry in entries_with_project_types:
         entry = {}
         ys_body = {}
         entry['issue_id'] = ys_volume_id
-        entry['city_name'] = city_name
+        entry['city_name'] = unmapped_entry.get('city_name', default_city_name)
         entry['ys_date'] = unmapped_entry['application_date']
         entry['ys_address'] = unmapped_entry['address']
         # take first 255 characters
         entry['ys_description'] = unmapped_entry['purpose'][:254]
+        # remove bad characters like ' and replace with sql safe characters
+        entry['ys_description'] = entry['ys_description'].replace("'", "''")
+        entry['ys_description'] = entry['ys_description'].replace("'", "''")
         entry['ys_permit'] = unmapped_entry['folder_no']
         entry['ys_component'] = ys_component_id
         # all status is ACTIVE We can ignore, we only want to process active anyway
@@ -234,11 +253,13 @@ def map_data(data):
     if len(mapped_data) == 0:
         raise Exception("No mapped data")
 
-    curr_date = datetime.now().strftime("%Y-%m-%d")
+    curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
+
+    first_city = mapped_data[0].get('city_name', default_city_name)
     filled_entries_data = [{
         'filename': f'{file_name}_{curr_date}.json',
         "pdf_type": "api",
-        "region": city_name,
+        "region": first_city,
         "file_type": "json",
         "data": mapped_data,
         'user_id': '2025060339'
