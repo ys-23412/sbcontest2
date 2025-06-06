@@ -473,6 +473,70 @@ def get_proxy_list():
             # Continue to the next fetcher function if an error occurs
     return []
 
+def to_initial_caps_advanced(field):
+    if type(field) != str:
+        return field
+    # List of words to exclude from capitalization
+    exceptions = ['a', 'an', 'bc' 'available', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by']
+    
+    # Split the text into words
+    words = field.split()
+    final_words = []
+    
+    # Only capitalize the first letter of each word, except for exceptions
+    for i, word in enumerate(words):
+        if i == 0 or i == len(words)-1 or word.lower() not in exceptions:
+            # Always capitalize the first and last word
+            final_words.append(word.capitalize())
+        else:
+            # Lowercase for exceptions, unless it's the first word
+            final_words.append(word.lower())
+    
+    # Rejoin the capitalized words
+    return ' '.join(final_words)
+
+
+def extract_application_contact(html):
+    """
+    Extracts the application contact information from the given HTML snippet.
+
+    Args:
+        html (str): The HTML string containing the contact information.
+
+    Returns:
+        str: The cleaned extracted contact information, or None if not found.
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # Find the div containing the "Application Contact:" label
+    contact_label_div = soup.find('div', string='Application Contact:')
+
+    if contact_label_div:
+        # Get the next sibling div, which should contain the contact details
+        contact_details_div = contact_label_div.find_next_sibling('div')
+
+        if contact_details_div:
+            # Extract text, remove script tags and extra whitespace
+            # We explicitly get the text content of the <span> and then clean it.
+            # We also get the mailto link's text as it's the actual email.
+            span_tag = contact_details_div.find('span', id='ctl00_FeaturedContent_ApplicantLabel')
+            if span_tag:
+                if span_tag.contents and isinstance(span_tag.contents[0], str):
+                    contents = span_tag.contents[0].strip()
+                    if contents:
+                        return contents
+                # Remove script tag to avoid its content showing in the output
+                for script in span_tag.find_all('script'):
+                    script.decompose()
+
+                for a_tag in span_tag.find_all('a'):
+                    a_tag.decompose()
+                
+                # Get all the text, which includes the mailto link's visible text
+                text_content = span_tag.get_text(separator="\n", strip=True)
+                return text_content
+    return None
+
 def permit_development_tracker(params):
     # destructure, make sure we have base_url, starting path (relative url)
     # https://tender.victoria.ca/
@@ -485,37 +549,8 @@ def permit_development_tracker(params):
 
 
     url = f"{base_url}/{starting_url}"
-
-    session = requests.Session()
-    proxies_list = []
-    proxies = None
-    # sidney doesnt seem to care about https
-    proxies_list = get_proxy_list()
-    # proxies_list = get_proxies_cz()
-    if len(proxies_list) > 0:
-        proxy = random.choice(proxies_list)
-    else:
-        proxy = None
-    # proxy="23.227.38.198:80"
-    if proxy:
-        # do we just buy a proxy server for this scrapping
-        if siteType == 'sidney':
-            proxies={
-                'http': proxy,
-                # 'https': https_proxy
-
-            }
-        else:
-            proxies={
-                'http': proxy,
-                # 'https': https_proxy
-            }
-    else:
-        proxies = {}
-
-    session.headers.update({
-        'User-Agent': mk_user_agent(),
-    })
+    session = params.get('session', requests.Session())
+    proxies = params.get('proxies', {})
 
     page_load_resp = session.get(url,proxies=proxies)
 
@@ -738,34 +773,23 @@ def permit_development_tracker(params):
                 base_url = "https://online.saanich.ca/Tempest/OurCity/Prospero"
                 # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
                 data['details_link'] = base_url + data['details_link'].replace('../Prospero', '')
-
+            
+            processed_data = {}
+            for key, value in data.items():
+                if key == 'details_link':
+                    processed_data[key] = value
+                else:
+                    processed_data[key] = to_initial_caps_advanced(value)
             if siteType:
-                data['city_name'] = siteType
-            # # Extract Details Link
-            # details_button = content_container.find("button", class_="details-btn")
-            # # grab the parent div
+                processed_data['city_name'] = siteType
 
-            # if details_button and details_button.has_attr('onclick'):
-            #     onclick_attr = details_button['onclick']
-            #     # Example: "window.location = '../Prospero/Details.aspx?folderNumber=REZ00796'"
-            #     # We want to extract the URL part
-            #     if "../Prospero/Details.aspx?folderNumber=" in onclick_attr:
-            #         link_start_index = onclick_attr.find("'") + 1
-            #         link_end_index = onclick_attr.rfind("'")
-            #         if link_start_index > 0 and link_end_index > link_start_index:
-            #                 data['details_link'] = onclick_attr[link_start_index:link_end_index]
-            #     else:
-            #         data['details_link'] = onclick_attr
-            # else:
-            #     data['details_link'] = None
 
-            # Now you have a dictionary 'data' for each content_container
-            # You can append it to a list, print it, or process it further
-
-            entries.append(data)
+            entries.append(processed_data)
             
         current_page += 1
     # remove duplicate entries
+
+    # attempt to grab details link and extract
     return entries
     # data = {
     #     "permits_raw": result_response.text,
@@ -823,11 +847,96 @@ def calculate_target_date(ref_datetime=datetime.now()):
     return target_date_val # This is a date object
 
 
+def get_filtered_permits_with_contacts(params, target_date=None):
+    """
+    Fetches development permits, filters them, and then extracts application contact
+    information for each filtered entry by visiting their details link.
+
+    Args:
+        params (dict): Parameters to pass to permit_development_tracker.
+        target_date (str or datetime, optional): The target date for filtering permits.
+                                                If None, it defaults to 30 days ago.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a filtered
+              permit entry with an added 'application_contact' field.
+    """
+
+    session = requests.Session()
+    proxies_list = []
+    proxies = None
+    # sidney doesnt seem to care about https
+    proxies_list = get_proxy_list()
+    # proxies_list = get_proxies_cz()
+    if len(proxies_list) > 0:
+        proxy = random.choice(proxies_list)
+    else:
+        proxy = None
+    # proxy="23.227.38.198:80"
+    if proxy:
+
+        proxies={
+            'http': proxy,
+            # 'https': https_proxy
+
+        }
+    else:
+        proxies = {}
+
+    session.headers.update({
+        'User-Agent': mk_user_agent(),
+    })
+    params['session'] = session
+    params['proxies'] = proxies
+    # Step 1: Get all permit entries
+    all_entries = permit_development_tracker(params)
+
+    # Step 2: Filter the entries
+    filtered_entries = filter_saanich_permits(all_entries, target_date=target_date)
+
+    proxies = None
+    # proxies_list = get_proxy_list()
+    # if len(proxies_list) > 0:
+    #     proxy = random.choice(proxies_list)
+    #     if proxy:
+    #         proxies = {'http': proxy, 'https': proxy}
+    # Step 3: For each filtered entry, visit the details_link and extract application contact
+    for entry in filtered_entries:
+        details_link = entry.get('details_link')
+        if details_link:
+            try:
+                details_resp = session.get(details_link)
+                details_resp.raise_for_status()  # Raise an exception for HTTP errors
+                contact_info = extract_application_contact(details_resp.text)
+                entry['application_contact'] = to_initial_caps_advanced(contact_info)
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching details link {details_link}: {e}")
+                entry['application_contact'] = "Error retrieving contact info"
+        else:
+            entry['application_contact'] = "No details link available"
+    
+    return filtered_entries
+
 def filter_saanich_permits(entries, target_date=None):
     clean_entries = []
     # filter out type Temporary Use Permit
+    types_to_skip = [
+        "DRIVEWAY ACCESS PERMIT",
+        "FILL & SOIL REMOVAL PERMIT",
+        "FIREPLACE / CHIMNEY / WOODSTOVE",
+        "GARDEN SUITE DEVELOPMENT PERMIT",
+        "HERITAGE REGISTRY",
+        "LIQUOR APPLICATION",
+        "PLUMBING PERMIT",
+        "RESIDENTIAL BUILDING PERMIT",
+        "RESIDENTIAL PERMIT",
+        "SPECIAL VEHICLE PERMIT",
+        "TEMPORARY USE PERMIT",
+    ]
+
+    types_to_skip_lower = {t.lower() for t in types_to_skip}
     for entry in entries:
-        if entry['type'] != 'Temporary Use Permit':
+        if entry['type'].lower() not in types_to_skip_lower:
             clean_entries.append(entry)
 
     filtered_entries = []
@@ -885,18 +994,19 @@ if __name__ == "__main__":
         # "siteType": "victoria"
     }
 
-    paramscentral = {
-        "base_url": "https://www.mycentralsaanich.ca",
-        "starting_url": "TempestLive/OURCITY/Prospero/Search.aspx",
-        "siteType": "centralSaanich"
-    }
-    entries = permit_development_tracker(params)
-    print(entries)
+    # paramscentral = {
+    #     "base_url": "https://www.mycentralsaanich.ca",
+    #     "starting_url": "TempestLive/OURCITY/Prospero/Search.aspx",
+    #     "siteType": "centralSaanich"
+    # }
+    # entries = permit_development_tracker(params)
+    # print(entries)
     import json
     # with open("data/saanich.json", "w") as f:
     #     json.dump(entries, f)
     # print("entries", entries)
-    filtered_entries = filter_saanich_permits(entries, target_date=datetime.now())
+    # filtered_entries = filter_saanich_permits(entries, target_date=datetime.now())
+    filtered_entries = get_filtered_permits_with_contacts(params, target_date=datetime.now())
 
     print("filtered_entries", filtered_entries)
 
