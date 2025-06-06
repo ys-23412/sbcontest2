@@ -131,18 +131,15 @@ def parse_json_string(json_string):
 
   print("No valid JSON block enclosed by ```json or ``` found.")
   return None
-  
-def map_data(data):
+
+def get_latest_issue():
     api_url = os.getenv('YS_APIURL', 'http://localhost')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
-    ys_component_id = os.getenv('YS_COMPONENTID', 7)
+    latest_issue_url = f"{api_url}/api_get_latest_issue.php"
+    # make request to api
     query_params = {
         "agent": agent_id
     }
-    GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    latest_issue_url = f"{api_url}/api_get_latest_issue.php"
-    # make request to api
     latest_issue = requests.get(latest_issue_url, params=query_params)
     # check status code
     if latest_issue.status_code != 200:
@@ -150,12 +147,31 @@ def map_data(data):
     # parse response
     latest_issue = latest_issue.json()
 
+    found_issue = find_correct_issue_date(latest_issue, datetime.now().date())
+
+    return {
+       "issues": latest_issue,
+       "found_issue": found_issue
+    }
+
+def map_data(data):
+
+    agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
+    ys_component_id = os.getenv('YS_COMPONENTID', 7)
+
+    GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    api_url = os.getenv('YS_APIURL', 'http://localhost')
+
     city_id = [64, 74, 75]
     default_city_name = "Saanich"
     file_type = agent_id
     file_name = "AutoHarvest"
 
-    found_issue = find_correct_issue_date(latest_issue, datetime.now().date())
+    issue_results = get_latest_issue()
+    found_issue = issue_results['found_issue']
+    latest_issue = issue_results['issues']
+
     print("Using found issue", found_issue)
     ys_volume_id = found_issue['id']
 
@@ -251,7 +267,8 @@ def map_data(data):
         mapped_data.append(entry)
 
     if len(mapped_data) == 0:
-        raise Exception("No mapped data")
+        print("no mapped data returning")
+        return
 
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 

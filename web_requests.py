@@ -738,6 +738,9 @@ def permit_development_tracker(params):
                 base_url = "https://online.saanich.ca/Tempest/OurCity/Prospero"
                 # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
                 data['details_link'] = base_url + data['details_link'].replace('../Prospero', '')
+
+            if siteType:
+                data['city_name'] = siteType
             # # Extract Details Link
             # details_button = content_container.find("button", class_="details-btn")
             # # grab the parent div
@@ -816,11 +819,11 @@ def calculate_target_date(ref_datetime=datetime.now()):
         # If this function MUST return a date, a more robust fallback is needed.
         # However, the conditions for weekday 0-6 are exhaustive.
         pass
-
+    
     return target_date_val # This is a date object
 
 
-def filter_saanich_permits(entries, default_city_name="Saanich"):
+def filter_saanich_permits(entries, target_date=None):
     clean_entries = []
     # filter out type Temporary Use Permit
     for entry in entries:
@@ -828,8 +831,10 @@ def filter_saanich_permits(entries, default_city_name="Saanich"):
             clean_entries.append(entry)
 
     filtered_entries = []
-
-    target_filter_date = calculate_target_date()
+    if target_date is None:
+        target_filter_date = calculate_target_date()
+    else:
+        target_filter_date = calculate_target_date(ref_datetime=target_date)
     print("looking for entries with target date", target_filter_date)
     # filter out entries before today
     for entry in clean_entries:
@@ -891,7 +896,7 @@ if __name__ == "__main__":
     # with open("data/saanich.json", "w") as f:
     #     json.dump(entries, f)
     # print("entries", entries)
-    filtered_entries = filter_saanich_permits(entries)
+    filtered_entries = filter_saanich_permits(entries, target_date=datetime.now())
 
     print("filtered_entries", filtered_entries)
 
