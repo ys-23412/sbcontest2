@@ -294,7 +294,14 @@ def map_data(data):
 
     if len(entries_with_project_types) == 0:
         print("do entries have project types?", entries_with_project_types)
-        
+    
+
+    # print all the entries and save to data
+    # add datetime to the filename
+    current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    filename = f"{file_name}_{current_date}.json"
+    with open(f"data/with_stage_{filename}.json", "w") as f:
+        json.dump(entries_with_project_types, f)
 
     fill_entries_url = f"{api_url}/api_fill_entries.php"
     for unmapped_entry in entries_with_project_types:
@@ -321,8 +328,8 @@ def map_data(data):
         ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
         if unmapped_entry.get('application_contact'):
             ys_body['ys_contractor'] = unmapped_entry['application_contact']
-        if unmapped_entry.get('ys_stage_id'):
-            ys_body['ys_stage'] = unmapped_entry['ys_stage_id']
+        if unmapped_entry.get('ys_stage'):
+            ys_body['ys_stage'] = unmapped_entry['ys_stage']
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'
@@ -335,6 +342,9 @@ def map_data(data):
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
     first_city = mapped_data[0].get('city_name', default_city_name)
+
+    with open(f"data/with_mapping_{file_name}_{curr_date}.json", "w") as f:
+        json.dump(mapped_data, f)
     filled_entries_data = [{
         'filename': f'{file_name}_{curr_date}.json',
         "pdf_type": "api",
@@ -344,19 +354,29 @@ def map_data(data):
         'user_id': '2025060339'
     }]
 
+    with open(f"data/with_mapping_all{file_name}_{curr_date}.json", "w") as f:
+        json.dump(filled_entries_data, f)
+
     filled_entries_resp = requests.post(fill_entries_url, json=filled_entries_data)
     # print response text to index.html
     # send api request to api_insert_into_data.php
 
     filled_entries = filled_entries_resp.json()
 
+    with open(f"data/with_fill_{filename}.json", "w") as f:
+        json.dump(filled_entries, f)
+
     insert_into_data_url = f"{api_url}/api_insert_into_data.php"
     insert_into_data_resp = requests.post(insert_into_data_url, json=filled_entries)
     print(insert_into_data_resp.text)
     try:
+        # check for 500 then if so raise errro
+        insert_into_data_resp.raise_for_status()
         insert_response = insert_into_data_resp.json()
 
         print(insert_response)
+    except requests.HTTPError as http_err:
+        print(f'HTTP error occurred: {http_err}')
     except:
         print(insert_into_data_resp.text)
         with open("insert_into_data_resp.txt", "w", errors='ignore') as f:
