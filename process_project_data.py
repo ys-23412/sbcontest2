@@ -102,8 +102,7 @@ def find_correct_issue_date(issues, current_date):
 
     found_issue = None
     # issues start on sunday, so for 5:00 am, its equal to or less than
-    if current_weekday > 0 and current_weekday <= 2:  # Monday
-        # On Monday, find the closest issue date that is on or after the current date
+    if current_weekday >= 0 and current_weekday <= 2:  # Monday
         for issue_entry in parsed_issues:
             if issue_entry['date_obj'] <= current_date:
                 found_issue = issue_entry['original_issue']
@@ -185,8 +184,13 @@ def get_latest_issue():
        "found_issue": found_issue
     }
 
-def map_data(data):
+def map_data(params):
 
+    data = params.get('data', [])
+    if len(data) == 0:
+        print("No data to map")
+        return
+    region_name = params.get('region_name', 'Saanich')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
 
@@ -299,7 +303,7 @@ def map_data(data):
     # print all the entries and save to data
     # add datetime to the filename
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    filename = f"{file_name}_{current_date}.json"
+    filename = f"{file_name}_{current_date}_{region_name}.json"
     with open(f"data/with_stage_{filename}.json", "w") as f:
         json.dump(entries_with_project_types, f)
 
@@ -312,7 +316,7 @@ def map_data(data):
         entry['ys_date'] = unmapped_entry['application_date']
         entry['ys_address'] = unmapped_entry['address']
         # take first 255 characters
-        entry['ys_description'] = unmapped_entry['purpose'][:254]
+        entry['ys_description'] = unmapped_entry['purpose'][:100]
         # remove bad characters like ' and replace with sql safe characters
         entry['ys_description'] = entry['ys_description'].replace("'", "''")
         # strip everything past #, assume that means unit number
@@ -343,10 +347,10 @@ def map_data(data):
 
     first_city = mapped_data[0].get('city_name', default_city_name)
 
-    with open(f"data/with_mapping_{file_name}_{curr_date}.json", "w") as f:
+    with open(f"data/with_mapping_{file_name}_{curr_date}_{region_name}.json", "w") as f:
         json.dump(mapped_data, f)
     filled_entries_data = [{
-        'filename': f'{file_name}_{curr_date}.json',
+        'filename': f'{file_name}_{curr_date}_{region_name}.json',
         "pdf_type": "api",
         "region": first_city,
         "file_type": "json",
@@ -354,7 +358,7 @@ def map_data(data):
         'user_id': '2025060339'
     }]
 
-    with open(f"data/with_mapping_all{file_name}_{curr_date}.json", "w") as f:
+    with open(f"data/with_mapping_all{file_name}_{curr_date}_{region_name}.json", "w") as f:
         json.dump(filled_entries_data, f)
 
     filled_entries_resp = requests.post(fill_entries_url, json=filled_entries_data)
@@ -363,7 +367,7 @@ def map_data(data):
 
     filled_entries = filled_entries_resp.json()
 
-    with open(f"data/with_fill_{filename}.json", "w") as f:
+    with open(f"data/with_fill_{filename}_{region_name}.json", "w") as f:
         json.dump(filled_entries, f)
 
     insert_into_data_url = f"{api_url}/api_insert_into_data.php"
