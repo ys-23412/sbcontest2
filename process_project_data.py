@@ -44,38 +44,6 @@ id,name,sort_order,category,rank,analytics_include
 114,"land development",1,Multi-family,0,0
 """.strip()
 
-project_stage_csv = """
-id,name,sort_order,category,statistics
-3,"Feasibility/Design Study",1,Planning,1
-4,Design,3,Design/Applications,1
-5,"Rezoning Application",3,Design/Applications,1
-6,"Development Permit Application",3,Design/Applications,1
-7,"Working Drawings",4,Pre-Construction,1
-8,Prebid,4,Pre-Construction,1
-9,"Tender Call",2,"Tender Calls",1
-10,"Building Permit Application",4,Pre-Construction,1
-11,"Construction Start",5,"Construction Start",1
-12,Award,10,"Bid Result",0
-13,"On Hold",7,"On Hold",1
-14,"Construction Complete",6,Completed,1
-16,Planning,1,Planning,1
-18,"Tender Closed",10,"Bid Result",0
-20,"Study Complete",6,Completed,0
-22,"Expressions of Interest",2,"Tender Calls",0
-35,"Construction Start-up to 50% Complete",5,"Construction Start",1
-24,"Request for Proposals",2,"Tender Calls",0
-25,"Request for Qualifications",2,"Tender Calls",0
-26,"Request for Quotations",2,"Tender Calls",0
-27,"Standing Offer",2,"Tender Calls",0
-28,"NOI - Notice of Intent",2,"Tender Calls",0
-31,"For Sale",20,"For Sale",0
-32,"Site Servicing Complete",6,Completed,1
-33,"Tender Cancelled",10,"Bid Result",0
-36,"Construction Start Over 50% Complete",5,"Construction Start",1
-37,"Request for Information",2,"Tender Calls",0
-""".strip()
-
-
 def find_correct_issue_date(issues, current_date):
     """
     Finds the correct issue from a list based on the current day's logic.
@@ -184,6 +152,36 @@ def get_latest_issue():
        "found_issue": found_issue
     }
 
+def detect_company(text):
+    """
+    Detects if a given text likely contains a company name by searching for common
+    company suffixes (e.g., LTD, INC, LLC). If found, it returns the portion
+    of the text up to and including the company identifier.
+
+    Args:
+        text (str): The input string to check.
+
+    Returns:
+        str or None: The extracted company name portion of the text (e.g., "STRONGITHARM CONSULTING LTD")
+                     if a company suffix is found, otherwise None.
+    """
+    # Define a regex pattern to find common company suffixes
+    # \b ensures word boundaries so 'ltd' doesn't match 'limited'
+    # ?: creates a non-capturing group for the OR conditions
+    # re.IGNORECASE makes the matching case-insensitive
+    pattern = re.compile(r'\b(?:LTD|INC|LLC|CORPORATION|CORP|PLC|GMBH|CO)\b', re.IGNORECASE)
+
+    # Search the text for any matches
+    match = pattern.search(text)
+
+    if match:
+        # If a match is found, return the part of the string up to the end of the match.
+        # This will include the company identifier itself.
+        return text[:match.end()]
+    else:
+        # If no match is found, return None
+        return None
+    
 def map_data(params):
 
     data = params.get('data', [])
@@ -220,15 +218,11 @@ def map_data(params):
         entry_copy = unclassified_entry.copy()
         # entry_copy['details_link'] = None
         prompt=f"""
-            Given the following new project data, we want to determine the project type and stage name:
+            Given the following new project data, we want to determine the project type:
 
             Use the following csv data and return the best matching id 
 
             {project_types_csv}
-
-            We want to use the following stage csv data to return the best matching stage id:
-
-            {project_stage_csv}
 
             Below is the project data:
 
@@ -237,8 +231,7 @@ def map_data(params):
             Please respond in the following format:
 
             {{
-                "project_type_id": <project_type_id>,
-                "stage_id": "<stage_id>"
+                "project_type_id": <project_type_id>
             }}
         """
         try:
@@ -267,26 +260,10 @@ def map_data(params):
                 else:
                     # If no two-digit number is found via regex, keep default 0
                     print("No project_type_id found in JSON or via regex. Defaulting to 0.")
-            stage_id = 0
-            # Grab stage_id
-            if project_data and 'stage_id' in project_data:
-                stage_id = project_data['stage_id']
-                print(f"Using stage_id from JSON: {stage_id}")
-            else:
-                # Fallback for stage_id: Find the second number in the response text
-                # This regex looks for sequences of digits.
-                matches = re.findall(r'\b(\d+)\b', response.text)
-                if len(matches) >= 2:
-                    # If there are at least two numbers, use the second one as stage_id
-                    stage_id = matches[1]
-                    print(f"Using stage_id from regex (second number): {stage_id}")
-                else:
-                    print("No stage_id found in JSON or via regex. Defaulting to '0'.")
-
+           
 
             # add to entries_with_project_types
             entry_copy['ys_project_type'] = project_type_id
-            entry_copy['ys_stage'] = stage_id # Set ys_stage_id
 
             # entry_copy['details_link'] = unclassified_entry['details_link']
             entries_with_project_types.append(entry_copy)
@@ -330,10 +307,23 @@ def map_data(params):
         entry['project_type'] = unmapped_entry.get('ys_project_type', 0)
         entry['region'] = unmapped_entry.get('city_name', default_city_name)
         ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
+
         if unmapped_entry.get('application_contact'):
-            ys_body['ys_contractor'] = unmapped_entry['application_contact']
-        if unmapped_entry.get('ys_stage'):
-            ys_body['ys_stage'] = unmapped_entry['ys_stage']
+            # we want to determine if this is a contractor, if so we attempt to populate "ys_contractor"
+            # If not use dump all the data into "Enqueries"'
+            extracted_company_name = detect_company(unmapped_entry['application_contact'])
+            if extracted_company_name:
+                # 
+                ys_body['ys_contractor'] = extracted_company_name
+                print(f"Company contact extracted: {extracted_company_name}")
+            else:
+                # we want to still format the data, Replace Telephone with Ph: and Remove Email
+                fmt_application_contact = unmapped_entry['application_contact'].replace("Telephone", "Ph").replace("Email:", "")
+                ys_body['ys_enquiries'] = fmt_application_contact
+            # ys_body['ys_contractor'] = unmapped_entry['application_contact']
+        if unmapped_entry.get( 'ys_stage'):
+            # we use the "Type" field from here to populate "ys_stage"
+            ys_body['ys_stage'] = unmapped_entry['type']
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'

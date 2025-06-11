@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 import base64
 import dateparser
 from random_user_agent.user_agent import UserAgent
-
 from bs4 import BeautifulSoup
+
 # original url uses script tags to output proxies
 # https://hidemy.io/en/proxy-list/countries/canada/?start=384#list
 # https://spys.one/free-proxy-list/CA/
@@ -495,8 +495,66 @@ def to_initial_caps_advanced(field):
     # Rejoin the capitalized words
     return ' '.join(final_words)
 
+def decode_js_email(js_script):
+    """
+    Decodes an email address hidden in a JavaScript snippet that uses
+    an array and concatenation within a document.write mailto link.
 
-def extract_application_contact(html):
+    Args:
+        js_script (str): The full JavaScript string containing the email obfuscation.
+
+    Returns:
+        str: The decoded email address, or None if it cannot be found/decoded.
+    """
+    # 1. Extract the array definition
+    array_match = re.search(r"var a = new Array\((.*?)\);", js_script)
+    if not array_match:
+        print("Could not find 'var a = new Array(...)' in the script.")
+        return None
+
+    array_content_str = array_match.group(1)
+    
+    # Safely parse the array elements.
+    # This pattern captures quoted strings, allowing for single or double quotes.
+    # It handles cases where there might be spaces or extra commas.
+    elements_raw = re.findall(r"'(.*?)'|\"(.*?)\"", array_content_str)
+    
+    # Flatten the list of tuples and remove empty strings
+    a_array = [item.strip() for tpl in elements_raw for item in tpl if item.strip()]
+
+    if not a_array:
+        print("Could not extract array elements.")
+        return None
+
+    # 2. Extract the concatenation sequence from the mailto link
+    # This regex specifically looks for `a[number]` patterns inside the mailto link.
+    mailto_match = re.search(r"mailto:\"?\+(" + r"(a\[\d+\]\+?)+" + r")\"?", js_script)
+
+    if not mailto_match:
+        print("Could not find the 'mailto:' link with array concatenation in the script.")
+        return None
+
+    concatenation_str = mailto_match.group(1)
+    
+    # Extract the indices (numbers inside a[])
+    indices = [int(i) for i in re.findall(r"a\[(\d+)\]", concatenation_str)]
+
+    if not indices:
+        print("Could not extract array indices from the concatenation string.")
+        return None
+
+    # 3. Assemble the email address
+    decoded_email = ""
+    for index in indices:
+        if 0 <= index < len(a_array):
+            decoded_email += a_array[index]
+        else:
+            print(f"Warning: Index {index} out of bounds for array of size {len(a_array)}. Email might be incomplete.")
+            return None # Or handle more gracefully if partial email is acceptable
+
+    return decoded_email
+
+def extract_application_detail_field(html, field="Application Contact:"):
     """
     Extracts the application contact information from the given HTML snippet.
 
@@ -509,8 +567,8 @@ def extract_application_contact(html):
     soup = BeautifulSoup(html, 'html.parser')
 
     # Find the div containing the "Application Contact:" label
-    contact_label_div = soup.find('div', string='Application Contact:')
-
+    contact_label_div = soup.find('div', string=field)
+    text = None
     if contact_label_div:
         # Get the next sibling div, which should contain the contact details
         contact_details_div = contact_label_div.find_next_sibling('div')
@@ -519,23 +577,47 @@ def extract_application_contact(html):
             # Extract text, remove script tags and extra whitespace
             # We explicitly get the text content of the <span> and then clean it.
             # We also get the mailto link's text as it's the actual email.
-            span_tag = contact_details_div.find('span', id='ctl00_FeaturedContent_ApplicantLabel')
+            span_tag = contact_details_div.find('span')
             if span_tag:
-                if span_tag.contents and isinstance(span_tag.contents[0], str):
-                    contents = span_tag.contents[0].strip()
-                    if contents:
-                        return contents
-                # Remove script tag to avoid its content showing in the output
-                for script in span_tag.find_all('script'):
-                    script.decompose()
-
-                for a_tag in span_tag.find_all('a'):
-                    a_tag.decompose()
+                # 1. Get all visible text content from the span and its descendants
+                # This handles text directly in the span, and text in nested tags (like <a> for mailto)
+                text_content = span_tag.get_text(separator=" ", strip=True)
                 
-                # Get all the text, which includes the mailto link's visible text
-                text_content = span_tag.get_text(separator="\n", strip=True)
-                return text_content
+                # 2. Extract text from any script tags within the span, if they exist
+                script_texts = []
+                for script in span_tag.find_all('script'):
+                    script_text = script.string
+                    if script_text:
+                        script_texts.append(script_text.strip())
+
+
+                clean_script_output = []
+                # 3. Evaluate any JavaScript code within the script tags
+                for script_text in script_texts:
+                    try:
+                        result = decode_js_email(script_text)
+                        if isinstance(result, str):
+                            clean_script_output.append(result.strip())
+                        elif isinstance(result, list):
+                            clean_script_output.extend(result)
+                    except Exception as e:
+                        print(f"Error evaluating JavaScript: {e}")
+                    
+                    print("clean_script_text", clean_script_output)
+                # Combine the text content. You might want to format this based on your needs.
+                # For example, adding a newline or a specific separator if script content is important.
+                if script_texts:
+                    combined_content = f"{text_content} {' '.join(clean_script_output)}"
+                    text =combined_content.strip()
+                
+                elif text_content:
+                    text = text_content
+
+    if text:
+        # we want to format the text, if LTD exists
+        return text
     return None
+
 
 def permit_development_tracker(params):
     # destructure, make sure we have base_url, starting path (relative url)
@@ -907,8 +989,9 @@ def get_filtered_permits_with_contacts(params, target_date=None):
             try:
                 details_resp = session.get(details_link)
                 details_resp.raise_for_status()  # Raise an exception for HTTP errors
-                contact_info = extract_application_contact(details_resp.text)
+                contact_info = extract_application_detail_field(details_resp.text)
                 entry['application_contact'] = to_initial_caps_advanced(contact_info)
+
             except requests.exceptions.RequestException as e:
                 print(f"Error fetching details link {details_link}: {e}")
                 entry['application_contact'] = "Error retrieving contact info"
@@ -1006,9 +1089,18 @@ if __name__ == "__main__":
     #     json.dump(entries, f)
     # print("entries", entries)
     # filtered_entries = filter_saanich_permits(entries, target_date=datetime.now())
-    filtered_entries = get_filtered_permits_with_contacts(params, target_date=datetime.now())
+    # filtered_entries = get_filtered_permits_with_contacts(params, target_date=datetime.now())
 
-    print("filtered_entries", filtered_entries)
+    # print("filtered_entries", filtered_entries)
+    # use requests to get html for https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=ALR00045
+    resp = requests.get("https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=ALR00045")
+    # get text response
+    html = resp.text
+    application_contact = extract_application_detail_field(html)
+
+    # print(html)
+
+    print("extracted data", application_contact)
 
 
     # print(data.get("permits"))
