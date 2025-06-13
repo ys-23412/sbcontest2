@@ -3,6 +3,7 @@ import re
 import random
 from datetime import datetime, timedelta
 import base64
+import json
 import dateparser
 from random_user_agent.user_agent import UserAgent
 from bs4 import BeautifulSoup
@@ -973,8 +974,43 @@ def get_filtered_permits_with_contacts(params, target_date=None):
     # Step 1: Get all permit entries
     all_entries = permit_development_tracker(params)
 
-    # Step 2: Filter the entries
-    filtered_entries = filter_saanich_permits(all_entries, target_date=target_date)
+    clean_entries = []
+    # filter out type Temporary Use Permit
+    siteType = params.get('siteType', 'saanich')
+    with open (f"data/{siteType}_all_entries.json", "w") as f:
+        json.dump(all_entries, f)
+    if siteType == 'victoria':
+        types_to_skip = [
+            "TEMPORARY USE PERMIT",
+        ]
+
+        types_to_skip_lower = {t.lower() for t in types_to_skip}
+        for entry in all_entries:
+            if entry['type'].lower() not in types_to_skip_lower:
+                clean_entries.append(entry)
+    
+        with open (f"data/{siteType}_filtered_by_type.json", "w") as f:
+            json.dump(clean_entries, f)
+    else:
+        types_to_keep = [
+            "DEVELOPMENT PERMIT",
+            "DEVELOPMENT PERMIT AMENDMENT",
+            "DEVELOPMENT VARIANCE PERMIT",
+            "REZONING",
+            "STRATA",
+            "SUBDIVISION"
+        ]
+        types_to_keep_lower = {t.lower() for t in types_to_keep}
+        for entry in all_entries:
+            if entry['type'].lower() in types_to_keep_lower:
+                clean_entries.append(entry)
+            # else:
+            #     print("skipping", entry['type'], "for siteType", siteType, "at ", entry['address'])
+        with open (f"data/{siteType}_filtered_by_type.json", "w") as f:
+            json.dump(clean_entries, f)
+
+
+    filtered_entries = filter_permits_by_date(clean_entries, target_date=target_date)
 
     proxies = None
     # proxies_list = get_proxy_list()
@@ -1000,27 +1036,7 @@ def get_filtered_permits_with_contacts(params, target_date=None):
     
     return filtered_entries
 
-def filter_saanich_permits(entries, target_date=None):
-    clean_entries = []
-    # filter out type Temporary Use Permit
-    types_to_skip = [
-        "DRIVEWAY ACCESS PERMIT",
-        "FILL & SOIL REMOVAL PERMIT",
-        "FIREPLACE / CHIMNEY / WOODSTOVE",
-        "GARDEN SUITE DEVELOPMENT PERMIT",
-        "HERITAGE REGISTRY",
-        "LIQUOR APPLICATION",
-        "PLUMBING PERMIT",
-        "RESIDENTIAL BUILDING PERMIT",
-        "RESIDENTIAL PERMIT",
-        "SPECIAL VEHICLE PERMIT",
-        "TEMPORARY USE PERMIT",
-    ]
-
-    types_to_skip_lower = {t.lower() for t in types_to_skip}
-    for entry in entries:
-        if entry['type'].lower() not in types_to_skip_lower:
-            clean_entries.append(entry)
+def filter_permits_by_date(entries, target_date=None):
 
     filtered_entries = []
     if target_date is None:
@@ -1029,7 +1045,7 @@ def filter_saanich_permits(entries, target_date=None):
         target_filter_date = calculate_target_date(ref_datetime=target_date)
     print("looking for entries with target date", target_filter_date)
     # filter out entries before today
-    for entry in clean_entries:
+    for entry in entries:
         application_date = dateparser.parse(entry['application_date'])
         if application_date is None:
 
@@ -1088,7 +1104,7 @@ if __name__ == "__main__":
     # with open("data/saanich.json", "w") as f:
     #     json.dump(entries, f)
     # print("entries", entries)
-    # filtered_entries = filter_saanich_permits(entries, target_date=datetime.now())
+    # filtered_entries = filter_permits(entries, target_date=datetime.now())
     # filtered_entries = get_filtered_permits_with_contacts(params, target_date=datetime.now())
 
     # print("filtered_entries", filtered_entries)

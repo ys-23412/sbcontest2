@@ -1,4 +1,4 @@
-from web_requests import get_filtered_permits_with_contacts, permit_development_tracker, filter_saanich_permits
+from web_requests import get_filtered_permits_with_contacts, permit_development_tracker
 from process_project_data import map_data, get_latest_issue, find_correct_issue_date
 import time
 import requests
