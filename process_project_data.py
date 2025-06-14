@@ -323,8 +323,7 @@ def map_data(params):
             # ys_body['ys_contractor'] = unmapped_entry['application_contact']
         if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
-            # ys_body['ys_stage'] = unmapped_entry['type']
-            pass
+            ys_body['ys_stage'] = unmapped_entry['type']
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'
@@ -363,7 +362,6 @@ def map_data(params):
 
     insert_into_data_url = f"{api_url}/api_insert_into_data.php"
     insert_into_data_resp = requests.post(insert_into_data_url, json=filled_entries)
-    print(insert_into_data_resp.text)
     try:
         # check for 500 then if so raise errro
         insert_into_data_resp.raise_for_status()
@@ -377,7 +375,6 @@ def map_data(params):
         with open("insert_into_data_resp.txt", "w", errors='ignore') as f:
             f.write(insert_into_data_resp.text)
 
-    print("Done successfully")
     return
 
 if __name__ == "__main__":

@@ -1,12 +1,130 @@
 import requests
 import re
 import random
+from enum import Enum
 from datetime import datetime, timedelta
 import base64
 import json
 import dateparser
 from random_user_agent.user_agent import UserAgent
 from bs4 import BeautifulSoup
+
+class NewProjectSiteTypes(Enum):
+    SAANICH = "saanich"
+    VICTORIA = "victoria"
+    CENTRAL_SAANICH = "central saanich"
+    COLWOOD="colwood"
+    COURTENAY="courtenay"
+    OAKBAY="oak bay"
+    NORTH_COWICHAN="north cowichan"
+
+def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
+    """
+    Returns a JSON string containing the base_url, starting_url, and siteType
+    for a given NewProjectSiteTypes enum member.
+
+    Args:
+        site_type_enum (NewProjectSiteTypes): An enum member representing the type of site.
+
+    Returns:
+        str: A JSON string with base_url, starting_url, and siteType,
+             or an error message if the enum member's value is not found.
+    """
+    site_data = {
+        NewProjectSiteTypes.COLWOOD.value: {
+            "base_url": "https://services.colwood.ca",
+            "starting_url": "TLive/OurCity/Prospero/Search.aspx",
+            "types_to_keep": [
+                "BOARD OF VARIANCE",
+                "DEVELOPMENT PERMIT",
+                "DEVELOPMENT PERMIT AMENDMENT",
+                "DEVELOPMENT VARIANCE PERMIT",
+                "OCP AMENDMENT",
+                "REZONING",
+                "SUBDIVISION"
+            ]
+        },
+        NewProjectSiteTypes.COURTENAY.value: {
+            "base_url": "https://prospero.courtenay.ca",
+            "starting_url": "TempestLive/ourcity/prospero/search.aspx",
+             "types_to_keep": [
+                "DEVELOPMENT PERMIT",
+                "DEVELOPMENT PERMIT AMENDMENT",
+                "DEVELOPMENT VARIANCE PERMIT",
+                "REZONING",
+                "STRATA",
+                "SUBDIVISION"
+            ]
+        },
+        NewProjectSiteTypes.OAKBAY.value: {
+            "base_url": "https://onlineservice.oakbay.ca",
+            "starting_url": "WebApps/OurCity/Prospero/Search.aspx",
+            "types_to_skip": [
+                "ADVISORY DESIGN PANEL",
+                "DEVELOPMENT VARIANCE PERMIT",
+                "HERITAGE ALTERATION PERMIT",
+                "MULTI-RESIDENTIAL",
+                "OFFICIAL COMMUNITY PLAN AMENDMENT",
+                "PART 3 BUILDING (COMPLEX)",
+                "PART 9 BUILDING (STANDARD)",
+                "ZONING BYLAW AMENDMENT"
+            ]
+        },
+        NewProjectSiteTypes.VICTORIA.value: {
+            "base_url": "https://tender.victoria.ca",
+            "starting_url": "webapps/ourcity/prospero/search.aspx",
+            "types_to_skip": [
+                "TEMPORARY USE PERMIT",
+            ]
+        },
+        NewProjectSiteTypes.CENTRAL_SAANICH.value: {
+            "base_url": "https://www.mycentralsaanich.ca",
+            "starting_url": "TempestLive/OURCITY/Prospero/Search.aspx",
+             "types_to_skip": [
+                "TEMPORARY USE PERMIT",
+            ]
+        },
+        NewProjectSiteTypes.SAANICH.value: {
+            "base_url": "https://online.saanich.ca",
+            "starting_url": "Tempest/OurCity/Prospero/Search.aspx",
+            "types_to_keep": [
+                "DEVELOPMENT PERMIT",
+                "DEVELOPMENT PERMIT AMENDMENT",
+                "DEVELOPMENT VARIANCE PERMIT",
+                "REZONING",
+                "STRATA",
+                "SUBDIVISION"
+            ]
+        },
+        NewProjectSiteTypes.NORTH_COWICHAN.value: {
+            "base_url": "https://egov.northcowichan.ca",
+            "starting_url": "apps/OurCity/Prospero/Search.aspx",
+            "types_to_skip": [
+                "TEMPORARY USE PERMIT",
+            ]
+        }
+    }
+
+    site_type_str = site_type_enum.value
+
+    if site_type_str in site_data:
+        params = {
+            "base_url": site_data[site_type_str]["base_url"],
+            "starting_url": site_data[site_type_str]["starting_url"],
+            "siteType": site_type_str
+        }
+         # Add the filtering lists to the params dictionary
+        if "types_to_keep" in site_data[site_type_str]:
+            params["types_to_keep"] = site_data[site_type_str]["types_to_keep"]
+        elif "types_to_skip" in site_data[site_type_str]:
+            params["types_to_skip"] = site_data[site_type_str]["types_to_skip"]
+
+        return params
+    else:
+        # This case should ideally not be reached if the enum is exhaustive
+        # but included for robustness.
+        raise Exception("Error: Site type not found in site_data.")
+        return {}
 
 # original url uses script tags to output proxies
 # https://hidemy.io/en/proxy-list/countries/canada/?start=384#list
@@ -634,7 +752,7 @@ def permit_development_tracker(params):
     url = f"{base_url}/{starting_url}"
     session = params.get('session', requests.Session())
     proxies = params.get('proxies', {})
-
+    print("url in use is", url)
     page_load_resp = session.get(url,proxies=proxies)
 
     # with open('testing.html', 'w', errors='ignore') as file:
@@ -975,39 +1093,26 @@ def get_filtered_permits_with_contacts(params, target_date=None):
     all_entries = permit_development_tracker(params)
 
     clean_entries = []
-    # filter out type Temporary Use Permit
-    siteType = params.get('siteType', 'saanich')
-    with open (f"data/{siteType}_all_entries.json", "w") as f:
-        json.dump(all_entries, f)
-    if siteType == 'victoria':
-        types_to_skip = [
-            "TEMPORARY USE PERMIT",
-        ]
-
-        types_to_skip_lower = {t.lower() for t in types_to_skip}
-        for entry in all_entries:
-            if entry['type'].lower() not in types_to_skip_lower:
-                clean_entries.append(entry)
-    
-        with open (f"data/{siteType}_filtered_by_type.json", "w") as f:
-            json.dump(clean_entries, f)
-    else:
-        types_to_keep = [
-            "DEVELOPMENT PERMIT",
-            "DEVELOPMENT PERMIT AMENDMENT",
-            "DEVELOPMENT VARIANCE PERMIT",
-            "REZONING",
-            "STRATA",
-            "SUBDIVISION"
-        ]
+    siteType = params.get('siteType')
+    types_to_keep = params.get('types_to_keep')
+    types_to_skip = params.get('types_to_skip')
+    if types_to_keep:
+        print(f"Filtering {siteType} entries: Keeping types {types_to_keep}")
         types_to_keep_lower = {t.lower() for t in types_to_keep}
         for entry in all_entries:
             if entry['type'].lower() in types_to_keep_lower:
                 clean_entries.append(entry)
-            # else:
-            #     print("skipping", entry['type'], "for siteType", siteType, "at ", entry['address'])
-        with open (f"data/{siteType}_filtered_by_type.json", "w") as f:
-            json.dump(clean_entries, f)
+    elif types_to_skip:
+        print(f"Filtering {siteType} entries: Skipping types {types_to_skip}")
+        types_to_skip_lower = {t.lower() for t in types_to_skip}
+        for entry in all_entries:
+            if entry['type'].lower() not in types_to_skip_lower:
+                clean_entries.append(entry)
+    else:
+        error_message = f"No specific 'types_to_keep' or 'types_to_skip' defined for {siteType}. Error."
+
+        raise Exception(error_message)
+
 
 
     filtered_entries = filter_permits_by_date(clean_entries, target_date=target_date)
