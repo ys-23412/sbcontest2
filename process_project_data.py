@@ -281,7 +281,7 @@ def map_data(params):
     # add datetime to the filename
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     filename = f"{file_name}_{current_date}_{region_name}.json"
-    with open(f"data/with_stage_{filename}.json", "w") as f:
+    with open(f"data/with_project_type_{filename}.json", "w") as f:
         json.dump(entries_with_project_types, f)
 
     fill_entries_url = f"{api_url}/api_fill_entries.php"
@@ -321,9 +321,10 @@ def map_data(params):
                 fmt_application_contact = unmapped_entry['application_contact'].replace("Telephone", "Ph").replace("Email:", "")
                 ys_body['ys_enquiries'] = fmt_application_contact
             # ys_body['ys_contractor'] = unmapped_entry['application_contact']
-        if unmapped_entry.get( 'ys_stage'):
+        if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
-            ys_body['ys_stage'] = unmapped_entry['type']
+            # ys_body['ys_stage'] = unmapped_entry['type']
+            pass
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'
