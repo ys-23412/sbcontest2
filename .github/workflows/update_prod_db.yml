@@ -7,9 +7,9 @@ on:
   # paths-ignore:
   #   - '_utils.py'
   workflow_dispatch:
-  schedule:
-    # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '0 12 * * 1,4'
+  # schedule:
+  #   # Run at 5:00 AM UTC on Monday and Thursday
+  #   - cron: '0 12 * * 1,4'
 
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
     name: send data to prod
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
+      # YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
     steps:
       - uses: actions/checkout@v2
 

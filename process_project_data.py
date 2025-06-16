@@ -63,8 +63,6 @@ def find_correct_issue_date(issues, current_date):
         parsed_issues.append({'original_issue': issue, 'date_obj': issue_date})
 
     # Sort the issues by their date_obj
-    parsed_issues.sort(key=lambda x: x['date_obj'])
-
     # Get the weekday (Monday is 0, Sunday is 6)
     current_weekday = current_date.weekday()
 
@@ -72,9 +70,9 @@ def find_correct_issue_date(issues, current_date):
     # issues start on sunday, so for 5:00 am, its equal to or less than
     if current_weekday >= 0 and current_weekday <= 2:  # Monday
         for issue_entry in parsed_issues:
-            if issue_entry['date_obj'] <= current_date:
+            # we want to go the issue above
+            if issue_entry['date_obj'] > current_date:
                 found_issue = issue_entry['original_issue']
-                break # Found the first one on or after, which is the closest
     elif current_weekday >= 3:  # Thursday
         # On Thursday, find the closest issue date that is strictly after the current date
         for issue_entry in parsed_issues:
@@ -313,7 +311,6 @@ def map_data(params):
             # If not use dump all the data into "Enqueries"'
             extracted_company_name = detect_company(unmapped_entry['application_contact'])
             if extracted_company_name:
-                # 
                 ys_body['ys_contractor'] = extracted_company_name
                 print(f"Company contact extracted: {extracted_company_name}")
             else:
@@ -378,10 +375,14 @@ def map_data(params):
     return
 
 if __name__ == "__main__":
-    
-    sample_data =  [
-        {'address': '', 'folder_no': 'BVD00560', 'type': 'BOULEVARD PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'ALTERING THE BOULEVARD', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BVD00560'}, 
-        {'address': '200-3561       SHELBOURNE ST', 'folder_no': 'BLC07059', 'type': 'COMMERCIAL PERMIT', 'application_date': 'Jun 02, 2025', 'status': 'ACTIVE', 'purpose': 'TENANT IMPROVEMENT FOR BURKETT & CO - UNIT 200', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07059'},
-        {'address': '4444       WEST SAANICH RD', 'folder_no': 'BLC07058', 'type': 'COMMERCIAL PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'REPLACE FIRE ALARM PANEL - ROYAL OAK SHOPPING CENTRE', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07058'}
-    ]
-    map_data(sample_data)
+
+    issue_results = get_latest_issue()
+
+    print(issue_results.get('found_issue'))
+
+    # sample_data =  [
+    #     {'address': '', 'folder_no': 'BVD00560', 'type': 'BOULEVARD PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'ALTERING THE BOULEVARD', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BVD00560'}, 
+    #     {'address': '200-3561       SHELBOURNE ST', 'folder_no': 'BLC07059', 'type': 'COMMERCIAL PERMIT', 'application_date': 'Jun 02, 2025', 'status': 'ACTIVE', 'purpose': 'TENANT IMPROVEMENT FOR BURKETT & CO - UNIT 200', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07059'},
+    #     {'address': '4444       WEST SAANICH RD', 'folder_no': 'BLC07058', 'type': 'COMMERCIAL PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'REPLACE FIRE ALARM PANEL - ROYAL OAK SHOPPING CENTRE', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07058'}
+    # ]
+    # map_data(sample_data)
