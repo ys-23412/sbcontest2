@@ -970,13 +970,13 @@ def permit_development_tracker(params):
             # adjust details_link if not None 
 
             if data['details_link']:
-                # adjustment starting url
-                ref_url = base_url + starting_url
                 # adjust to replace search.aspx no matter what the case is
-                ref_url = ref_url.replace('/Search.aspx', '')
+                ref_url = url.replace('/Search.aspx', '')
                 # remove the last
                 # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
                 data['details_link'] = ref_url + data['details_link'].replace('../Prospero', '')
+
+                print("data link is ", data['details_link'])
             
             processed_data = {}
             for key, value in data.items():
