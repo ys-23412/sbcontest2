@@ -8,7 +8,8 @@ import json
 def main():
     api_url = os.getenv('YS_APIURL', 'http://localhost')
 
-
+    if not os.path.exists("data"):
+        os.makedirs("data")
     for site_type in NewProjectSiteTypes:
         # Convert enum name (e.g., SAANICH) to a more readable format (e.g., Saanich)
         region_name = site_type.value.replace("_", " ").title()
