@@ -46,7 +46,7 @@ def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
         },
         NewProjectSiteTypes.COURTENAY.value: {
             "base_url": "https://prospero.courtenay.ca",
-            "starting_url": "TempestLive/ourcity/prospero/search.aspx",
+            "starting_url": "TempestLive/ourcity/prospero/Search.aspx",
              "types_to_keep": [
                 "DEVELOPMENT PERMIT",
                 "DEVELOPMENT PERMIT AMENDMENT",
@@ -72,7 +72,7 @@ def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
         },
         NewProjectSiteTypes.VICTORIA.value: {
             "base_url": "https://tender.victoria.ca",
-            "starting_url": "webapps/ourcity/prospero/search.aspx",
+            "starting_url": "webapps/ourcity/prospero/Search.aspx",
             "types_to_skip": [
                 "TEMPORARY USE PERMIT",
             ]
@@ -971,9 +971,12 @@ def permit_development_tracker(params):
 
             if data['details_link']:
                 # adjustment starting url
-                base_url = "https://online.saanich.ca/Tempest/OurCity/Prospero"
+                ref_url = base_url + starting_url
+                # adjust to replace search.aspx no matter what the case is
+                ref_url = ref_url.replace('/Search.aspx', '')
+                # remove the last
                 # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
-                data['details_link'] = base_url + data['details_link'].replace('../Prospero', '')
+                data['details_link'] = ref_url + data['details_link'].replace('../Prospero', '')
             
             processed_data = {}
             for key, value in data.items():

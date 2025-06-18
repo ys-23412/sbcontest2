@@ -19,6 +19,7 @@ jobs:
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+      HIDE_TINY_URL: True
     steps:
       - uses: actions/checkout@v2
 

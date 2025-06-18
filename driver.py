@@ -27,7 +27,8 @@ def main():
         print(f"UPLOAD {region_name.upper()} ENTRIES {filtered_entries}")
         map_data({
             "data": filtered_entries,
-            "region_name": region_name
+            "region_name": region_name,
+            'hide_tiny_url': os.getenv('HIDE_TINY_URL', False)
         })
         print("-" * 30) # Separator for better readability between iterations
     # params_saanich = get_site_params(NewProjectSiteTypes.SAANICH)

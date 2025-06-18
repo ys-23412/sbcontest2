@@ -190,6 +190,8 @@ def map_data(params):
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
 
+    hide_tiny_url = params.get('hide_tiny_url', False)
+
     GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
     client = genai.Client(api_key=GEMINI_API_KEY)
     api_url = os.getenv('YS_APIURL', 'http://localhost')
@@ -210,7 +212,7 @@ def map_data(params):
     entries_with_project_types = []
     # classified entries
     print(len(data))
-    print("are you getting here?")
+    print("Mapping Google Project Data?")
     for unclassified_entry in data:
         # copy unclassified_entry and remove details_link
         entry_copy = unclassified_entry.copy()
@@ -321,6 +323,9 @@ def map_data(params):
         if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
+        
+        if hide_tiny_url:
+            ys_body['ys_no_tiny_urls'] = True
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'
