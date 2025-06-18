@@ -1,0 +1,37 @@
+name: Move to Prod
+
+on:
+  # push:
+  #   branches:
+  #     - 'main'
+  # paths-ignore:
+  #   - '_utils.py'
+  workflow_dispatch:
+  schedule:
+    # Run at 5:00 AM UTC on Monday and Thursday
+    - cron: '0 12 * * 1,4'
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: send data to prod
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
+
+      - run: pip install -r requirements.txt
+      - run: python driver.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scrapped-data
+          path: data/
+          retention-days: 3 # Artifact will now be retained for 90 days
