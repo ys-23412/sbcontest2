@@ -320,9 +320,13 @@ def map_data(params):
                 fmt_application_contact = unmapped_entry['application_contact'].replace("Telephone", "Ph").replace("Email:", "")
                 ys_body['ys_enquiries'] = fmt_application_contact
             # ys_body['ys_contractor'] = unmapped_entry['application_contact']
+        
+        ys_body['ys_internal_note'] = f"AUTOBOT"
         if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
+
+        ys_body['ys_sector'] = 'Private'
         
         if hide_tiny_url:
             ys_body['ys_no_tiny_urls'] = True
