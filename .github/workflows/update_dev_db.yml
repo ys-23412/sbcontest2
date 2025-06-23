@@ -30,6 +30,7 @@ jobs:
 
       - run: pip install -r requirements.txt
       - run: python driver.py
+        continue-on-error: true
 
       - uses: actions/upload-artifact@v4
         with:
