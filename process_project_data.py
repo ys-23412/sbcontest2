@@ -4,7 +4,7 @@ import time
 import json
 import re
 
-from datetime import datetime
+from datetime import datetime, date
 from google import genai
 from google.genai import types
 
@@ -180,6 +180,42 @@ def detect_company(text):
         # If no match is found, return None
         return None
     
+def detect_and_split_addresses(address_string):
+    """
+    Detects and splits multiple addresses concatenated in a single string.
+
+    This function assumes addresses are joined without delimiters and
+    each new address starts with digits immediately following a letter
+    from the previous address's street name/type.
+
+    Args:
+        address_string (str): A string containing one or more concatenated addresses.
+                              Example: "2612 Richmond Rd2616 Richmond Rd2620 Richmond Rd"
+
+    Returns:
+        list: A list of individual address strings. Returns an empty list
+              if the input string is empty.
+    """
+    if not address_string:
+        return []
+
+    # The regular expression to split by:
+    # (?<=[a-zA-Z])   - Positive lookbehind: asserts that the position is preceded by any letter (a-z, A-Z)
+    # (?=\d)          - Positive lookahead: asserts that the position is followed by any digit (0-9)
+    # This combination means: split exactly at the point where a letter ends and a digit begins.
+    try:
+        split_addresses = re.split(r'(?<=[a-zA-Z])(?=\d)', address_string)
+
+        # Basic cleanup: remove any empty strings that might result from splitting
+        # or leading/trailing whitespace if the original string had it.
+        cleaned_addresses = [addr.strip() for addr in split_addresses if addr.strip()]
+
+        return cleaned_addresses
+    except Exception as e:
+        print(f"Error splitting addresses: {e}")
+        return []
+
+
 def map_data(params):
 
     data = params.get('data', [])
@@ -291,7 +327,13 @@ def map_data(params):
         entry['issue_id'] = ys_volume_id
         entry['city_name'] = unmapped_entry.get('city_name', default_city_name)
         entry['ys_date'] = unmapped_entry['application_date']
-        entry['ys_address'] = unmapped_entry['address']
+        addresses = detect_and_split_addresses(unmapped_entry['address'])
+        if len(addresses) <= 1:
+            entry['ys_address'] = unmapped_entry['address']
+        else:
+            entry['ys_address'] = addresses[-1]
+            # and we have to set the body the location details
+            ys_body['ys_location_detail'] = ", ".join(addresses)
         # take first 255 characters
         entry['ys_description'] = unmapped_entry['purpose'][:100]
         # remove bad characters like ' and replace with sql safe characters
@@ -320,12 +362,15 @@ def map_data(params):
                 fmt_application_contact = unmapped_entry['application_contact'].replace("Telephone", "Ph").replace("Email:", "")
                 ys_body['ys_enquiries'] = fmt_application_contact
             # ys_body['ys_contractor'] = unmapped_entry['application_contact']
-        
-        ys_body['ys_internal_note'] = f"AUTOBOT"
+        # TODO add LA - June 23/25
+        fmt_date = date.today().strftime("%B %d/%y")
+        ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
         if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
 
+        # ys project is set to purpose
+        ys_body['ys_project'] = unmapped_entry['purpose']
         ys_body['ys_sector'] = 'Private'
         
         if hide_tiny_url:
@@ -342,7 +387,6 @@ def map_data(params):
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
     first_city = mapped_data[0].get('city_name', default_city_name)
-
     with open(f"data/with_mapping_{file_name}_{curr_date}_{region_name}.json", "w") as f:
         json.dump(mapped_data, f)
     filled_entries_data = [{
@@ -389,9 +433,23 @@ if __name__ == "__main__":
 
     print(issue_results.get('found_issue'))
 
-    # sample_data =  [
-    #     {'address': '', 'folder_no': 'BVD00560', 'type': 'BOULEVARD PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'ALTERING THE BOULEVARD', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BVD00560'}, 
-    #     {'address': '200-3561       SHELBOURNE ST', 'folder_no': 'BLC07059', 'type': 'COMMERCIAL PERMIT', 'application_date': 'Jun 02, 2025', 'status': 'ACTIVE', 'purpose': 'TENANT IMPROVEMENT FOR BURKETT & CO - UNIT 200', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07059'},
-    #     {'address': '4444       WEST SAANICH RD', 'folder_no': 'BLC07058', 'type': 'COMMERCIAL PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'REPLACE FIRE ALARM PANEL - ROYAL OAK SHOPPING CENTRE', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07058'}
-    # ]
-    # map_data(sample_data)
+    sample_data =  [
+        # {'address': '', 'folder_no': 'BVD00560', 'type': 'BOULEVARD PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'ALTERING THE BOULEVARD', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BVD00560'}, 
+        # {'address': '200-3561       SHELBOURNE ST', 'folder_no': 'BLC07059', 'type': 'COMMERCIAL PERMIT', 'application_date': 'Jun 02, 2025', 'status': 'ACTIVE', 'purpose': 'TENANT IMPROVEMENT FOR BURKETT & CO - UNIT 200', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07059'},
+        # {'address': '4444       WEST SAANICH RD', 'folder_no': 'BLC07058', 'type': 'COMMERCIAL PERMIT', 'application_date': 'May 29, 2025', 'status': 'ACTIVE', 'purpose': 'REPLACE FIRE ALARM PANEL - ROYAL OAK SHOPPING CENTRE', 'details_link': 'https://online.saanich.ca/Tempest/OurCity/Prospero/Details.aspx?folderNumber=BLC07058'},
+         {
+            "address": "2612 Richmond Rd2616 Richmond Rd2620 Richmond Rd2628 Richmond Rd",
+            "folder_no": "Rez00900",
+            "type": "Rezoning Application",
+            "application_date": "Jun 20, 2025",
+            "status": "Active",
+            "purpose": "The City Is Considering a Rezoning Application for a 101 Unit Purpose Built Rental Building. Concurrent W/dp000653",
+            "details_link": "https://tender.victoria.ca/webapps/ourcity/prospero/Details.aspx?folderNumber=REZ00900",
+            "city_name": "victoria",
+            "application_contact": "N/a"
+        },
+    ]
+    map_data({
+        "data": sample_data,
+        "region_name": "testing"
+    })
