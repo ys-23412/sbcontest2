@@ -1039,7 +1039,7 @@ def permit_development_tracker(params):
     # return data
 # Optionally, you can parse the result to confirm the submission or to continue with further processing
 
-def calculate_target_date(ref_datetime=datetime.now()):
+def calculate_target_date_ref(ref_datetime=datetime.now()):
     """
     Calculates the target cutoff date based on the current day of the week.
     - If today is Sunday, Monday, Tuesday, or Wednesday: target is last week's Thursday.
@@ -1084,6 +1084,27 @@ def calculate_target_date(ref_datetime=datetime.now()):
         pass
     
     return target_date_val # This is a date object
+
+def calculate_target_date(ref_datetime=datetime.now()):
+    """
+    Calculates the target cutoff date based on the current day of the week.
+    - If today is Monday: target is last week's Friday.
+    - Otherwise: target is yesterday's date.
+    The returned date is the actual day to be used as a boundary; applications
+    must be *after* this day.
+    """
+    today_date = ref_datetime.date()  # Work with date objects for calculation
+    weekday = today_date.weekday()  # Monday is 0, ..., Sunday is 6
+
+    # Rule: If today is Monday (0), grab last week's Friday.
+    if weekday == 0:
+        # To get to last week's Friday from Monday: subtract 3 days
+        target_date_val = today_date - timedelta(days=3)
+    # Rule: For any other day, grab yesterday's date.
+    else:
+        target_date_val = today_date - timedelta(days=1)
+    
+    return target_date_val
 
 
 def get_filtered_permits_with_contacts(params, target_date=None):
