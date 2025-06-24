@@ -788,6 +788,7 @@ def permit_development_tracker(params):
     session = params.get('session', requests.Session())
     proxies = params.get('proxies', {})
     print("url in use is", url)
+    print("proxies is", proxies)
     page_load_resp = session.get(url,proxies=proxies)
 
     # with open('testing.html', 'w', errors='ignore') as file:
@@ -1011,7 +1012,6 @@ def permit_development_tracker(params):
                 # we want to replace ../ with https://online.saanich.ca/Tempest/OurCity/Prospero
                 data['details_link'] = ref_url + data['details_link'].replace('../Prospero', '')
 
-                print("data link is ", data['details_link'])
             
             processed_data = {}
             for key, value in data.items():
