@@ -204,6 +204,40 @@ def get_proxies_cz(url="http://free-proxy.cz/en/proxylist/country/CA/all/date/al
             #     port = cols[1].text.strip()
             #     proxies.append(f'socks4://{ip}:{port}')
     return proxies
+def get_proxies_proxifly(url="https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/countries/CA/data.txt"):
+    """
+    Fetches proxies from the Proxifly GitHub CDN text file.
+    Assumes proxies are one per line in 'protocol://IP:PORT' format.
+    """
+    proxies = []
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': mk_user_agent(),
+        'Accept': 'text/plain, */*;q=0.8',
+    })
+
+    try:
+        print(f"Fetching proxies from Proxifly CDN: {url}")
+        response = session.get(url, timeout=10)
+        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+        
+        # Split by lines and strip whitespace
+        lines = response.text.splitlines()
+        for line in lines:
+            stripped_line = line.strip()
+            if stripped_line:
+                # Basic validation: check if it starts with http://, https://, socks5://, etc.
+                if re.match(r'^(http|https|socks4|socks5):\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$', stripped_line):
+                    proxies.append(stripped_line)
+                else:
+                    print(f"Skipping malformed proxy entry from Proxifly: {stripped_line}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Network error fetching from Proxifly CDN: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred while parsing Proxifly CDN data: {e}")
+    
+    return proxies
 
 def mk_user_agent():
     user_agent_rotator = UserAgent()
@@ -572,6 +606,7 @@ def get_proxy_list():
     # List of proxy fetching functions to try, in order of preference
     proxy_fetchers = [
         get_proxies_cz,
+        get_proxies_proxifly,
         get_proxies_world,
         # Add more proxy fetching functions here if needed
         # e.g., get_proxies_another_source
