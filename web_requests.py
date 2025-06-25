@@ -47,7 +47,7 @@ def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
         NewProjectSiteTypes.COURTENAY.value: {
             "base_url": "https://prospero.courtenay.ca",
             "starting_url": "TempestLive/ourcity/prospero/Search.aspx",
-             "types_to_keep": [
+            "types_to_keep": [
                 "DEVELOPMENT PERMIT",
                 "DEVELOPMENT PERMIT AMENDMENT",
                 "DEVELOPMENT VARIANCE PERMIT",
@@ -101,7 +101,8 @@ def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
             "starting_url": "apps/OurCity/Prospero/Search.aspx",
             "types_to_skip": [
                 "TEMPORARY USE PERMIT",
-            ]
+            ],
+            "iteration_limit": 1
         }
     }
 
@@ -118,7 +119,8 @@ def get_site_params(site_type_enum: NewProjectSiteTypes) -> dict:
             params["types_to_keep"] = site_data[site_type_str]["types_to_keep"]
         elif "types_to_skip" in site_data[site_type_str]:
             params["types_to_skip"] = site_data[site_type_str]["types_to_skip"]
-
+        if "iteration_limit" in site_data[site_type_str]:
+            params["iteration_limit"] = site_data[site_type_str]["iteration_limit"]
         return params
     else:
         # This case should ideally not be reached if the enum is exhaustive
@@ -828,7 +830,7 @@ def permit_development_tracker(params):
 
 
     no_new_pages = False
-    iteration_limit = 6
+    iteration_limit = params.get('iteration_limit', 6)
     current_iteration = 0
     current_page = None
     entries = []
@@ -1029,6 +1031,10 @@ def permit_development_tracker(params):
     # remove duplicate entries
 
     # attempt to grab details link and extract
+
+    # output to data folder with sitename
+    with open(f'data/{siteType}_all_entries.json', 'w') as f:
+        json.dump(entries, f, indent=4)
     return entries
     # data = {
     #     "permits_raw": result_response.text,
