@@ -31,7 +31,6 @@ def main():
             print(f"DOING {region_name.upper()}")
             try:
                 filtered_entries = get_filtered_permits_with_contacts(params)
-                continue
                 output_filename = f"data/{file_name_prefix}_filtered.json"
                 with open(output_filename, "w") as f:
                     json.dump(filtered_entries, f, indent=4)
