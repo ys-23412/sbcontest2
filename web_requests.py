@@ -830,7 +830,7 @@ def permit_development_tracker(params):
 
 
     no_new_pages = False
-    iteration_limit = params.get('iteration_limit', 6)
+    iteration_limit = params.get('iteration_limit', 10)
     current_iteration = 0
     current_page = None
     entries = []
