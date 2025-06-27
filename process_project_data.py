@@ -376,19 +376,20 @@ def map_data(params):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
 
-        if ys_component_id == DataTypes.TENDERS.value:
+        if int(ys_component_id) == DataTypes.TENDERS.value:
             entry['ys_date'] = unmapped_entry['open_date']
-            ys_body['closing'] = unmapped_entry['close_date']
+            ys_body['ys_closing'] = unmapped_entry['close_date']
             ys_body['ys_project'] = unmapped_entry['project']
             entry['ys_permit'] = unmapped_entry['ref']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['link']
-
-        elif ys_component_id == DataTypes.NEW_PROJECT.value:
+        elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             # ys project is set to purpose
             ys_body['ys_project'] = unmapped_entry['purpose']
             entry['ys_date'] = unmapped_entry['application_date']
             entry['ys_permit'] = unmapped_entry['folder_no']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
+        else:
+            raise Exception(f"Unknown ys_component_id: {ys_component_id}")
         ys_body['ys_sector'] = 'Private'
         
         if hide_tiny_url:
