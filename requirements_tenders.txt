@@ -1,0 +1,6 @@
+pydoll-python
+requests
+random-user-agent
+beautifulsoup4
+pandas
+python-dotenv

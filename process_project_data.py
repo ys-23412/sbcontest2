@@ -3,11 +3,15 @@ import requests
 import time
 import json
 import re
-
+from enum import Enum
 from datetime import datetime, date
 from google import genai
 from google.genai import types
 
+
+class DataTypes(Enum):
+    TENDERS = 10
+    NEW_PROJECT = 7
 
 # Sample CSV data as a string, replace this with actual file reading if needed
 project_types_csv = """
@@ -224,6 +228,7 @@ def map_data(params):
         return
     region_name = params.get('region_name', 'Saanich')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
+    file_prefix = params.get('file_prefix', 'np')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
 
     hide_tiny_url = params.get('hide_tiny_url', False)
@@ -232,7 +237,6 @@ def map_data(params):
     client = genai.Client(api_key=GEMINI_API_KEY)
     api_url = os.getenv('YS_APIURL', 'http://localhost')
 
-    city_id = [64, 74, 75]
     default_city_name = "Saanich"
     file_type = agent_id
     file_name = "AutoHarvest"
@@ -317,7 +321,7 @@ def map_data(params):
     # add datetime to the filename
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     filename = f"{file_name}_{current_date}_{region_name}.json"
-    with open(f"data/with_project_type_{filename}.json", "w") as f:
+    with open(f"data/{file_prefix}_with_project_type_{filename}.json", "w") as f:
         json.dump(entries_with_project_types, f)
 
     fill_entries_url = f"{api_url}/api_fill_entries.php"
@@ -326,7 +330,6 @@ def map_data(params):
         ys_body = {}
         entry['issue_id'] = ys_volume_id
         entry['city_name'] = unmapped_entry.get('city_name', default_city_name)
-        entry['ys_date'] = unmapped_entry['application_date']
         addresses = detect_and_split_addresses(unmapped_entry['address'])
         if len(addresses) <= 1:
             entry['ys_address'] = unmapped_entry['address']
@@ -335,20 +338,23 @@ def map_data(params):
             # and we have to set the body the location details
             ys_body['ys_location_detail'] = ", ".join(addresses)
         # take first 255 characters
-        entry['ys_description'] = unmapped_entry['purpose'][:100]
-        # remove bad characters like ' and replace with sql safe characters
-        entry['ys_description'] = entry['ys_description'].replace("'", "''")
+        if ys_component_id == DataTypes.TENDERS.value:
+            entry['ys_description'] = unmapped_entry['project'][:100]
+            # remove bad characters like ' and replace with sql safe characters
+            entry['ys_description'] = entry['ys_description'].replace("'", "''")
+        elif ys_component_id == DataTypes.NEW_PROJECT.value:
+            entry['ys_description'] = unmapped_entry['purpose'][:100]
+            # remove bad characters like ' and replace with sql safe characters
+            entry['ys_description'] = entry['ys_description'].replace("'", "''")
         # strip everything past #, assume that means unit number
         # if '#' in entry['ys_description']:
         #     entry['ys_description'] = entry['ys_description'].split('#')[0]
        #  entry['ys_description'] = unmapped_entry['address'].split('#')[0]
-        entry['ys_permit'] = unmapped_entry['folder_no']
         entry['ys_component'] = ys_component_id
         # all status is ACTIVE We can ignore, we only want to process active anyway
         entry['ys_type'] = unmapped_entry.get('ys_project_type', 0)
         entry['project_type'] = unmapped_entry.get('ys_project_type', 0)
         entry['region'] = unmapped_entry.get('city_name', default_city_name)
-        ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
 
         if unmapped_entry.get('application_contact'):
             # we want to determine if this is a contractor, if so we attempt to populate "ys_contractor"
@@ -365,12 +371,24 @@ def map_data(params):
         # TODO add LA - June 23/25
         fmt_date = date.today().strftime("%B %d/%y")
         ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
+
         if unmapped_entry.get('type'):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
 
-        # ys project is set to purpose
-        ys_body['ys_project'] = unmapped_entry['purpose']
+        if ys_component_id == DataTypes.TENDERS.value:
+            entry['ys_date'] = unmapped_entry['open_date']
+            ys_body['closing'] = unmapped_entry['close_date']
+            ys_body['ys_project'] = unmapped_entry['project']
+            entry['ys_permit'] = unmapped_entry['ref']
+            ys_body['ys_documents_drawings_link'] = unmapped_entry['link']
+
+        elif ys_component_id == DataTypes.NEW_PROJECT.value:
+            # ys project is set to purpose
+            ys_body['ys_project'] = unmapped_entry['purpose']
+            entry['ys_date'] = unmapped_entry['application_date']
+            entry['ys_permit'] = unmapped_entry['folder_no']
+            ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
         ys_body['ys_sector'] = 'Private'
         
         if hide_tiny_url:
@@ -387,10 +405,10 @@ def map_data(params):
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
     first_city = mapped_data[0].get('city_name', default_city_name)
-    with open(f"data/with_mapping_{file_name}_{curr_date}_{region_name}.json", "w") as f:
+    with open(f"data/{file_prefix}_with_mapping_{file_name}_{curr_date}_{region_name}.json", "w") as f:
         json.dump(mapped_data, f)
     filled_entries_data = [{
-        'filename': f'{file_name}_{curr_date}_{region_name}.json',
+        'filename': f'{file_prefix}_{file_name}_{curr_date}_{region_name}.json',
         "pdf_type": "api",
         "region": first_city,
         "file_type": "json",
@@ -398,7 +416,7 @@ def map_data(params):
         'user_id': '2025060339'
     }]
 
-    with open(f"data/with_mapping_all{file_name}_{curr_date}_{region_name}.json", "w") as f:
+    with open(f"data/{file_prefix}_with_mapping_all{file_name}_{curr_date}_{region_name}.json", "w") as f:
         json.dump(filled_entries_data, f)
 
     filled_entries_resp = requests.post(fill_entries_url, json=filled_entries_data)
@@ -407,7 +425,7 @@ def map_data(params):
 
     filled_entries = filled_entries_resp.json()
 
-    with open(f"data/with_fill_{filename}_{region_name}.json", "w") as f:
+    with open(f"data/{file_prefix}_with_fill_{filename}_{region_name}.json", "w") as f:
         json.dump(filled_entries, f)
 
     insert_into_data_url = f"{api_url}/api_insert_into_data.php"
