@@ -58,7 +58,7 @@ jobs:
       uses: nick-fields/retry@v3
       with:
         max_attempts: 5  # Try up to 5 times
-        retry_wait_seconds: 60 # Wait 60 seconds between retries
+        timeout_seconds: 60 # Wait 60 seconds between retries
         command: python -m camoufox fetch
 
     - name: Fetch Tenders
