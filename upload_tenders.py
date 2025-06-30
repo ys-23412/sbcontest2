@@ -64,7 +64,7 @@ def main():
     base_dir = os.getenv('BASE_DIR', "screenshots_output")
 
     print("--- Starting Tender Processing Script ---")
-     if not os.path.exists("data"):
+    if not os.path.exists("data"):
         os.makedirs("data")
     # 1. Load and filter tenders from the CSV file
     filtered_tenders_df = load_and_filter_tenders(base_dir)
