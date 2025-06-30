@@ -1,4 +1,4 @@
-name: Camofox Tenders # Name remains as per user's request, but runs on Linux now
+name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linux now
 
 on:
   push:
@@ -46,9 +46,9 @@ jobs:
         # All commands within this 'run' block will use this display.
       env:
         DISPLAY: ":99"
-        BASE_URL: ${{ secrets.BASE_URL }}
-        EMAIL: ${{ secrets.EMAIL }}
-        PASSWORD: ${{ secrets.PASSWORD }}
+        BASE_URL: ${{ secrets.TENDER_BASE_URL }}
+        EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
+        PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
         # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
       run: |
         sudo apt install -y libgtk-3-0 libx11-xcb1 libasound2 || true
@@ -64,3 +64,16 @@ jobs:
       with:
         name: cloudflare-screenshots
         path: screenshots/
+        retention-days: 3 # Artifact will now be retained for 90 days
+
+    - name: Upload Data
+      run: |
+        python upload_tenders.py
+
+    - name: Upload Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: upload-data
+        path: data/
+        retention-days: 3 # Artifact will now be retained for 90 days
