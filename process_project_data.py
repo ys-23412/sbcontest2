@@ -338,11 +338,11 @@ def map_data(params):
             # and we have to set the body the location details
             ys_body['ys_location_detail'] = ", ".join(addresses)
         # take first 255 characters
-        if ys_component_id == DataTypes.TENDERS.value:
+        if int(ys_component_id) == DataTypes.TENDERS.value:
             entry['ys_description'] = unmapped_entry['project'][:100]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
-        elif ys_component_id == DataTypes.NEW_PROJECT.value:
+        elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             entry['ys_description'] = unmapped_entry['purpose'][:100]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
