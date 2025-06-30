@@ -607,8 +607,8 @@ def get_proxy_list():
     """
     # List of proxy fetching functions to try, in order of preference
     proxy_fetchers = [
-        get_proxies_cz,
         get_proxies_proxifly,
+        get_proxies_cz,
         get_proxies_world,
         # Add more proxy fetching functions here if needed
         # e.g., get_proxies_another_source
