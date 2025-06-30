@@ -3,8 +3,11 @@ name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linu
 on:
   push:
     branches:
-      - main
+      - 'main'
   workflow_dispatch: # Allows manual trigger
+  schedule:
+    # Run at 5:00 AM UTC on Monday and Thursday
+    - cron: '0 12 * * 1-5'
 
 jobs:
   build:
@@ -14,6 +17,7 @@ jobs:
       DISPLAY: ":99"
       # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
       BASE_DIR: "screenshots"
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       YS_COMPONENTID: 10
     strategy:
       fail-fast: false
