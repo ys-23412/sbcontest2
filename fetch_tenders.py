@@ -1,6 +1,5 @@
 import asyncio
 from camoufox.async_api import AsyncCamoufox # Import AsyncCamoufox
-from get_proxy import get_and_set_selenium_proxy
 from camoufox_captcha import solve_captcha
 
 
@@ -74,7 +73,6 @@ async def main():
     PASSWORD = os.getenv('PASSWORD')
     base_dir = os.getenv('BASE_DIR', "/app/screenshots")
     try:
-        proxy = get_and_set_selenium_proxy()
         # Use async with for asynchronous context management
         async with AsyncCamoufox(
             headless=True,
