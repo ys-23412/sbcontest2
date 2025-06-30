@@ -66,8 +66,7 @@ jobs:
       with:
         max_attempts: 5  # Try up to 5 times
         retry_wait_seconds: 60 # Wait 60 seconds between retries
-      run: |
-        python -m camoufox fetch
+      command: python -m camoufox fetch
 
     - name: Fetch Tenders
       run: |
