@@ -47,11 +47,7 @@ jobs:
         python -m pip install -r requirements.txt
         python -m pip install -r requirements_tenders.txt
 
-    - name: Run Browser Automation and Record Xvfb Session
-        # Set the DISPLAY environment variable for this entire step.
-        # All commands within this 'run' block will use this display.
-      env:
-        # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
+    - name: Install dependencies
       run: |
         sudo apt install -y libgtk-3-0 libx11-xcb1 libasound2 || true
         pip install -U camoufox[geoip]
