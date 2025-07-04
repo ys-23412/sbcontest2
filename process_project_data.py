@@ -342,6 +342,8 @@ def map_data(params):
             entry['ys_description'] = unmapped_entry['project'][:100]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
+            entry['ys_description'] = entry['ys_description'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
+
         elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             entry['ys_description'] = unmapped_entry['purpose'][:100]
             # remove bad characters like ' and replace with sql safe characters
@@ -379,18 +381,36 @@ def map_data(params):
         if int(ys_component_id) == DataTypes.TENDERS.value:
             entry['ys_date'] = unmapped_entry['open_date']
             ys_body['ys_closing'] = unmapped_entry['close_date']
-            ys_body['ys_project'] = unmapped_entry['project']
+            ys_body['ys_project'] = unmapped_entry['project_description'] or unmapped_entry['project']
+            ys_body['ys_project'] = ys_body['ys_project'].replace("-", "-", 1) # Replace only the first instance of " - "
+
             entry['ys_permit'] = unmapped_entry['ref']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['link']
+            ys_body['ys_sector'] = 'Public'
+
+            if unmapped_entry.get('ref'):
+                ys_body['ys_reference'] = unmapped_entry['ref']
+            if params.get('tender_authority'):
+                ys_body['ys_tender_authority'] = params['tender_authority']
+            # we want to set stage based on a mapping here
+            if unmapped_entry.get('type'):
+                # we use the "Type" field from here to populate "ys_stage"
+                if unmapped_entry['type'] == 'ITT':
+                    ys_body['ys_stage'] = 'Tender Call'
+                elif unmapped_entry['type'] == 'RFP':
+                    ys_body['ys_stage'] = 'Request for proposals'
+                elif unmapped_entry['type'] == 'RFQ':
+                    ys_body['ys_stage'] = 'Request for Quotations'
+
         elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             # ys project is set to purpose
             ys_body['ys_project'] = unmapped_entry['purpose']
             entry['ys_date'] = unmapped_entry['application_date']
             entry['ys_permit'] = unmapped_entry['folder_no']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
+            ys_body['ys_sector'] = 'Private'
         else:
             raise Exception(f"Unknown ys_component_id: {ys_component_id}")
-        ys_body['ys_sector'] = 'Private'
         
         if hide_tiny_url:
             ys_body['ys_no_tiny_urls'] = True

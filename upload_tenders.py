@@ -83,6 +83,7 @@ def main():
         "region_name": 'victoria',
         'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
         'file_prefix': 'tenders',
+        'tender_authority': 'City of Victoria Purchasing',
     })
 
 if __name__ == "__main__":

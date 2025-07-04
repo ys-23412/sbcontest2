@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   schedule:
     # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '0 12 * * 1-5'
+    - cron: '0 12 * * 5'
 
 
 jobs:
