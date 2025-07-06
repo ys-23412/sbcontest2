@@ -382,7 +382,7 @@ def map_data(params):
             entry['ys_date'] = unmapped_entry['open_date']
             ys_body['ys_closing'] = unmapped_entry['close_date']
             ys_body['ys_project'] = unmapped_entry['project_description'] or unmapped_entry['project']
-            ys_body['ys_project'] = ys_body['ys_project'].replace("-", "-", 1) # Replace only the first instance of " - "
+            ys_body['ys_project'] = ys_body['ys_project'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
 
             entry['ys_permit'] = unmapped_entry['ref']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['link']
