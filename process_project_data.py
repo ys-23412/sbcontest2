@@ -3,6 +3,7 @@ import requests
 import time
 import json
 import re
+import dateparser
 from enum import Enum
 from datetime import datetime, date
 from google import genai
@@ -380,7 +381,11 @@ def map_data(params):
 
         if int(ys_component_id) == DataTypes.TENDERS.value:
             entry['ys_date'] = unmapped_entry['open_date']
-            ys_body['ys_closing'] = unmapped_entry['close_date']
+            parsed_date_close = dateparser.parse(unmapped_entry['close_date'])
+            if parsed_date_close:
+                entry['ys_date'] = parsed_date_close.strftime("%b %-d/%y %I:%M %p %Z")
+            else:
+                ys_body['ys_closing'] = unmapped_entry['close_date']
             ys_body['ys_project'] = unmapped_entry['project_description'] or unmapped_entry['project']
             ys_body['ys_project'] = ys_body['ys_project'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
 
