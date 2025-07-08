@@ -71,6 +71,7 @@ async def main():
     BASE_URL = os.getenv('BASE_URL')
     EMAIL = os.getenv('EMAIL')
     PASSWORD = os.getenv('PASSWORD')
+    CSV_FILE_NAME = os.getenv('CSV_FILE_NAME', 'bonfire_victoria_with_links.csv')
     base_dir = os.getenv('BASE_DIR', "/app/screenshots")
     try:
         # Use async with for asynchronous context management
@@ -233,7 +234,7 @@ async def main():
                     final_header_list = ['Status', 'Ref', 'Project', 'Type', "Link", 'Project Description', 'Open Date', 'Close Date', 'Days Left']
                     final_df = pd.DataFrame(project_data, columns=final_header_list)
                     
-                    output_path = f"{base_dir}/bonfire_victoria_with_links.csv"
+                    output_path = f"{base_dir}/{CSV_FILE_NAME}"
                     final_df.to_csv(output_path, index=False)
                     print(f"Scraping complete. Data saved to {output_path}")
                     print(final_df)

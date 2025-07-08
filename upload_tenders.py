@@ -18,11 +18,11 @@ def clean_column_names(df):
     df.columns = new_cols
     return df
 
-def load_and_filter_tenders(base_dir):
+def load_and_filter_tenders(base_dir, csv_file):
     """
     Loads tenders from a CSV file, cleans column names, and filters for recent entries.
     """
-    csv_path = os.path.join(base_dir, "bonfire_victoria_with_links.csv")
+    csv_path = os.path.join(base_dir, csv_file)
     if not os.path.exists(csv_path):
         print(f"Error: The file {csv_path} was not found.")
         return pd.DataFrame()
@@ -63,28 +63,49 @@ def main():
     load_dotenv()
     base_dir = os.getenv('BASE_DIR', "screenshots_output")
 
+    # Define the list of CSV files and their corresponding hardcoded city names
+    csv_configs = [
+        {"file_name": "bonfire_victoria_with_links.csv", "city": "victoria"},
+        {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich"},
+    ]
+    
     print("--- Starting Tender Processing Script ---")
     if not os.path.exists("data"):
         os.makedirs("data")
-    # 1. Load and filter tenders from the CSV file
-    filtered_tenders_df = load_and_filter_tenders(base_dir)
-    # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
-    if 'open_date_parsed' in filtered_tenders_df.columns:
-        del filtered_tenders_df['open_date_parsed']
-        print("Removed 'open_date_parsed' column from the DataFrame.")
-    else:
-        print("'open_date_parsed' column not found in the DataFrame (perhaps already removed or not generated).")
 
-    # apply city_name
-    filtered_tenders_df['city_name'] = 'victoria'
-    filtered_entries = filtered_tenders_df.to_dict('records')
-    map_data({
-        "data": filtered_entries,
-        "region_name": 'victoria',
-        'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
-        'file_prefix': 'tenders',
-        'tender_authority': 'City of Victoria Purchasing',
-    })
+    for config in csv_configs:
+        csv_file = config["file_name"]
+        city_name = config["city"]
+
+        print(f"\n--- Processing {csv_file} for {city_name.capitalize()} ---")
+        
+        # 1. Load and filter tenders from the current CSV file
+        filtered_tenders_df = load_and_filter_tenders(base_dir, csv_file)
+        
+        if not filtered_tenders_df.empty:
+            # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
+            if 'open_date_parsed' in filtered_tenders_df.columns:
+                del filtered_tenders_df['open_date_parsed']
+                print(f"Removed 'open_date_parsed' column from the DataFrame for {csv_file}.")
+            else:
+                print(f"'open_date_parsed' column not found in the DataFrame for {csv_file} (perhaps already removed or not generated).")
+
+            # apply hardcoded city_name
+            filtered_tenders_df['city_name'] = city_name
+            
+            # Convert DataFrame to a list of dictionaries for map_data
+            filtered_entries = filtered_tenders_df.to_dict('records')
+            
+            # Call map_data for each CSV file individually
+            map_data({
+                "data": filtered_entries,
+                "region_name": city_name, # Use the hardcoded city name as the region
+                'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+                'file_prefix': 'tenders',
+                'tender_authority': f"City of {city_name.capitalize()} Purchasing", # Dynamic tender authority
+            })
+        else:
+            print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
 
 if __name__ == "__main__":
     main()

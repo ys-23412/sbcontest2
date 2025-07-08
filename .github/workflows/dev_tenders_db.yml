@@ -1,9 +1,9 @@
 name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linux now
 
 on:
-  # push:
-  #   branches:
-  #     - 'main'
+  push:
+    branches:
+      - 'main'
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 5:00 AM UTC on Monday and Thursday
@@ -20,7 +20,6 @@ jobs:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
-      BASE_URL: ${{ secrets.TENDER_BASE_URL }}
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
       PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
     strategy:
@@ -61,7 +60,17 @@ jobs:
         timeout_seconds: 60 # Wait 60 seconds between retries
         command: python -m camoufox fetch
 
-    - name: Fetch Tenders
+    - name: Fetch Tenders BASE_VIC_URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
+        CSV_FILE_NAME: bonfire_victoria_with_links.csv
+      run: |
+        python fetch_tenders.py
+
+    - name: Fetch Tenders BASE_VIC_URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
+        CSV_FILE_NAME: bonfire_saanich_with_links.csv
       run: |
         python fetch_tenders.py
 
