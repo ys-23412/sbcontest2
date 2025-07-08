@@ -63,228 +63,198 @@ def get_tag_on_details_page(soup, labelText="Project Description:"):
         # print(f"Could not find the '{labelText}' tag.") # Optional for debugging
         return "" # Return empty if the label itself is not found
 
-
-async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
+async def main():
     """
-    Asynchronously navigates to a URL using a given Camoufox browser instance, 
-    retrieves the inner HTML, and scrapes tender data.
-    
-    Args:
-        browser (AsyncCamoufox): The persistent AsyncCamoufox browser instance.
-        config (dict): A dictionary containing 'base_url', 'csv_file_name', and 'city_name'.
+    Asynchronously navigates to a URL using Camoufox and retrieves the inner HTML.
     """
-    BASE_URL = config['base_url']
-    CSV_FILE_NAME = config['csv_file_name']
-    CITY_NAME = config['city_name']
-
+    load_dotenv()
+    BASE_URL = os.getenv('BASE_URL')
     EMAIL = os.getenv('EMAIL')
     PASSWORD = os.getenv('PASSWORD')
+    CSV_FILE_NAME = os.getenv('CSV_FILE_NAME', 'bonfire_victoria_with_links.csv')
     base_dir = os.getenv('BASE_DIR', "/app/screenshots")
-
-    # Create directory if it doesn't exist
-    os.makedirs(base_dir, exist_ok=True)
-
-    print(f"\n--- Starting fetch for {CITY_NAME.capitalize()} tenders ---")
-
-    page = None # Initialize page to None
     try:
-        # Create a new page for each tender within the existing browser instance
-        page = await browser.new_page() 
-        print(f"Navigating to {BASE_URL} login page...")
-        initial_url = f'{BASE_URL}/login'
-        await page.goto(initial_url)
-
-        try:
-            print("Solving captcha challenge...")
-            success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
-            if not success:
-                print(f"Failed to solve captcha challenge for {CITY_NAME}. Skipping.")
-                return # Skip this tender if captcha fails
-
-            href = await page.evaluate('() => document.location.href')
-            if "login" in href:
-                print(f"Current page is login for {CITY_NAME}, proceeding with login...")
-                print("Entering email...")
-                await page.locator("input[type='email']").fill(EMAIL)
-                await page.locator('button[type="submit"]').click()
-    
-                await page.wait_for_timeout(6000) # Wait for password field to appear
-
-                print("Entering password...")
-                await page.locator("input[type='password']").fill(PASSWORD)
-                await page.screenshot(path=f"{base_dir}/{CITY_NAME}_input_password.png")
-                await page.locator('button[type="submit"]').click()
-
-                print("Login submitted. Waiting for opportunities page...")
-            else:
-                await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
-                print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
-
-            await page.wait_for_timeout(10000)
-            await page.wait_for_load_state('networkidle', timeout=10000)
-            page_source = await page.content()
-            with open(f"{base_dir}/{CITY_NAME}_bonfire.html", "w", encoding='utf-8', errors='ignore') as f:
-                f.write(page_source)
-
-            # --- 2. Scrape the Main Table ---
-            print(f"Parsing opportunities table for {CITY_NAME}...")
-            soup = BeautifulSoup(page_source, 'html.parser')
-            dataTables_scroll_soup = soup.find('div', {'class': 'dataTables_scroll'})
-            
-            if not dataTables_scroll_soup:
-                print(f"Could not find the main data table for {CITY_NAME}. Exiting this fetch.")
-                return pd.DataFrame()
-
-            # Extract Headers
-            header_list = []
-            header_table_soup = dataTables_scroll_soup.find('div', class_='dataTables_scrollHead')
-            if header_table_soup:
-                headers_th = header_table_soup.find_all('th')
-                header_list = [th.get_text(strip=True) for th in headers_th]
-                if header_list and header_list[-1].lower() == "action":
-                    header_list[-1] = "Action Link"
-            else:
-                print(f"Warning: Could not find headers for {CITY_NAME}. Using default headers.")
-                header_list = ['Status', 'Ref. #', 'Project', 'Close Date', 'Days Left', 'Action Link']
-
-            # Extract Data Rows
-            all_rows_data = []
-            body_table_soup = dataTables_scroll_soup.find('div', class_='dataTables_scrollBody')
-            if body_table_soup:
-                tbody = body_table_soup.find('tbody')
-                if tbody:
-                    for row_tr in tbody.find_all('tr'):
-                        cells_td = row_tr.find_all('td')
-                        row_data = [cell.get_text(separator=' ', strip=True) for cell in cells_td]
-                        
-                        # Special handling for the last cell to get the href
-                        if cells_td:
-                            link_tag = cells_td[-1].find('a')
-                            row_data[-1] = link_tag['href'] if link_tag and link_tag.has_attr('href') else None
-                        
-                        if len(row_data) == len(header_list):
-                            all_rows_data.append(row_data)
-
-            if not all_rows_data:
-                print(f"No data rows found in the table for {CITY_NAME}.")
-                content_df = pd.DataFrame(columns=header_list)
-            else:
-                content_df = pd.DataFrame(all_rows_data, columns=header_list)
-                print(f"Successfully scraped {len(content_df)} opportunities from the main table for {CITY_NAME}.")
-
-            # --- 3. Scrape Detail Pages ---
-            project_data = []
-            for index, row in content_df.iterrows():
-                action_link = row["Action Link"]
-                if action_link:
-                    full_link = f"{BASE_URL}{action_link}"
-                    print(f"({index + 1}/{len(content_df)}) Navigating to detail page for {CITY_NAME}: {full_link}")
-                    
-                    try:
-                        await page.goto(full_link)
-                        success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
-                        if not success:
-                            print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
-                            new_page_source = await page.inner_html('html')
-                            with open(f"{base_dir}/{CITY_NAME}_tender_fail_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
-                                f.write(new_page_source)
-                            continue
-                        await page.wait_for_load_state('domcontentloaded')
-
-                        # Take screenshot and get page source
-                        screenshot_path = f"{base_dir}/{CITY_NAME}_tender_{index}.png"
-                        await page.screenshot(path=screenshot_path)
-                        new_page_source = await page.inner_html('html')
-
-                        with open(f"{base_dir}/{CITY_NAME}_tender_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
-                            f.write(new_page_source)
-
-                        # Parse details from the new page
-                        detail_soup = BeautifulSoup(new_page_source, 'html.parser')
-                        
-                        type_text = get_tag_on_details_page(detail_soup, labelText = "Type:")
-                        project_description = get_tag_on_details_page(detail_soup, labelText = "Project Description:")
-                        open_date = get_tag_on_details_page(detail_soup, labelText = "Open Date:")
-                        close_date = get_tag_on_details_page(detail_soup, labelText = "Close Date:")
-                        days_left = get_tag_on_details_page(detail_soup, labelText = "Days Left:")
-
-                        page_data = [
-                            row['Status'], row['Ref. #'], row['Project'],
-                            type_text, full_link, project_description,
-                            open_date, close_date, days_left
-                        ]
-                        project_data.append(page_data)
-
-                    except Exception as e:
-                        print(f"Error processing link {full_link} for {CITY_NAME}: {e}")
-                else:
-                    print(f"No Action Link found for row {index} in {CITY_NAME}.")
-
-            # --- 4. Save Final Data ---
-            if project_data:
-                final_header_list = ['Status', 'Ref', 'Project', 'Type', "Link", 'Project Description', 'Open Date', 'Close Date', 'Days Left']
-                final_df = pd.DataFrame(project_data, columns=final_header_list)
-                
-                output_path = os.path.join(base_dir, f"{CSV_FILE_NAME}")
-                final_df.to_csv(output_path, index=False)
-                print(f"Scraping complete for {CITY_NAME}. Data saved to {output_path}")
-                print(final_df)
-            else:
-                print(f"No project detail data was collected for {CITY_NAME}.")
-            
-        except Exception as e:
-            print(f"Error during main scraping process for {CITY_NAME}: {e}")
-
-    except Exception as e:
-        print(f"An error occurred during browser operation for {CITY_NAME}: {e}")
-    finally:
-        if page:
-            await page.close() # Close the page after use
-
-async def main():
-    load_dotenv() # Load environment variables from .env file
-
-    # Define the list of tender configurations
-    tender_configs = [
-        {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
-        {"base_url_env_key": "TENDER_BASE_SAANICH_URL", "csv_file_name": "bonfire_saanich_with_links.csv", "city_name": "saanich"},
-        {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north_cowichan"},
-        {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
-        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
-        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
-        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bc_transit"},
-    ]
-
-    print("--- Initializing AsyncCamoufox Browser ---")
-    try:
-        # Initialize AsyncCamoufox once
+        # Use async with for asynchronous context management
         async with AsyncCamoufox(
             headless=True,
             geoip=True,
             humanize=False,
             i_know_what_im_doing=True,
-            config={'forceScopeAccess': True},
-            disable_coop=True,
+            config={'forceScopeAccess': True},  # add this when creating Camoufox instance
+            disable_coop=True,  # add this when creating Camoufox instance
+            # }
         ) as browser:
-            print("--- Browser initialized. Starting tender fetches ---")
-            for config_item in tender_configs:
-                # Retrieve the actual BASE_URL from environment variables using the key
-                base_url = os.getenv(config_item['base_url_env_key'])
-                if not base_url:
-                    print(f"Warning: {config_item['base_url_env_key']} not found in environment variables. Skipping {config_item['city_name']}.")
-                    continue
+            # Await the new_page method as it's asynchronous, page is a Playwright Page
+            page = await browser.new_page()
+            print(f"Navigating to {BASE_URL}...")
+            initial_url = f'{BASE_URL}/login'
+            await page.goto(initial_url)
+
+            try:
+                print("Navigating to the page...")
+                # Await inner_html() and pass 'html' as the selector to get the entire page's HTML
+                # print(inner_html_content)
+                # turnstile_container = await page.wait_for_selector('.turnstile_container')
+
+                # specify challenge type for Turnstile
+                success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
+                if not success:
+                    return print("Failed to solve captcha challenge")
+
+                if not success:
+                    return print("Failed to solve captcha challenge")
                 
-                # Create a complete config dictionary to pass to fetch_single_tender
-                current_tender_config = {
-                    "base_url": base_url,
-                    "csv_file_name": config_item['csv_file_name'],
-                    "city_name": config_item['city_name']
-                }
-                await fetch_single_tender(browser, current_tender_config) # Pass the browser instance
-            print("--- All tender fetches completed. ---")
+                # when we visit the login page, you get autodirected
+                # if you are logged in, we check the url to make sure its at the login page
+                # if so proceed with login, else scrape
+                href = await page.evaluate('() => document.location.href')
+                if "login" in href:
+                    print("The current page is login page, proceeding with login...")
+                    print("Entering email...")
+                    await page.locator("input[type='email']").fill(EMAIL)
+                    await page.locator('button[type="submit"]').click()
+    
+                    inner_html_content = await page.inner_html('html') # Fix: Added 'html' selector
+                    print("inner_html_content", inner_html_content)
+
+                    # Wait for the password field to appear
+                    await page.wait_for_timeout(6000)
+
+                    print("Entering password...")
+                    await page.locator("input[type='password']").fill(PASSWORD)
+                    await page.screenshot(path=f"{base_dir}/input_password.png")
+                    await page.locator('button[type="submit"]').click()
+
+                    # Wait for the page to load after login
+                    print("Login submitted. Waiting for opportunities page...")
+                    # wait for login to happen
+                else:
+                    await page.screenshot(path=f"{base_dir}/no_login.png")
+                    print("The current page is not a login page (or 'login' is not in the URL).")
+
+                await page.wait_for_timeout(10000)
+                await page.wait_for_load_state('networkidle', timeout=10000)
+                page_source = await page.content()
+                with open(f"{base_dir}/bonfire_victoria.html", "w", errors='ignore') as f:
+                    f.write(page_source)
+
+                # --- 2. Scrape the Main Table ---
+                print("Parsing opportunities table...")
+                soup = BeautifulSoup(page_source, 'html.parser')
+                dataTables_scroll_soup = soup.find('div', {'class': 'dataTables_scroll'})
+                
+                if not dataTables_scroll_soup:
+                    print("Could not find the main data table. Exiting.")
+                    return
+
+                # Extract Headers
+                header_list = []
+                header_table_soup = dataTables_scroll_soup.find('div', class_='dataTables_scrollHead')
+                if header_table_soup:
+                    headers_th = header_table_soup.find_all('th')
+                    header_list = [th.get_text(strip=True) for th in headers_th]
+                    if header_list and header_list[-1].lower() == "action":
+                        header_list[-1] = "Action Link"
+                else:
+                    print("Warning: Could not find headers. Using default headers.")
+                    header_list = ['Status', 'Ref. #', 'Project', 'Close Date', 'Days Left', 'Action Link']
+
+                # Extract Data Rows
+                all_rows_data = []
+                body_table_soup = dataTables_scroll_soup.find('div', class_='dataTables_scrollBody')
+                if body_table_soup:
+                    tbody = body_table_soup.find('tbody')
+                    if tbody:
+                        for row_tr in tbody.find_all('tr'):
+                            cells_td = row_tr.find_all('td')
+                            row_data = [cell.get_text(separator=' ', strip=True) for cell in cells_td]
+                            
+                            # Special handling for the last cell to get the href
+                            if cells_td:
+                                link_tag = cells_td[-1].find('a')
+                                row_data[-1] = link_tag['href'] if link_tag and link_tag.has_attr('href') else None
+                            
+                            if len(row_data) == len(header_list):
+                                all_rows_data.append(row_data)
+
+                if not all_rows_data:
+                    print("No data rows found in the table.")
+                    content_df = pd.DataFrame(columns=header_list)
+                else:
+                    content_df = pd.DataFrame(all_rows_data, columns=header_list)
+                    print(f"Successfully scraped {len(content_df)} opportunities from the main table.")
+
+                # --- 3. Scrape Detail Pages ---
+                project_data = []
+                for index, row in content_df.iterrows():
+                    action_link = row["Action Link"]
+                    if action_link:
+                        full_link = f"{BASE_URL}{action_link}"
+                        print(f"({index + 1}/{len(content_df)}) Navigating to detail page: {full_link}")
+                        
+                        try:
+                            await page.goto(full_link)
+                            success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
+                            if not success:
+                                print("Failed to solve captcha challenge")
+                                new_page_source = await page.inner_html('html')
+                                with open(f"{base_dir}/tender_fail_{index}.html", "w", errors='ignore') as f:
+                                    f.write(new_page_source)
+                                    continue
+                            await page.wait_for_load_state('domcontentloaded')
+
+                            # Take screenshot and get page source
+                            screenshot_path = f"{base_dir}/tender_{index}.png"
+                            await page.screenshot(path=screenshot_path)
+                            new_page_source = await page.inner_html('html')
+
+                            with open(f"{base_dir}/tender_{index}.html", "w", errors='ignore') as f:
+                                f.write(new_page_source)
+
+                            # Parse details from the new page
+                            detail_soup = BeautifulSoup(new_page_source, 'html.parser')
+                            
+                            type_text = get_tag_on_details_page(detail_soup, labelText = "Type:")
+                            project_description = get_tag_on_details_page(detail_soup, labelText = "Project Description:")
+                            open_date = get_tag_on_details_page(detail_soup, labelText = "Open Date:")
+                            close_date = get_tag_on_details_page(detail_soup, labelText = "Close Date:")
+                            days_left = get_tag_on_details_page(detail_soup, labelText = "Days Left:")
+
+                            page_data = [
+                                row['Status'], row['Ref. #'], row['Project'],
+                                type_text, full_link, project_description,
+                                open_date, close_date, days_left
+                            ]
+                            project_data.append(page_data)
+
+                        except Exception as e:
+                            print(f"Error processing link {full_link}: {e}")
+                    else:
+                        print(f"No Action Link found for row {index}.")
+
+                # --- 4. Save Final Data ---
+                if project_data:
+                    final_header_list = ['Status', 'Ref', 'Project', 'Type', "Link", 'Project Description', 'Open Date', 'Close Date', 'Days Left']
+                    final_df = pd.DataFrame(project_data, columns=final_header_list)
+                    
+                    output_path = f"{base_dir}/{CSV_FILE_NAME}"
+                    final_df.to_csv(output_path, index=False)
+                    print(f"Scraping complete. Data saved to {output_path}")
+                    print(final_df)
+                else:
+                    print("No project detail data was collected.")
+                # Extract Rows
+                print("Successfully solved captcha challenge!")
+                with open(f"{base_dir}/index.html", "w") as f:
+                    f.write(inner_html_content)
+            except Exception as e:
+                # If there's an error getting inner_html, print the exception
+                print(f"Error retrieving inner HTML: {e}")
+                # You can still try to print the error page's content if available
+                # print(await page.inner_html()) # This might also fail if page is broken
 
     except Exception as e:
-        print(f"An error occurred during browser initialization or main loop: {e}")
+        print(f"An error occurred during browser operation: {e}")
 
 # Run the asynchronous main function
 if __name__ == "__main__":
