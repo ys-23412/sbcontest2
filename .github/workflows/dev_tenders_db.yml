@@ -60,23 +60,57 @@ jobs:
         timeout_seconds: 60 # Wait 60 seconds between retries
         command: python -m camoufox fetch
 
-    - name: Fetch Tenders BASE_VIC_URL
+    - name: Fetch Tenders VICTORIA URL
       env:
         BASE_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
         CSV_FILE_NAME: bonfire_victoria_with_links.csv
       run: |
         python fetch_tenders.py
 
-    - name: Fetch Tenders BASE_VIC_URL
+    - name: Fetch Tenders SAANICH URL
       env:
         BASE_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
         CSV_FILE_NAME: bonfire_saanich_with_links.csv
       run: |
         python fetch_tenders.py
 
+    - name: Fetch Tenders NORTHCOW URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_NORTHCOW_URL }}
+        CSV_FILE_NAME: bonfire_north_cowichan_with_links.csv
+      run: |
+        python fetch_tenders.py
+
+    - name: Fetch Tenders CRVD URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
+        CSV_FILE_NAME: bonfire_cvrd_with_links.csv
+      run: |
+        python fetch_tenders.py
+
+    - name: Fetch Tenders FNHA URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
+        CSV_FILE_NAME: bonfire_fnha_with_links.csv
+      run: |
+        python fetch_tenders.py
+
+    - name: Fetch Tenders UVIC URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_UVIC_URL }}
+        CSV_FILE_NAME: bonfire_uvic_with_links.csv
+      run: |
+        python fetch_tenders.py
+
+    - name: Fetch Tenders BC TRANSIT URL
+      env:
+        BASE_URL: ${{ secrets.TENDER_BASE_BCTRANSIT_URL }}
+        CSV_FILE_NAME: bonfire_uvic_with_links.csv
+      run: |
+        python fetch_tenders.py
     - name: Upload Screenshots
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/uploa-artifact@v4
       with:
         name: cloudflare-screenshots
         path: screenshots/

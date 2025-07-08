@@ -104,31 +104,34 @@ async def main():
                 if not success:
                     return print("Failed to solve captcha challenge")
                 
-                # print("Attempting to log in...")
-                # await page.locator('.login-button').click()
+                # when we visit the login page, you get autodirected
+                # if you are logged in, we check the url to make sure its at the login page
+                # if so proceed with login, else scrape
+                href = await page.evaluate('() => document.location.href')
+                if "login" in href:
+                    print("The current page is login page, proceeding with login...")
+                    print("Entering email...")
+                    await page.locator("input[type='email']").fill(EMAIL)
+                    await page.locator('button[type="submit"]').click()
+    
+                    inner_html_content = await page.inner_html('html') # Fix: Added 'html' selector
+                    print("inner_html_content", inner_html_content)
 
-                # # Wait for the login form to be ready
-                # await page.wait_for_timeout(3000) 
-                
-                print("Entering email...")
-                await page.locator("input[type='email']").fill(EMAIL)
-                await page.locator('button[type="submit"]').click()
- 
-                inner_html_content = await page.inner_html('html') # Fix: Added 'html' selector
-                print("inner_html_content", inner_html_content)
+                    # Wait for the password field to appear
+                    await page.wait_for_timeout(6000)
 
-                
-                # Wait for the password field to appear
-                await page.wait_for_timeout(6000)
+                    print("Entering password...")
+                    await page.locator("input[type='password']").fill(PASSWORD)
+                    await page.screenshot(path=f"{base_dir}/input_password.png")
+                    await page.locator('button[type="submit"]').click()
 
-                print("Entering password...")
-                await page.locator("input[type='password']").fill(PASSWORD)
-                await page.screenshot(path=f"{base_dir}/input_password.png")
-                await page.locator('button[type="submit"]').click()
+                    # Wait for the page to load after login
+                    print("Login submitted. Waiting for opportunities page...")
+                    # wait for login to happen
+                else:
+                    await page.screenshot(path=f"{base_dir}/no_login.png")
+                    print("The current page is not a login page (or 'login' is not in the URL).")
 
-                # Wait for the page to load after login
-                print("Login submitted. Waiting for opportunities page...")
-                # wait for login to happen
                 await page.wait_for_timeout(10000)
                 await page.wait_for_load_state('networkidle', timeout=10000)
                 page_source = await page.content()
