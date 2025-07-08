@@ -145,7 +145,7 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
                     header_list[-1] = "Action Link"
             else:
                 print(f"Warning: Could not find headers for {CITY_NAME}. Using default headers.")
-                header_list = ['Status', 'Ref. #', 'Project', 'Close Date', 'Days Left', 'Action Link']
+                header_list = ['Status', 'Ref. #', 'Project', 'Close Date', 'Days Left', 'Action Link', 'Contact Information']
 
             # Extract Data Rows
             all_rows_data = []
@@ -207,11 +207,12 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
                         open_date = get_tag_on_details_page(detail_soup, labelText = "Open Date:")
                         close_date = get_tag_on_details_page(detail_soup, labelText = "Close Date:")
                         days_left = get_tag_on_details_page(detail_soup, labelText = "Days Left:")
+                        contact_information = get_tag_on_details_page(detail_soup, labelText = "Contact Information:")
 
                         page_data = [
                             row['Status'], row['Ref. #'], row['Project'],
                             type_text, full_link, project_description,
-                            open_date, close_date, days_left
+                            open_date, close_date, days_left, contact_information
                         ]
                         project_data.append(page_data)
 
@@ -222,7 +223,7 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
 
             # --- 4. Save Final Data ---
             if project_data:
-                final_header_list = ['Status', 'Ref', 'Project', 'Type', "Link", 'Project Description', 'Open Date', 'Close Date', 'Days Left']
+                final_header_list = ['Status', 'Ref', 'Project', 'Type', "Link", 'Project Description', 'Open Date', 'Close Date', 'Days Left', 'Contact Information']
                 final_df = pd.DataFrame(project_data, columns=final_header_list)
                 
                 output_path = os.path.join(base_dir, f"{CSV_FILE_NAME}")

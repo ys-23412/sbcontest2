@@ -397,6 +397,10 @@ def map_data(params):
                 ys_body['ys_reference'] = unmapped_entry['ref']
             if params.get('tender_authority'):
                 ys_body['ys_tender_authority'] = params['tender_authority']
+
+            # grab Contact Information
+            if unmapped_entry.get('contact_information'):
+                ys_body['ys_enquiries'] = unmapped_entry['contact_information']
             # we want to set stage based on a mapping here
             if unmapped_entry.get('type'):
                 # we use the "Type" field from here to populate "ys_stage"
