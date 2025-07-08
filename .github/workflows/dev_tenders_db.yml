@@ -22,6 +22,13 @@ jobs:
       YS_COMPONENTID: 10
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
       PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
+      TENDER_BASE_SAANICH_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
+      TENDER_BASE_BCTRANSIT_URL: ${{ secrets.TENDER_BASE_BCTRANSIT_URL }}
+      TENDER_BASE_UVIC_URL: ${{ secrets.TENDER_BASE_UVIC_URL }}
+      TENDER_BASE_NORTHCOW_URL: ${{ secrets.TENDER_BASE_NORTHCOW_URL }}
+      TENDER_BASE_VIC_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
+      TENDER_BASE_CVRD_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
+      TENDER_BASE_FNHA_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -60,57 +67,12 @@ jobs:
         timeout_seconds: 60 # Wait 60 seconds between retries
         command: python -m camoufox fetch
 
-    - name: Fetch Tenders VICTORIA URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
-        CSV_FILE_NAME: bonfire_victoria_with_links.csv
+    - name: Fetch Tenders ALL
       run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders SAANICH URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
-        CSV_FILE_NAME: bonfire_saanich_with_links.csv
-      run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders NORTHCOW URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_NORTHCOW_URL }}
-        CSV_FILE_NAME: bonfire_north_cowichan_with_links.csv
-      run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders CRVD URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
-        CSV_FILE_NAME: bonfire_cvrd_with_links.csv
-      run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders FNHA URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
-        CSV_FILE_NAME: bonfire_fnha_with_links.csv
-      run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders UVIC URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_UVIC_URL }}
-        CSV_FILE_NAME: bonfire_uvic_with_links.csv
-      run: |
-        python fetch_tenders.py
-
-    - name: Fetch Tenders BC TRANSIT URL
-      env:
-        BASE_URL: ${{ secrets.TENDER_BASE_BCTRANSIT_URL }}
-        CSV_FILE_NAME: bonfire_uvic_with_links.csv
-      run: |
-        python fetch_tenders.py
+        python fetch_tenders_all.py
     - name: Upload Screenshots
       if: always()
-      uses: actions/uploa-artifact@v4
+      uses: actions/upload-artifact@v4
       with:
         name: cloudflare-screenshots
         path: screenshots/

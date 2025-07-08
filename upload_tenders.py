@@ -69,7 +69,9 @@ def main():
         {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich"},
         {"file_name": "bonfire_north_cowichan_with_links.csv", "city": "north cowichan"},
         {"file_name": "bonfire_cvrd_with_links.csv", "city": "cowichan valley rd"},
-        {"file_name": "bonfire_fnha_with_links.csv", "city": "saanich"}
+        {"file_name": "bonfire_fnha_with_links.csv", "city": "saanich"},
+        {"file_name": "bonfire_bc_transit_with_links.csv", "city": "victoria"},
+        {"file_name": "bonfire_uvic_with_links.csv", "city": "victoria"},
     ]
     
     print("--- Starting Tender Processing Script ---")
