@@ -410,6 +410,8 @@ def map_data(params):
                     ys_body['ys_stage'] = 'Request for proposals'
                 elif unmapped_entry['type'] == 'RFQ':
                     ys_body['ys_stage'] = 'Request for Quotations'
+                elif unmapped_entry['type'] == 'NRFP':
+                    ys_body['ys_stage'] = 'Request for Proposals'
 
         elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             # ys project is set to purpose

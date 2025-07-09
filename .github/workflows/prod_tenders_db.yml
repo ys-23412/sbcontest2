@@ -1,10 +1,10 @@
-name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linux now
+name: Camofox PROD Tenders
 
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
-    # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '0 12 * * 4'
+    # Run at 5:00 AM UTC on Monday to Friday
+    - cron: '0 12 * * 1-5'
 
 jobs:
   build:
@@ -15,7 +15,7 @@ jobs:
       # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
       BASE_DIR: "screenshots"
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+      YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
       PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
