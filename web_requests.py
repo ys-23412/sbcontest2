@@ -2,6 +2,7 @@ import requests
 import re
 import random
 from enum import Enum
+import os
 from datetime import datetime, timedelta
 import base64
 import json
@@ -383,10 +384,13 @@ def web_portal_issues(params):
         https_proxy = proxy.replace('http://', 'https://')
         # do we just buy a proxy server for this scrapping
         if siteType == 'sidney':
-            proxies={
-                'http': proxy,
-                # 'https': https_proxy
-
+            proxy = 'geo.iproyal.com:12321'
+            proxy_username = os.getenv('IPROYAL_USERNAME')
+            proxy_password = os.getenv('IPROYAL_PASSWORD')
+            proxy_auth = f'{proxy_username}:{proxy_password}'
+            proxies = {
+                'http': f'http://{proxy_auth}@{proxy}',
+                'https': f'http://{proxy_auth}@{proxy}'
             }
         else:
             proxies={

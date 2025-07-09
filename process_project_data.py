@@ -383,7 +383,7 @@ def map_data(params):
             entry['ys_date'] = unmapped_entry['open_date']
             parsed_date_close = dateparser.parse(unmapped_entry['close_date'])
             if parsed_date_close:
-                ys_body['ys_closing'] = parsed_date_close.strftime("%b %-d/%y %I:%M %p %Z")
+                ys_body['ys_closing'] = parsed_date_close.strftime("%#m/%#d/%Y - %#I %p")
             else:
                 ys_body['ys_closing'] = unmapped_entry['close_date']
             ys_body['ys_project'] = unmapped_entry['project_description'] or unmapped_entry['project']
