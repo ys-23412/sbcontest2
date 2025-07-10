@@ -55,6 +55,8 @@ def load_and_filter_tenders(base_dir, csv_file):
     df_filtered = df[df['open_date_parsed'].dt.date.isin([today, yesterday])]
     # add address column fill with ''
     df_filtered['address'] = ''
+    # if any field is NaN set to ''
+    df_filtered = df_filtered.fillna('')
     return df_filtered
 
 
