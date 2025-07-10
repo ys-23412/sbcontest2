@@ -24,7 +24,7 @@ def get_tag_on_details_page(soup, labelText="Project Description:"):
     """
     stripped_labelText = labelText.strip()
     found_b_tag = soup.find(lambda tag: tag.name == 'b' and tag.get_text(strip=True).startswith(stripped_labelText))
-
+    project_text = ""
     if found_b_tag:
         project_text = ""
 
@@ -57,7 +57,8 @@ def get_tag_on_details_page(soup, labelText="Project Description:"):
                         project_text = candidate_text.strip()
                 elif hasattr(next_sibling, 'get_text'): # It's a tag
                     project_text = next_sibling.get_text(strip=True)
-        
+        if not project_text:
+            return ""
         return project_text
     else:
         # print(f"Could not find the '{labelText}' tag.") # Optional for debugging
