@@ -400,7 +400,7 @@ def map_data(params):
 
             # grab Contact Information
             if unmapped_entry.get('contact_information'):
-                ys_body['ys_enquiries'] = unmapped_entry['contact_information']
+                ys_body['ys_enquiries'] = unmapped_entry.get('contact_information', '')
             # we want to set stage based on a mapping here
             if unmapped_entry.get('type'):
                 # we use the "Type" field from here to populate "ys_stage"
