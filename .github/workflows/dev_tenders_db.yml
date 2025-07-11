@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '0 17 * * 4'
+    - cron: '5 17 * * 4'
 
 jobs:
   build:

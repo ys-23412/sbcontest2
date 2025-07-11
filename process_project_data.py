@@ -483,10 +483,10 @@ def map_data(params):
             found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
 
             if parsed_date_close.date() > found_issue_date_obj:
-                print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
+               
                 # make sure that its within the target 
                 if not is_new_tender:
-                    print("this is not in the new tender period")
+                    print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
                     current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
                 else:
                     print("this is in the new tender period")
