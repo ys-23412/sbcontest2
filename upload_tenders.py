@@ -59,22 +59,20 @@ def load_and_filter_tenders(base_dir, csv_file):
     df_filtered = df_filtered.fillna('')
     return df_filtered
 
-
-
 def main():
     load_dotenv()
     base_dir = os.getenv('BASE_DIR', "screenshots_output")
 
     # Define the list of CSV files and their corresponding hardcoded city names
-csv_configs = [
-    {"file_name": "bonfire_victoria_with_links.csv", "city": "victoria", "tender_authority": "City of Victoria - Purchasing"},
-    {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich", "tender_authority": "City of Saanich - Purchasing"},
-    {"file_name": "bonfire_north_cowichan_with_links.csv", "city": "north cowichan", "tender_authority": "North Cowichan - Purchasing"},
-    {"file_name": "bonfire_cvrd_with_links.csv", "city": "cowichan valley rd", "tender_authority": "Cowichan Valley Regional District - Purchasing"},
-    {"file_name": "bonfire_fnha_with_links.csv", "city": "first nations health authority", "tender_authority": "First Nations Health Authority - Purchasing"}, # Assuming 'saanich' was a typo for city in original, changed to a more descriptive name for FNHA, adjust if 'saanich' is indeed intended for city_name
-    {"file_name": "bonfire_bc_transit_with_links.csv", "city": "bc transit", "tender_authority": "BC Transit Procurement"}, # Assuming 'victoria' was a typo for city in original, changed to BC Transit
-    {"file_name": "bonfire_uvic_with_links.csv", "city": "university of victoria", "tender_authority": "University of Victoria - Purchasing"}, # Assuming 'victoria' was a typo for city in original, changed to University of Victoria
-]
+    csv_configs = [
+        {"file_name": "bonfire_victoria_with_links.csv", "city": "victoria", "tender_authority": "City of Victoria - Purchasing"},
+        {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich", "tender_authority": "City of Saanich - Purchasing"},
+        {"file_name": "bonfire_north_cowichan_with_links.csv", "city": "north cowichan", "tender_authority": "North Cowichan - Purchasing"},
+        {"file_name": "bonfire_cvrd_with_links.csv", "city": "cowichan valley rd", "tender_authority": "Cowichan Valley Regional District - Purchasing"},
+        {"file_name": "bonfire_fnha_with_links.csv", "city": "first nations health authority", "tender_authority": "First Nations Health Authority - Purchasing"}, # Assuming 'saanich' was a typo for city [...]
+        {"file_name": "bonfire_bc_transit_with_links.csv", "city": "bc transit", "tender_authority": "BC Transit Procurement"}, # Assuming 'victoria' was a typo for city in original, changed to BC Transit
+        {"file_name": "bonfire_uvic_with_links.csv", "city": "university of victoria", "tender_authority": "University of Victoria - Purchasing"}, # Assuming 'victoria' was a typo for city in original, ch[...]
+    ]
     
     print("--- Starting Tender Processing Script ---")
     if not os.path.exists("data"):
