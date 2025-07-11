@@ -54,8 +54,8 @@ id,name,sort_order,category,rank,analytics_include
 
 def find_correct_issue_date(issues, current_datetime_utc):
     """
-    Finds the immediate next upcoming issue from a list and a flag indicating
-    if the current time is within the 'New Tender' classification period.
+    Finds an appropriate upcoming issue based on specific weekday rules,
+    a flag for 'New Tender' classification period, and this week's Sunday date.
 
     Args:
         issues (list): A list of dictionaries, each representing an issue with a 'date' key
@@ -64,13 +64,14 @@ def find_correct_issue_date(issues, current_datetime_utc):
 
     Returns:
         tuple: A tuple containing:
-            - dict or None: The immediate next upcoming issue dictionary, or None if no suitable issue is found.
+            - dict or None: The selected issue dictionary, or None if no suitable issue is found.
             - bool: True if the current time (PST) is between Wednesday Noon and Sunday 10 PM,
                     indicating a 'New Tender' classification period for the *next* issue.
                     False otherwise.
+            - datetime.date: The date object for the Sunday of the current week (PST).
     """
-
     pst = pytz.timezone('America/Los_Angeles')
+
     # Convert current_datetime_utc to PST
     current_datetime_pst = current_datetime_utc.astimezone(pst)
     current_date_only_pst = current_datetime_pst.date()
@@ -87,49 +88,44 @@ def find_correct_issue_date(issues, current_datetime_utc):
 
     found_issue = None
 
-    # Get the immediate next upcoming issue
+    # Get all upcoming issues. The filter is now changed to include issues
+    # whose date is more recent than 7 days ago from the current date (PST).
+    filter_start_date = current_date_only_pst - timedelta(days=7)
     upcoming_issues = [
         issue_entry for issue_entry in parsed_issues
-        if issue_entry['date_obj'] > current_date_only_pst
+        if issue_entry['date_obj'] > filter_start_date
     ]
 
-    if upcoming_issues:
-        found_issue = upcoming_issues[0]['original_issue']
+    # --- Logic for selecting the correct 'found_issue' based on specified rules ---
+    if current_weekday_pst in [2, 3, 4]: # Wednesday (2), Thursday (3), Friday (4)
+        if upcoming_issues:
+            found_issue = upcoming_issues[1]['original_issue'] # Use the second relevant issue
+    else: # Monday, Tuesday, Saturday, Sunday
+        if len(upcoming_issues) >= 2:
+            found_issue = upcoming_issues[1]['original_issue'] # Use the second relevant issue
+        elif len(upcoming_issues) == 1:
+            found_issue = upcoming_issues[0]['original_issue'] # Fallback if only one relevant issue exists
+
+    # --- Calculate this week's Sunday's date (PST) ---
+    days_until_sunday = (6 - current_weekday_pst) % 7
+    this_weeks_sunday_date_pst = current_date_only_pst + timedelta(days=days_until_sunday)
 
     # --- Determine if current time falls into the 'New Tender' classification period ---
     is_new_tender_period = False
 
-    # Get the date of the current week's Wednesday and Sunday in PST
     # Find the current week's Wednesday at Noon PST
-    # If today is Wednesday or later in the week
-    if current_weekday_pst >= 2: # Wednesday (2), Thursday (3), Friday (4), Saturday (5), Sunday (6)
-        days_since_wednesday = (current_weekday_pst - 2)
-        wednesday_noon_this_week = (current_datetime_pst - timedelta(days=days_since_wednesday)).replace(
-            hour=12, minute=0, second=0, microsecond=0, tzinfo=pst
-        )
-    else: # Monday (0), Tuesday (1) - Wednesday is in the future of this week
-        days_until_wednesday = (2 - current_weekday_pst)
-        wednesday_noon_this_week = (current_datetime_pst + timedelta(days=days_until_wednesday)).replace(
-            hour=12, minute=0, second=0, microsecond=0, tzinfo=pst
-        )
+    days_since_monday = current_weekday_pst
+    start_of_current_week = current_datetime_pst - timedelta(days=days_since_monday)
+    wednesday_noon_this_week = start_of_current_week.replace(hour=12, minute=0, second=0, microsecond=0) + timedelta(days=2)
     
     # Find the current week's Sunday at 10 PM PST
-    # If today is Sunday or earlier in the week
-    if current_weekday_pst <= 6: # Monday (0) to Sunday (6)
-        days_until_sunday = (6 - current_weekday_pst)
-        sunday_10pm_this_week = (current_datetime_pst + timedelta(days=days_until_sunday)).replace(
-            hour=22, minute=0, second=0, microsecond=0, tzinfo=pst
-        )
-    else: # Should not happen with weekday 0-6, but for completeness or if logic shifts
-        sunday_10pm_this_week = current_datetime_pst.replace(
-            hour=22, minute=0, second=0, microsecond=0, tzinfo=pst
-        )
-
+    sunday_10pm_this_week = start_of_current_week.replace(hour=22, minute=0, second=0, microsecond=0) + timedelta(days=6)
 
     # Check if current_datetime_pst is between Wednesday Noon and Sunday 10 PM PST
-    # "between Wednesday Noon and Sunday 22:00" (inclusive of Wednesday Noon, exclusive of Sunday 10 PM)
     if wednesday_noon_this_week <= current_datetime_pst < sunday_10pm_this_week:
         is_new_tender_period = True
+        # use the entry for this week and not the upcoming week
+        found_issue = upcoming_issues[0]['original_issue']
 
     return found_issue, is_new_tender_period
 
