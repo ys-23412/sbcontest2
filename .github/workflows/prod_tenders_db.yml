@@ -26,6 +26,7 @@ jobs:
       TENDER_BASE_VIC_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
       TENDER_BASE_CVRD_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
       TENDER_BASE_FNHA_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
+      HIDE_TINY_URL: False
     strategy:
       fail-fast: false
       max-parallel: 6

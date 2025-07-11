@@ -5,12 +5,15 @@ import json
 import re
 import dateparser
 from enum import Enum
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta # Import this
+import pytz
 from google import genai
 from google.genai import types
 
 
 class DataTypes(Enum):
+    UPDATED_TENDERS = 11
     TENDERS = 10
     NEW_PROJECT = 7
 
@@ -49,45 +52,86 @@ id,name,sort_order,category,rank,analytics_include
 114,"land development",1,Multi-family,0,0
 """.strip()
 
-def find_correct_issue_date(issues, current_date):
+def find_correct_issue_date(issues, current_datetime_utc):
     """
-    Finds the correct issue from a list based on the current day's logic.
+    Finds the immediate next upcoming issue from a list and a flag indicating
+    if the current time is within the 'New Tender' classification period.
 
     Args:
-        issues (list): A list of dictionaries, each representing an issue with a 'date' key.
-        current_date (datetime.date): The current date (e.g., today's date).
+        issues (list): A list of dictionaries, each representing an issue with a 'date' key
+                       in 'YYYY-MM-DD' format.
+        current_datetime_utc (datetime.datetime): The current UTC datetime object.
 
     Returns:
-        dict or None: The selected issue dictionary, or None if no suitable issue is found.
+        tuple: A tuple containing:
+            - dict or None: The immediate next upcoming issue dictionary, or None if no suitable issue is found.
+            - bool: True if the current time (PST) is between Wednesday Noon and Sunday 10 PM,
+                    indicating a 'New Tender' classification period for the *next* issue.
+                    False otherwise.
     """
-    # Parse and sort issues by date (ascending) for easy selection of the "next" issue
+
+    pst = pytz.timezone('America/Los_Angeles')
+    # Convert current_datetime_utc to PST
+    current_datetime_pst = current_datetime_utc.astimezone(pst)
+    current_date_only_pst = current_datetime_pst.date()
+    current_weekday_pst = current_datetime_pst.weekday() # Monday is 0, Sunday is 6
+
     parsed_issues = []
     for issue in issues:
         # Assuming 'date' is in 'YYYY-MM-DD' format
-        issue_date = datetime.strptime(issue['date'], '%Y-%m-%d').date()
-        parsed_issues.append({'original_issue': issue, 'date_obj': issue_date})
+        issue_date_obj = datetime.strptime(issue['date'], '%Y-%m-%d').date()
+        parsed_issues.append({'original_issue': issue, 'date_obj': issue_date_obj})
 
     # Sort the issues by their date_obj
-    # Get the weekday (Monday is 0, Sunday is 6)
-    current_weekday = current_date.weekday()
+    parsed_issues.sort(key=lambda x: x['date_obj'])
 
     found_issue = None
-    # issues start on sunday, so for 5:00 am, its equal to or less than
-    if current_weekday >= 0 and current_weekday <= 2:  # Monday
-        for issue_entry in parsed_issues:
-            # we want to go the issue above
-            if issue_entry['date_obj'] > current_date:
-                found_issue = issue_entry['original_issue']
-    elif current_weekday >= 3:  # Thursday
-        # On Thursday, find the closest issue date that is strictly after the current date
-        for issue_entry in parsed_issues:
-            if issue_entry['date_obj'] > current_date:
-                found_issue = issue_entry['original_issue']
-                break # Found the first one strictly after, which is the closest upcoming
-    # For other days (Tuesday, Wednesday, Friday, Saturday, Sunday), no issue is selected
-    # as the cron job only runs on Monday and Thursday.
 
-    return found_issue
+    # Get the immediate next upcoming issue
+    upcoming_issues = [
+        issue_entry for issue_entry in parsed_issues
+        if issue_entry['date_obj'] > current_date_only_pst
+    ]
+
+    if upcoming_issues:
+        found_issue = upcoming_issues[0]['original_issue']
+
+    # --- Determine if current time falls into the 'New Tender' classification period ---
+    is_new_tender_period = False
+
+    # Get the date of the current week's Wednesday and Sunday in PST
+    # Find the current week's Wednesday at Noon PST
+    # If today is Wednesday or later in the week
+    if current_weekday_pst >= 2: # Wednesday (2), Thursday (3), Friday (4), Saturday (5), Sunday (6)
+        days_since_wednesday = (current_weekday_pst - 2)
+        wednesday_noon_this_week = (current_datetime_pst - timedelta(days=days_since_wednesday)).replace(
+            hour=12, minute=0, second=0, microsecond=0, tzinfo=pst
+        )
+    else: # Monday (0), Tuesday (1) - Wednesday is in the future of this week
+        days_until_wednesday = (2 - current_weekday_pst)
+        wednesday_noon_this_week = (current_datetime_pst + timedelta(days=days_until_wednesday)).replace(
+            hour=12, minute=0, second=0, microsecond=0, tzinfo=pst
+        )
+    
+    # Find the current week's Sunday at 10 PM PST
+    # If today is Sunday or earlier in the week
+    if current_weekday_pst <= 6: # Monday (0) to Sunday (6)
+        days_until_sunday = (6 - current_weekday_pst)
+        sunday_10pm_this_week = (current_datetime_pst + timedelta(days=days_until_sunday)).replace(
+            hour=22, minute=0, second=0, microsecond=0, tzinfo=pst
+        )
+    else: # Should not happen with weekday 0-6, but for completeness or if logic shifts
+        sunday_10pm_this_week = current_datetime_pst.replace(
+            hour=22, minute=0, second=0, microsecond=0, tzinfo=pst
+        )
+
+
+    # Check if current_datetime_pst is between Wednesday Noon and Sunday 10 PM PST
+    # "between Wednesday Noon and Sunday 22:00" (inclusive of Wednesday Noon, exclusive of Sunday 10 PM)
+    if wednesday_noon_this_week <= current_datetime_pst < sunday_10pm_this_week:
+        is_new_tender_period = True
+
+    return found_issue, is_new_tender_period
 
 def parse_json_string(json_string):
   """
@@ -148,11 +192,14 @@ def get_latest_issue():
     # parse response
     latest_issue = latest_issue.json()
 
-    found_issue = find_correct_issue_date(latest_issue, datetime.now().date())
+
+    current_datetime_utc_aware = datetime.now(pytz.utc) 
+    found_issue, is_new_tender_period = find_correct_issue_date(latest_issue, current_datetime_utc_aware)
 
     return {
        "issues": latest_issue,
-       "found_issue": found_issue
+       "found_issue": found_issue,
+       "is_new_tender_period": is_new_tender_period
     }
 
 def detect_company(text):
@@ -232,7 +279,20 @@ def map_data(params):
     file_prefix = params.get('file_prefix', 'np')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
 
-    hide_tiny_url = params.get('hide_tiny_url', False)
+    hide_tiny_url_str = params.get('hide_tiny_url', False)
+    # Check if the retrieved value is a string and then convert it
+    if isinstance(hide_tiny_url_str, str):
+        if hide_tiny_url_str.lower() == 'true':
+            hide_tiny_url = True
+        elif hide_tiny_url_str.lower() == 'false':
+            hide_tiny_url = False
+        # You might want to add an else here for unexpected string values
+        # For now, if it's a string but not 'true' or 'false', it will remain False
+    else:
+        # If it's not a string (e.g., already a boolean False from the default),
+        # just assign its value directly.
+        # This covers the case where params.get already returned a boolean False.
+        hide_tiny_url = bool(hide_tiny_url_str)
 
     GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
     client = genai.Client(api_key=GEMINI_API_KEY)
@@ -245,6 +305,7 @@ def map_data(params):
     issue_results = get_latest_issue()
     found_issue = issue_results['found_issue']
     latest_issue = issue_results['issues']
+    is_new_tender = issue_results['is_new_tender_period']
 
     print("Using found issue", found_issue)
     ys_volume_id = found_issue['id']
@@ -339,13 +400,14 @@ def map_data(params):
             # and we have to set the body the location details
             ys_body['ys_location_detail'] = ", ".join(addresses)
         # take first 255 characters
-        if int(ys_component_id) == DataTypes.TENDERS.value:
+        current_ys_component_id = int(ys_component_id)
+        if current_ys_component_id == DataTypes.TENDERS.value:
             entry['ys_description'] = unmapped_entry['project'][:100]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
             entry['ys_description'] = entry['ys_description'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
 
-        elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
+        elif current_ys_component_id == DataTypes.NEW_PROJECT.value:
             entry['ys_description'] = unmapped_entry['purpose'][:100]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
@@ -353,7 +415,7 @@ def map_data(params):
         # if '#' in entry['ys_description']:
         #     entry['ys_description'] = entry['ys_description'].split('#')[0]
        #  entry['ys_description'] = unmapped_entry['address'].split('#')[0]
-        entry['ys_component'] = ys_component_id
+        entry['ys_component'] = current_ys_component_id
         # all status is ACTIVE We can ignore, we only want to process active anyway
         entry['ys_type'] = unmapped_entry.get('ys_project_type', 0)
         entry['project_type'] = unmapped_entry.get('ys_project_type', 0)
@@ -379,7 +441,7 @@ def map_data(params):
             # we use the "Type" field from here to populate "ys_stage"
             ys_body['ys_stage'] = unmapped_entry['type']
 
-        if int(ys_component_id) == DataTypes.TENDERS.value:
+        if current_ys_component_id == DataTypes.TENDERS.value:
             entry['ys_date'] = unmapped_entry['open_date']
             parsed_date_close = dateparser.parse(unmapped_entry['close_date'])
             if parsed_date_close:
@@ -417,6 +479,26 @@ def map_data(params):
                 elif unmapped_entry['type'] == 'NRFP':
                     ys_body['ys_stage'] = 'Request for Proposals'
 
+            # determine if we should update the item to updated_tenders
+            found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
+
+            if parsed_date_close.date() > found_issue_date_obj:
+                print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
+                # make sure that its within the target 
+                if not is_new_tender:
+                    print("this is not in the new tender period")
+                    current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+                else:
+                    print("this is in the new tender period")
+            else:
+                print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
+           
+           
+            review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+            formatted_review_date = review_date_obj.strftime("%Y-%m-%d")
+            entry['review_date'] = formatted_review_date # Add to ys_body
+            entry['project_step_id'] = 1001
+
         elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
             # ys project is set to purpose
             ys_body['ys_project'] = unmapped_entry['purpose']
@@ -427,11 +509,12 @@ def map_data(params):
         else:
             raise Exception(f"Unknown ys_component_id: {ys_component_id}")
         
-        if hide_tiny_url:
-            ys_body['ys_no_tiny_urls'] = True
+
+        ys_body['ys_no_tiny_urls'] = hide_tiny_url
+
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
-        entry['user_id'] = '2025060339'
+        entry['user_id'] = '2010081127'
         mapped_data.append(entry)
 
     if len(mapped_data) == 0:
@@ -449,7 +532,7 @@ def map_data(params):
         "region": first_city,
         "file_type": "json",
         "data": mapped_data,
-        'user_id': '2025060339'
+        'user_id': '2010081127'
     }]
 
     with open(f"data/{file_prefix}_with_mapping_all{file_name}_{curr_date}_{region_name}.json", "w") as f:
