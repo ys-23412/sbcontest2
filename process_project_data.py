@@ -87,14 +87,15 @@ def find_correct_issue_date(issues, current_datetime_utc):
 
     found_issue = None
 
-    # Get the immediate next upcoming issue
+    filter_start_date = current_date_only_pst - timedelta(days=6)
     upcoming_issues = [
         issue_entry for issue_entry in parsed_issues
-        if issue_entry['date_obj'] > current_date_only_pst
+        if issue_entry['date_obj'] > filter_start_date
     ]
 
+
     if upcoming_issues:
-        found_issue = upcoming_issues[0]['original_issue']
+        found_issue = upcoming_issues[1]['original_issue']
 
     # --- Determine if current time falls into the 'New Tender' classification period ---
     is_new_tender_period = False
@@ -130,6 +131,8 @@ def find_correct_issue_date(issues, current_datetime_utc):
     # "between Wednesday Noon and Sunday 22:00" (inclusive of Wednesday Noon, exclusive of Sunday 10 PM)
     if wednesday_noon_this_week <= current_datetime_pst < sunday_10pm_this_week:
         is_new_tender_period = True
+        # grab this week's tender for this sunday
+        found_issue = upcoming_issues[0]['original_issue']
 
     return found_issue, is_new_tender_period
 
