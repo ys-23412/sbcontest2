@@ -478,6 +478,8 @@ def map_data(params):
                     ys_body['ys_stage'] = 'Request for Quotations'
                 elif unmapped_entry['type'] == 'NRFP':
                     ys_body['ys_stage'] = 'Request for Proposals'
+                elif unmapped_entry['type'] == 'RFT':
+                    ys_body['ys_stage'] = 'Tender Call'
 
             # determine if we should update the item to updated_tenders
             found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
