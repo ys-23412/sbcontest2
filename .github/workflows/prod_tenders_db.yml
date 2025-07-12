@@ -3,8 +3,8 @@ name: Camofox PROD Tenders
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
-    # Run at 5:00 AM UTC on Monday to Friday
-    - cron: '0 12 * * 1-5'
+    # Run at 5:00 AM UTC on Monday to Saturday
+    - cron: '0 12 * * 1-6'
 
 jobs:
   build:

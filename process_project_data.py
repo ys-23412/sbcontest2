@@ -491,8 +491,9 @@ def map_data(params):
                
                 # make sure that its within the target 
                 if not is_new_tender:
+                    # think this is handled by the cron job on ys website
                     print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
-                    current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+                    # current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
                 else:
                     print("this is in the new tender period")
             else:
@@ -519,7 +520,7 @@ def map_data(params):
 
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
-        entry['user_id'] = '2010081127'
+        entry['user_id'] = '2025060339'
         mapped_data.append(entry)
 
     if len(mapped_data) == 0:
