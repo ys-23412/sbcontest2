@@ -538,7 +538,7 @@ def map_data(params):
         "region": first_city,
         "file_type": "json",
         "data": mapped_data,
-        'user_id': '2010081127'
+        'user_id': '2025060339'
     }]
 
     with open(f"data/{file_prefix}_with_mapping_all{file_name}_{curr_date}_{region_name}.json", "w") as f:
