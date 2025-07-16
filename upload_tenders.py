@@ -72,8 +72,8 @@ def main():
         {"file_name": "bonfire_north_cowichan_with_links.csv", "city": "north cowichan", "tender_authority": "North Cowichan - Purchasing"},
         {"file_name": "bonfire_cvrd_with_links.csv", "city": "cowichan valley rd", "tender_authority": "Cowichan Valley Regional District - Purchasing"},
         {"file_name": "bonfire_fnha_with_links.csv", "city": "first nations health authority", "tender_authority": "First Nations Health Authority - Purchasing"}, # Assuming 'saanich' was a typo for city in original, changed to a more descriptive name for FNHA, adjust if 'saanich' is indeed intended for city_name
-        {"file_name": "bonfire_bc_transit_with_links.csv", "city": "bc transit", "tender_authority": "BC Transit Procurement"}, # Assuming 'victoria' was a typo for city in original, changed to BC Transit
-        {"file_name": "bonfire_uvic_with_links.csv", "city": "university of victoria", "tender_authority": "University of Victoria - Purchasing"}, # Assuming 'victoria' was a typo for city in original, changed to University of Victoria
+        {"file_name": "bonfire_bc_transit_with_links.csv", "city": "victoria", "tender_authority": "BC Transit Procurement"}, # Assuming 'victoria' was a typo for city in original, changed to BC Transit
+        {"file_name": "bonfire_uvic_with_links.csv", "city": "victoria", "tender_authority": "University of Victoria - Purchasing"}, # Assuming 'victoria' was a typo for city in original, changed to University of Victoria
     ]
     
     print("--- Starting Tender Processing Script ---")
@@ -109,7 +109,7 @@ def main():
                 "region_name": city_name, # Use the hardcoded city name as the region
                 'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
                 'file_prefix': 'tenders',
-                'tender_authority': f"City of {city_name.capitalize()} Purchasing", # Dynamic tender authority
+                'tender_authority': config.get("tender_authority"), # Dynamic tender authority
             })
         else:
             print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")

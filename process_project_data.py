@@ -308,6 +308,7 @@ def get_project_type_id(project_data_entry):
 
     try:
         response = client.models.generate_content(
+            model="gemini-2.5-flash",
             contents = [
                 prompt
             ]
@@ -350,7 +351,7 @@ def map_data(params):
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'np')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
-
+    print("ys_component_id: " + str(ys_component_id))
     hide_tiny_url_str = params.get('hide_tiny_url', False)
     # Check if the retrieved value is a string and then convert it
     if isinstance(hide_tiny_url_str, str):
