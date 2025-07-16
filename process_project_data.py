@@ -270,6 +270,75 @@ def detect_and_split_addresses(address_string):
         print(f"Error splitting addresses: {e}")
         return []
 
+def get_project_type_id(project_data_entry):
+    """
+    Determines the project type ID for a given project entry using a generative AI model.
+
+    Args:
+        project_data_entry (dict): A dictionary containing the project's data.
+        project_types_csv_data (str): A string containing project types in CSV format.
+        client_model (object): An initialized generative AI client model (e.g., from google.generativeai).
+                               If None, a default 'gemini-2.0-flash' model will be used.
+
+    Returns:
+        int: The determined project type ID, or 0 if none could be found.
+    """
+
+    GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    prompt = f"""
+        Given the following new project data, we want to determine the project type:
+
+        Use the following csv data and return the best matching id 
+
+        {project_types_csv}
+
+        Below is the project data:
+
+        {json.dumps(project_data_entry, indent=2)}
+
+        Please respond in the following format:
+
+        ```json
+        {{
+            "project_type_id": <project_type_id>
+        }}
+        ```
+    """
+
+    try:
+        response = client.models.generate_content(
+            contents = [
+                prompt
+            ]
+        )
+
+        project_type_id = 0 # Default value if nothing is found
+        project_data = parse_json_string(response.text)
+        
+        if project_data and 'project_type_id' in project_data:
+            # If JSON is valid and contains 'project_type_id', use its value
+            project_type_id: int = project_data['project_type_id']
+            print(f"Using project_type_id from JSON: {project_type_id}")
+        else:
+            # If JSON parsing failed or 'project_type_id' key is missing,
+            # fallback to regex to find the first number in the raw response text.
+            # Using \d+ to match any number of digits, not just two.
+            match = re.search(r'\b(\d+)\b', response.text) 
+            if match:
+                # If a number is found, convert it to an integer
+                project_type_id = int(match.group(1))
+                print(f"Using project_type_id from regex: {project_type_id}")
+            else:
+                # If no number is found via regex, keep default 0
+                print("No project_type_id found in JSON or via regex. Defaulting to 0.")
+        
+        return project_type_id
+
+    except Exception as e:
+        print(f"An error occurred during content generation: {e}")
+        return 0 # Return 0 or handle error as appropriate
+
 
 def map_data(params):
 
@@ -297,8 +366,7 @@ def map_data(params):
         # This covers the case where params.get already returned a boolean False.
         hide_tiny_url = bool(hide_tiny_url_str)
 
-    GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-    client = genai.Client(api_key=GEMINI_API_KEY)
+
     api_url = os.getenv('YS_APIURL', 'http://localhost')
 
     default_city_name = "Saanich"
@@ -322,54 +390,8 @@ def map_data(params):
         # copy unclassified_entry and remove details_link
         entry_copy = unclassified_entry.copy()
         # entry_copy['details_link'] = None
-        prompt=f"""
-            Given the following new project data, we want to determine the project type:
-
-            Use the following csv data and return the best matching id 
-
-            {project_types_csv}
-
-            Below is the project data:
-
-            {json.dumps(entry_copy)}
-
-            Please respond in the following format:
-
-            {{
-                "project_type_id": <project_type_id>
-            }}
-        """
         try:
-            response = client.models.generate_content(
-                model = "gemini-2.0-flash",
-                contents = [
-                    prompt
-                ]
-            )
-
-            project_type_id = 0
-            project_data = parse_json_string(response.text)
-            # grab project_type_id
-            if project_data and 'project_type_id' in project_data:
-                # If JSON is valid and contains 'project_type_id', use its value
-                project_type_id = project_data['project_type_id']
-                print(f"Using project_type_id from JSON: {project_type_id}")
-            else:
-                # If JSON parsing failed or 'project_type_id' key is missing,
-                # fallback to regex to find the first two-digit number in the raw response text.
-                match = re.search(r'\b(\d{2})\b', response.text)
-                if match:
-                    # If a two-digit number is found, convert it to an integer
-                    project_type_id = int(match.group(1))
-                    print(f"Using project_type_id from regex: {project_type_id}")
-                else:
-                    # If no two-digit number is found via regex, keep default 0
-                    print("No project_type_id found in JSON or via regex. Defaulting to 0.")
-           
-
-            # add to entries_with_project_types
-            entry_copy['ys_project_type'] = project_type_id
-
+            entry_copy['ys_project_type'] = get_project_type_id(entry_copy)
             # entry_copy['details_link'] = unclassified_entry['details_link']
             entries_with_project_types.append(entry_copy)
         except Exception as e:
