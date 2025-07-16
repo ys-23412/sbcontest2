@@ -3,8 +3,8 @@ name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linu
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
-    # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '59 23 * * 1-6'
+    # Run at 5:05 PM PST on Monday to Saturday
+    - cron: '5 0 * * 1-6'
 
 jobs:
   build:
@@ -42,23 +42,10 @@ jobs:
         python -m pip install -r requirements.txt
         python -m pip install -r requirements_tenders.txt
 
-    - name: Install dependencies
-      run: |
-        sudo apt install -y libgtk-3-0 libx11-xcb1 libasound2 || true
-        pip install -U camoufox[geoip]
-        pip install requests
-        pip install camoufox-captcha
-
-    - name: Retry to get camoufox
-      uses: nick-fields/retry@v3
-      with:
-        max_attempts: 5  # Try up to 5 times
-        timeout_seconds: 60 # Wait 60 seconds between retries
-        command: python -m camoufox fetch
 
     - name: Fetch Tenders ALL
       run: |
-        python fetch_tenders_all.py
+        python bid_tenders.py
     - name: Upload Screenshots
       if: always()
       uses: actions/upload-artifact@v4
@@ -66,10 +53,6 @@ jobs:
         name: cloudflare-screenshots
         path: screenshots/
         retention-days: 3 # Artifact will now be retained for 90 days
-
-    - name: Upload Data
-      run: |
-        python upload_tenders.py
 
     - name: Upload Results
       if: always()

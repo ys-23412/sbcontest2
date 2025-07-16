@@ -1,128 +1,140 @@
 import pandas as pd
-import json
 import requests
+import time
+import json
+import os
 from bs4 import BeautifulSoup
+from typing import List, Dict, Any, Iterator
+from mappers import process_and_send_tenders
+# --- Constants ---
+BASE_URL = "https://bid.crd.ca"
+BIDS_URL = f"{BASE_URL}/contracts-rfps/current"
+REQUEST_DELAY_SECONDS = 0.01  # Delay between fetching detail pages
 
-base_url = "https://bid.crd.ca"
+# --- Main Scraping Functions ---
 
-try:
-    response = requests.get(f"{base_url}/contracts-rfps/current")
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
+def fetch_bids_summary(url: str) -> pd.DataFrame:
+    """
+    Fetches the main bids page and manually parses the primary table into a DataFrame,
+    removing interfering elements first.
 
-    all_merged_dfs = []
+    Args:
+        url: The URL of the main bids listing page.
 
-    tables = soup.find_all('table')
+    Returns:
+        A pandas DataFrame containing the summary of bids, including a link to the detail page.
+        Returns an empty DataFrame if no table is found or an error occurs.
+    """
+    print(f"Fetching bid summary from {url}...")
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-    if not tables:
-        print("No tables found on the page.")
-    else:
-        for i, table in enumerate(tables):
-            print(f"Processing Table {i+1} for merging links...")
-            for list_card_element in soup.find_all(class_='listCard'):
-              list_card_element.decompose()
-            headers = []
-            # Extract headers from thead if available, otherwise from first tr
-            if table.find('thead'):
-                header_row = table.find('thead').find('tr')
-            else:
-                header_row = table.find('tr')
+        # Decompose 'listCard' elements as they can interfere with table parsing.
+        for list_card in soup.find_all(class_='listCard'):
+            list_card.decompose()
 
-            if header_row:
-                for th in header_row.find_all(['th', 'td']):
-                    headers.append(th.get_text(strip=True))
-            else:
-                print(f"Could not find headers for Table {i+1}. Skipping.")
+        table = soup.find('table')
+        if not table:
+            print("No table found on the page after pre-processing.")
+            return pd.DataFrame()
+
+        # Extract headers from the <thead>
+        headers = [th.get_text(strip=True) for th in table.select('thead th')]
+        if not headers:
+            print("Could not find table headers.")
+            return pd.DataFrame()
+
+        # Extract data from table rows
+        all_rows_data = []
+        for row in table.select('tbody tr'):
+            cols = row.find_all('td')
+            if not cols:
                 continue
 
-            table_rows_data = []
-            body_rows = table.find('tbody').find_all('tr') if table.find('tbody') else table.find_all('tr')
+            row_data = {}
+            # Use zip to map header names to column data
+            for header, col in zip(headers, cols):
+                row_data[header] = col.get_text(strip=True)
 
-            # Adjust body_rows if header was extracted from the first <tr> of the table itself
-            if not table.find('thead') and header_row == table.find('tr'):
-                body_rows = body_rows[1:]
-
-            for row in body_rows:
-                cols = row.find_all(['td', 'th'])
-                row_data = {}
-                row_links = {} # To store links found in this row
-
-                for col_idx, col in enumerate(cols):
-                    col_name = headers[col_idx] if col_idx < len(headers) else f"Column_{col_idx+1}"
-                    text_content = col.get_text(strip=True)
-                    link_href = None
-
-                    a_tag = col.find('a', href=True)
-                    if a_tag:
-                        # If a link is found, prioritize its text content for the column value
-                        # and store the href in a separate 'Links' entry.
-                        row_data[col_name] = a_tag.get_text(strip=True)
-                        row_links[col_name] = a_tag['href']
-                    else:
-                        row_data[col_name] = text_content
-
-                # After processing all columns in a row, add a consolidated 'Links' column
-                # This will store a dictionary of original_column_name: link for that column
-                # Or you could choose to store just the first link, or a list of all links in the row.
-                # For simplicity, let's just add a 'Link' column for the first link found in the row.
-                # If multiple links are possible in one row, you might need a more complex structure (e.g., list of links per row).
-                # For this specific website, links typically appear in a single column per row.
-                
-                # Let's try to find a logical column for the link, e.g., 'Title' or 'Description'
-                # If no specific mapping, we'll just add a general 'Link' column for the first link found.
-                
-                # Check if 'Links' column is already in headers based on a known pattern
-                if 'Links' not in headers and 'Link' not in headers:
-                    # Find the first link in the row_links dictionary and add it to a generic 'Link' column
-                    first_link_key = next(iter(row_links), None)
-                    if first_link_key:
-                        row_data['Link'] = row_links[first_link_key]
-                    else:
-                        row_data['Link'] = None # No link found in this row
-
-                table_rows_data.append(row_data)
-
-            if table_rows_data:
-                merged_df = pd.DataFrame(table_rows_data)
-
-                # Drop rows where the 'Link' column is NaN
-                # This assumes we want to drop rows that *don't* have an associated link.
-                # If 'Link' column might not exist, ensure to handle it.
-                if 'Link' in merged_df.columns:
-                    merged_df.dropna(subset=['Link'], inplace=True)
-                else:
-                    print(f"Warning: 'Link' column not found in Table {i+1}. Skipping NaN drop based on 'Link'.")
-
-                if not merged_df.empty:
-                    all_merged_dfs.append(merged_df)
-                    print(f"\nMerged DataFrame for Table {i+1} (after dropping NaNs in Link column):")
-                    print("\n" + "="*80 + "\n")
-                else:
-                    print(f"Table {i+1} became empty after dropping rows with no links.")
+            # Find the link specifically within the row
+            a_tag = row.find('a', href=True)
+            if a_tag:
+                row_data['Link'] = f"{BASE_URL}{a_tag['href']}"
             else:
-                print(f"No data rows found for Table {i+1}.")
+                row_data['Link'] = None
+            
+            all_rows_data.append(row_data)
 
-except requests.exceptions.RequestException as e:
-    print(f"Network or HTTP error occurred: {e}")
-    print("Please check your internet connection or the URL.")
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
-    print("Please ensure the URL is correct and the page contains tables.")
+        if not all_rows_data:
+            print("No data rows found in the table.")
+            return pd.DataFrame()
 
-# 'all_merged_dfs' now contains a list of DataFrames, each representing a table
-# with an integrated 'Link' column and rows without links dropped.
+        # Create DataFrame and clean up
+        df = pd.DataFrame(all_rows_data)
+        df.dropna(subset=['Link'], inplace=True)  # Drop rows without a valid link
 
-if all_merged_dfs:
-    print("\n--- All Merged DataFrames ---")
-    for j, df in enumerate(all_merged_dfs):
-        print(f"\nDataFrame {j+1}:")
-        print(df.to_string()) # Using to_string() to ensure full DataFrame is printed if large
-else:
-    print("\nNo merged DataFrames were successfully created.")
+        print(f"✅ Successfully found {len(df)} bids with links.")
+        return df
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error: Network or HTTP error occurred: {e}")
+    except Exception as e:
+        print(f"❌ An unexpected error occurred while fetching the summary: {e}")
+
+    return pd.DataFrame()
 
 
+def scrape_bid_details(bids_df: pd.DataFrame) -> Iterator[Dict[str, Any]]:
+    """
+    Generator function that iterates through bid links, fetches detail pages,
+    parses them, and yields the combined data.
 
-def parse_table_info(table):
+    Args:
+        bids_df: DataFrame containing bid summaries and links.
+
+    Yields:
+        A dictionary containing the combined summary and detailed information for each bid.
+    """
+    if 'Link' not in bids_df.columns:
+        print("Error: DataFrame is missing the 'Link' column.")
+        return
+
+    for index, row in bids_df.iterrows():
+        bid_url = row['Link']
+        print(f"\nProcessing: {row.get('Title', bid_url)}")
+
+        try:
+            response = requests.get(bid_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            # The main content area on the detail pages
+            container = soup.find("div", class_="main-content")
+            if not container:
+                container = soup.find("div", id="contentWrapper")
+            if not container:
+                container = soup.find("div", class_="sf_cols")
+            if container:
+                # Combine original summary data with newly scraped details
+                details = _parse_detail_container(container)
+                combined_data = {**row.to_dict(), "Details": details}
+                print("combined_data", combined_data)
+                yield combined_data
+            else:
+                print(f"  -> No content container found for {bid_url}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"  -> Failed to fetch {bid_url}: {e}")
+        
+        # Respectful delay between requests
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+
+# --- Helper Parsing Functions for Detail Pages ---
+
+def _parse_table_info(table):
     result = {}
 
     for row in table.find_all("tr"):
@@ -142,7 +154,7 @@ def parse_table_info(table):
 
     return result
 
-def parse_table_by_headers(table):
+def _parse_table_by_headers(table):
     result = []
 
     # Get headers from thead
@@ -164,33 +176,35 @@ def parse_table_by_headers(table):
             result.append(row_dict)
 
     return result
-  
-def parse_container(container_bid):
-    # Find all tables
-    tables = container_bid.find_all("table")
+
+def _parse_detail_container(container: BeautifulSoup) -> Dict[str, Any]:
+    """Parses the main content container of a bid detail page."""
+    
+    # Extract tables first
+    tables = container.find_all("table")
     tables_data = {}
     for idx, table in enumerate(tables):
-        table_id = table.get('id') or f"table_{idx}"
-        print("table is", table)
+        # The first table is key-value, subsequent ones have headers
         if idx == 0:
-            tables_data[table_id] = parse_table_info(table)
+            tables_data[f"info_table"] = _parse_table_info(table)
         else:
-          tables_data[table_id] = parse_table_by_headers(table)
-    # Extract rest of the text content not in tables (for context)
+            table = _parse_table_by_headers(table)
+            if table:
+                tables_data[f"table_{idx}"] = table
+
+    # Remove tables from the soup to extract remaining text easily
     for table in tables:
         table.extract()
 
-    # feed in content_text to grab description follow up
-    project_description = get_project_description_follow_up(str(container_bid))
-    content_text = container.get_text(separator="\n", strip=True)
-    content_text = ''
+    description = _get_project_description_follow_up(str(container))
+
     return {
-        "tables": tables_data,
-        "content_text": content_text,
-        "project_description": project_description
+        "description": description,
+        **tables_data
     }
 
-def get_project_description_follow_up(html_content):
+
+def _get_project_description_follow_up(html_content):
     """
     Finds the "Project Description:" label in the HTML, regardless of case or
     leading/trailing whitespace, and extracts and combines the text content
@@ -221,7 +235,7 @@ def get_project_description_follow_up(html_content):
                 if current_element.name == 'br':
                     pass  # Skip <br> tags
                 else:
-                    combined_text_parts.append(current_element.get_text(strip=True))
+                    combined_text_parts.append(current_element.get_text(strip=True) + " ")
                     elements_found_count += 1
             current_element = current_element.next_sibling
 
@@ -237,27 +251,38 @@ def get_project_description_follow_up(html_content):
         return truncated_text
     return "" # Return empty string if label not found
 
-print("Now we are going to iterate across column in pandas")
-df = all_merged_dfs[0]
-for relative_url in df['Link']:
-  bid_url = f"{base_url}{relative_url}"
-  print("bid_url", bid_url)
-  html_bid = requests.get(bid_url).text
 
-  soup_bid = BeautifulSoup(html_bid, "html.parser")
+# --- Main Execution ---
 
-  # Try to find the main content area based on your order of preference
-  container = soup_bid.find("div", class_="main-content")
-  if not container:
-      container = soup_bid.find("div", id="contentWrapper")
-  if not container:
-      container = soup_bid.find("div", class_="sf_cols")
+def main():
+    """Main function to run the scraper."""
+    # 1. Fetch the list of all current bids
+    bids_summary_df = fetch_bids_summary(BIDS_URL)
 
-  if container:
-      result = parse_container(container)
-      print("Found container:")
-      # print(json.dumps(result, indent=2))
-      print(result)
-  else:
-      print("No container found!")
-  break
+    if bids_summary_df.empty:
+        print("No bids found or an error occurred. Exiting.")
+        return
+
+    # 2. Use the generator to process each bid's detail page
+    all_bid_data = []
+    for bid_details in scrape_bid_details(bids_summary_df):
+        all_bid_data.append(bid_details)
+        # Pretty-print the result for each bid as it's processed
+        print(json.dumps(bid_details, indent=2))
+
+    print(f"\n--- Scraping complete. Processed {len(all_bid_data)} bids. ---")
+    
+    # Optional: Save all data to a single JSON file
+    # with open("crd_bids.json", "w") as f:
+    #     json.dump(all_bid_data, f, indent=4)
+    # print("All bid data saved to crd_bids.json")
+    process_and_send_tenders({
+        "data": all_bid_data,
+        "region_name": "Capital Regional District", # Use the hardcoded city name as the region
+        'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+        'file_prefix': 'tenders',
+        'tender_authority': "Capital Regional District - Purchasing", # Dynamic tender authority
+    })
+
+if __name__ == "__main__":
+    main()
