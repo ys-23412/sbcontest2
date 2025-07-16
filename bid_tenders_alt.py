@@ -2,9 +2,10 @@ import pandas as pd
 import requests
 import time
 import json
+import os
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Iterator
-
+from mappers import process_and_send_tenders
 # --- Constants ---
 BASE_URL = "https://bid.crd.ca"
 BIDS_URL = f"{BASE_URL}/contracts-rfps/current"
@@ -275,6 +276,13 @@ def main():
     # with open("crd_bids.json", "w") as f:
     #     json.dump(all_bid_data, f, indent=4)
     # print("All bid data saved to crd_bids.json")
+    process_and_send_tenders({
+        "data": all_bid_data,
+        "region_name": "Capital Regional District", # Use the hardcoded city name as the region
+        'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+        'file_prefix': 'tenders',
+        'tender_authority': "Capital Regional District - Purchasing", # Dynamic tender authority
+    })
 
 if __name__ == "__main__":
     main()
