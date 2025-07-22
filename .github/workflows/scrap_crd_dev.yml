@@ -1,0 +1,63 @@
+name: Scrap CRD Website Dev # Name remains as per user's request, but runs on Linux now
+
+on:
+  workflow_dispatch: # Allows manual trigger
+  schedule:
+    # Run at 5:05 PM PST on Monday to Saturday
+    - cron: '5 0 * * 1-6'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
+    env:
+      PY_COLORS: "1"
+      DISPLAY: ":99"
+      # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
+      BASE_DIR: "screenshots"
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+      YS_COMPONENTID: 10
+      HIDE_TINY_URL: True
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    # --- Proxy Integration Starts Here ---
+    # - name: Get and Set Proxy Environment Variable
+    #   # This step runs your Python script to fetch a proxy
+    #   # and sets the SELENIUM_PROXY environment variable for subsequent steps.
+    #   run: python examples/get_proxy.py # Adjust path if your script is in a subfolder
+    # # --- Proxy Integration Ends Here ---
+
+    - name: Update
+      run: |
+        python -m pip install -r requirements.txt
+        python -m pip install -r requirements_tenders.txt
+
+
+    - name: Fetch Tenders ALL
+      run: |
+        python bid_tenders.py
+    - name: Upload Screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cloudflare-screenshots
+        path: screenshots/
+        retention-days: 3 # Artifact will now be retained for 90 days
+
+    - name: Upload Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: upload-data
+        path: data/
+        retention-days: 3 # Artifact will now be retained for 90 days

@@ -250,11 +250,20 @@ async def main():
     tender_configs = [
         {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
         {"base_url_env_key": "TENDER_BASE_SAANICH_URL", "csv_file_name": "bonfire_saanich_with_links.csv", "city_name": "saanich"},
-        {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north_cowichan"},
+        {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north cowichan"},
         {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
-        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
-        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
-        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bc_transit"},
+        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_COURTENAY_URL", "csv_file_name": "bonfire_courtenay_with_links.csv", "city_name": "courtenay"},
+        {"base_url_env_key": "TENDER_BASE_CENTRALSAANICH_URL", "csv_file_name": "bonfire_central_saanich_with_links.csv", "city_name": "central saanich"},
+        {"base_url_env_key": "TENDER_BASE_FRASERHEALTH_URL", "csv_file_name": "bonfire_fraserhealth_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_ICBC_URL", "csv_file_name": "bonfire_icbc_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_PHSA_URL", "csv_file_name": "bonfire_phsa_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_COMOX_URL", "csv_file_name": "bonfire_comox_with_links.csv", "city_name": "comox"},
+        {"base_url_env_key": "TENDER_BASE_ISLANDHEALTH_URL", "csv_file_name": "bonfire_islandhealth_with_links.csv", "city_name": "victoria"},
+        {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
+
     ]
 
     print("--- Initializing AsyncCamoufox Browser ---")

@@ -1,4 +1,4 @@
-name: Scrap CRD Website # Name remains as per user's request, but runs on Linux now
+name: Scrap CRD Website Prod # Name remains as per user's request, but runs on Linux now
 
 on:
   workflow_dispatch: # Allows manual trigger
@@ -15,7 +15,7 @@ jobs:
       # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
       BASE_DIR: "screenshots"
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+      YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       HIDE_TINY_URL: True
     strategy:
