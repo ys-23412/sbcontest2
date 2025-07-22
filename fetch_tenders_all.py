@@ -65,7 +65,7 @@ def get_tag_on_details_page(soup, labelText="Project Description:"):
         return "" # Return empty if the label itself is not found
 
 
-async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
+async def fetch_single_tender(page: AsyncCamoufox, config: dict):
     """
     Asynchronously navigates to a URL using a given Camoufox browser instance, 
     retrieves the inner HTML, and scrapes tender data.
@@ -87,24 +87,43 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
 
     print(f"\n--- Starting fetch for {CITY_NAME.capitalize()} tenders ---")
 
-    page = None # Initialize page to None
     try:
         # Create a new page for each tender within the existing browser instance
-        page = await browser.new_page() 
-        print(f"Navigating to {BASE_URL} login page...")
-        initial_url = f'{BASE_URL}/login'
+        print(f"Navigating to {BASE_URL} page...")
+        initial_url = f'{BASE_URL}'
         await page.goto(initial_url)
+        # Log In look to element Log In, if so, set login flag to true
+        login_flag = False
+        try:
+            login_element = await page.wait_for_selector('text="Log In"', timeout=5000)
+            register_element = await page.wait_for_selector('text="Register"', timeout=5000)
+        except Exception as e:
+            login_element = None 
+            register_element = None
+        try:
+            euna_supplier_network = await page.wait_for_selector('text="My Euna Supplier Network"', timeout=5000)
+        except Exception as e:
+            euna_supplier_network = None
 
+        if login_element and register_element:
+            print("user is not logged in, logging in...")
+            login_flag = True
+        elif euna_supplier_network:
+            print("user is already logged in...")
+            login_flag = False
         try:
             print("Solving captcha challenge...")
             success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
             if not success:
                 print(f"Failed to solve captcha challenge for {CITY_NAME}. Skipping.")
                 return # Skip this tender if captcha fails
-
+    
             href = await page.evaluate('() => document.location.href')
-            print("given href is: ", href)
-            if "login" in href:
+            if "login" in href or login_flag:
+                # go to login page
+                await page.goto(f"{initial_url}/login")
+                await page.wait_for_load_state('networkidle', timeout=3000)
+                await page.wait_for_timeout(3000)
                 print(f"Current page is login for {CITY_NAME}, proceeding with login...")
                 print("Entering email...")
                 await page.locator("input[type='email']").fill(EMAIL)
@@ -192,7 +211,7 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
                                 f.write(new_page_source)
                             continue
                         await page.wait_for_load_state('domcontentloaded')
-
+                        await page.wait_for_timeout(1000)
                         # Take screenshot and get page source
                         screenshot_path = f"{base_dir}/{CITY_NAME}_tender_{index}.png"
                         await page.screenshot(path=screenshot_path)
@@ -241,8 +260,10 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
     except Exception as e:
         print(f"An error occurred during browser operation for {CITY_NAME}: {e}")
     finally:
-        if page:
-            await page.close() # Close the page after use
+        print("page should be safe here")
+        pass
+        # if page:
+        #     await page.close() # Close the page after use
 
 async def main():
     load_dotenv() # Load environment variables from .env file
@@ -271,7 +292,7 @@ async def main():
     try:
         # Initialize AsyncCamoufox once
         async with AsyncCamoufox(
-            headless=True,
+            headless=False,
             geoip=True,
             humanize=False,
             i_know_what_im_doing=True,
@@ -292,7 +313,8 @@ async def main():
                     "csv_file_name": config_item['csv_file_name'],
                     "city_name": config_item['city_name']
                 }
-                await fetch_single_tender(browser, current_tender_config) # Pass the browser instance
+                page = await browser.new_page() 
+                await fetch_single_tender(page, current_tender_config) # Pass the browser instance
             print("--- All tender fetches completed. ---")
 
     except Exception as e:
