@@ -103,6 +103,7 @@ async def fetch_single_tender(browser: AsyncCamoufox, config: dict):
                 return # Skip this tender if captcha fails
 
             href = await page.evaluate('() => document.location.href')
+            print("given href is: ", href)
             if "login" in href:
                 print(f"Current page is login for {CITY_NAME}, proceeding with login...")
                 print("Entering email...")
