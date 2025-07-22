@@ -285,14 +285,13 @@ async def main():
         {"base_url_env_key": "TENDER_BASE_COMOX_URL", "csv_file_name": "bonfire_comox_with_links.csv", "city_name": "comox"},
         {"base_url_env_key": "TENDER_BASE_ISLANDHEALTH_URL", "csv_file_name": "bonfire_islandhealth_with_links.csv", "city_name": "victoria"},
         {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
-
     ]
 
     print("--- Initializing AsyncCamoufox Browser ---")
     try:
         # Initialize AsyncCamoufox once
         async with AsyncCamoufox(
-            headless=False,
+            headless=True,
             geoip=True,
             humanize=False,
             i_know_what_im_doing=True,
