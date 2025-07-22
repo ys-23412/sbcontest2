@@ -300,6 +300,8 @@ async def main():
             disable_coop=True,
         ) as browser:
             print("--- Browser initialized. Starting tender fetches ---")
+            
+            page = await browser.new_page() 
             for config_item in tender_configs:
                 # Retrieve the actual BASE_URL from environment variables using the key
                 base_url = os.getenv(config_item['base_url_env_key'])
@@ -313,7 +315,6 @@ async def main():
                     "csv_file_name": config_item['csv_file_name'],
                     "city_name": config_item['city_name']
                 }
-                page = await browser.new_page() 
                 await fetch_single_tender(page, current_tender_config) # Pass the browser instance
             print("--- All tender fetches completed. ---")
 

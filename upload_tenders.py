@@ -75,6 +75,14 @@ def main():
         {"file_name": "bonfire_fnha_with_links.csv", "city": "victoria", "tender_authority": "First Nations Health Authority - Purchasing"}, # Assuming 'saanich' was a typo for city in original, changed to a more descriptive name for FNHA, adjust if 'saanich' is indeed intended for city_name
         {"file_name": "bonfire_bc_transit_with_links.csv", "city": "victoria", "tender_authority": "BC Transit Procurement"}, # Assuming 'victoria' was a typo for city in original, changed to BC Transit
         {"file_name": "bonfire_uvic_with_links.csv", "city": "victoria", "tender_authority": "University of Victoria - Purchasing"}, # Assuming 'victoria' was a typo for city in original, changed to University of Victoria
+        {"file_name": "bonfire_courtenay_with_links.csv", "city": "courtenay", "tender_authority": "City of Courtenay - Purchasing"},
+        {"file_name": "bonfire_central_saanich_with_links.csv", "city": "central saanich", "tender_authority": "Central Saanich - Purchasing"},
+        {"file_name": "bonfire_fraserhealth_with_links.csv", "city": "victoria", "tender_authority": "Fraser Health - Purchasing"},
+        {"file_name": "bonfire_icbc_with_links.csv", "city": "victoria", "tender_authority": "ICBC - Purchasing"},
+        {"file_name": "bonfire_phsa_with_links.csv", "city": "victoria", "tender_authority": "Provincial Health Services Authority - Purchasing"},
+        {"file_name": "bonfire_comox_with_links.csv", "city": "comox", "tender_authority": "Town of Comox - Purchasing"},
+        {"file_name": "bonfire_islandhealth_with_links.csv", "city": "victoria", "tender_authority": "Island Health - Purchasing"},
+        {"file_name": "bonfire_viu_with_links.csv", "city": "victoria", "tender_authority": "Vancouver Island University - Purchasing"},
     ]
     
     print("--- Starting Tender Processing Script ---")
