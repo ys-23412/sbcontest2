@@ -119,27 +119,30 @@ async def fetch_single_tender(page: AsyncCamoufox, config: dict):
                 return # Skip this tender if captcha fails
     
             href = await page.evaluate('() => document.location.href')
-            if "login" in href or login_flag:
-                # go to login page
-                await page.goto(f"{initial_url}/login")
-                await page.wait_for_load_state('networkidle', timeout=3000)
-                await page.wait_for_timeout(3000)
-                print(f"Current page is login for {CITY_NAME}, proceeding with login...")
-                print("Entering email...")
-                await page.locator("input[type='email']").fill(EMAIL)
-                await page.locator('button[type="submit"]').click()
-    
-                await page.wait_for_timeout(6000) # Wait for password field to appear
+            try:
+                if "login" in href or login_flag:
+                    # go to login page
+                    await page.goto(f"{initial_url}/login")
+                    await page.wait_for_load_state('networkidle', timeout=3000)
+                    await page.wait_for_timeout(3000)
+                    print(f"Current page is login for {CITY_NAME}, proceeding with login...")
+                    print("Entering email...")
+                    await page.locator("input[type='email']").fill(EMAIL)
+                    await page.locator('button[type="submit"]').click()
+        
+                    await page.wait_for_timeout(6000) # Wait for password field to appear
 
-                print("Entering password...")
-                await page.locator("input[type='password']").fill(PASSWORD)
-                # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_input_password.png")
-                await page.locator('button[type="submit"]').click()
+                    print("Entering password...")
+                    await page.locator("input[type='password']").fill(PASSWORD)
+                    # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_input_password.png")
+                    await page.locator('button[type="submit"]').click()
 
-                print("Login submitted. Waiting for opportunities page...")
-            else:
-                # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
-                print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
+                    print("Login submitted. Waiting for opportunities page...")
+                else:
+                    # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
+                    print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
+            except Exception as e:
+                print(f"Failed to login for {CITY_NAME}. Skipping.")
 
             await page.wait_for_timeout(10000)
             await page.wait_for_load_state('networkidle', timeout=10000)
