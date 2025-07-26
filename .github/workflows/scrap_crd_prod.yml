@@ -18,6 +18,7 @@ jobs:
       YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       HIDE_TINY_URL: True
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -46,6 +47,11 @@ jobs:
     - name: Fetch Tenders ALL
       run: |
         python bid_tenders.py
+
+
+    - name: Validate Data
+      run: |
+        python validate_tenders.py
     - name: Upload Screenshots
       if: always()
       uses: actions/upload-artifact@v4

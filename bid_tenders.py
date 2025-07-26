@@ -262,7 +262,14 @@ def main():
     if bids_summary_df.empty:
         print("No bids found or an error occurred. Exiting.")
         return
-
+    try:
+        print("Saving bids_summary.csv...")
+        BASE_DIR = os.getenv('BASE_DIR', "screenshots")
+        # make data folder if it doesn't exist
+        os.makedirs(BASE_DIR, exist_ok=True)
+        bids_summary_df.to_csv('data/bids_summary.csv')
+    except Exception as e:
+        print(f"Error saving bids_summary.csv: {e}")
     # 2. Use the generator to process each bid's detail page
     all_bid_data = []
     for bid_details in scrape_bid_details(bids_summary_df):
