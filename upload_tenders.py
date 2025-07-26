@@ -87,6 +87,58 @@ def load_and_filter_tenders(base_dir, csv_file):
     return df_filtered_range
 
 
+# def load_and_filter_tenders_fix(base_dir, csv_file):
+#     """
+#     Loads tenders from a CSV file, cleans column names, and filters for recent entries.
+#     """
+#     csv_path = os.path.join(base_dir, csv_file)
+#     if not os.path.exists(csv_path):
+#         print(f"Error: The file {csv_path} was not found.")
+#         return pd.DataFrame()
+
+#     df = pd.read_csv(csv_path)
+#     df = clean_column_names(df)
+
+#     # Date filtering logic
+#     # Assuming the script runs at 5:00 AM, so 'today' is based on the start of the day
+#     # today = datetime.now(datetime.timezone.utc)
+#     # tmmr = today + timedelta(days=1)
+#     # utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+
+    
+#     # The date format in the CSV is tricky, so we'll use dateparser
+#     # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
+#     print(df['open_date'])
+#     df['open_date_parsed'] = df['open_date'].apply(
+#         lambda x: dateparser.parse(re.sub(r'(\d+)(st|nd|rd|th)', r'\1', x)) if isinstance(x, str) else None
+#     )
+
+#     df['open_date_parsed'] = pd.to_datetime(df['open_date_parsed'], utc=True)
+
+#     # --- PRINTING THE TYPE INFORMATION ---
+#     print("--- Type Information for 'open_date_parsed' column ---")
+#     print(f"The object type of the column is: {type(df['open_date_parsed'])}")
+#     print(f"The data type (dtype) of the values within the column is: {df['open_date_parsed'].dtype}")
+#     print("----------------------------------------------------")
+#     print(df['open_date_parsed'])
+    
+#     # Filter rows where the open_date is today or yesterday
+#     # df_filtered = df[df['open_date_parsed'].dt.date.isin([today, yesterday])]
+#     # df_filtered = df[df['open_date_parsed'].dt.date.isin([today, tmmr])]
+#     from datetime import date, timedelta
+#     start_date = date(2025, 7, 16)
+#     end_date = date(2025, 7, 25)
+
+#     # Filter the DataFrame
+#     df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
+#                     (df['open_date_parsed'].dt.date <= end_date)]
+#     # add address column fill with ''
+#     df_filtered['address'] = ''
+#     # if any field is NaN set to ''
+#     df_filtered = df_filtered.fillna('')
+
+#     return df_filtered
+
 def main():
     load_dotenv()
     base_dir = os.getenv('BASE_DIR', "screenshots_output")
@@ -136,6 +188,8 @@ def main():
             
             # Convert DataFrame to a list of dictionaries for map_data
             filtered_entries = filtered_tenders_df.to_dict('records')
+            print('filtered_entries', filtered_entries)
+            # Call map_data for each CSV file individually
             map_data({
                 "data": filtered_entries,
                 "region_name": city_name, # Use the hardcoded city name as the region
