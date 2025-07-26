@@ -4,6 +4,7 @@ from process_project_data import map_data
 from datetime import datetime, timedelta
 import dateparser
 import os 
+import pytz
 
 from dotenv import load_dotenv
 import re
@@ -32,8 +33,10 @@ def load_and_filter_tenders(base_dir, csv_file):
 
     # Date filtering logic
     # Assuming the script runs at 5:00 AM, so 'today' is based on the start of the day
-    today = datetime.now().date()
-    yesterday = today - timedelta(days=1)
+    today = datetime.now(datetime.timezone.utc)
+    tmmr = today + timedelta(days=1)
+    # utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+
     
     # The date format in the CSV is tricky, so we'll use dateparser
     # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
@@ -53,7 +56,14 @@ def load_and_filter_tenders(base_dir, csv_file):
     
     # Filter rows where the open_date is today or yesterday
     # df_filtered = df[df['open_date_parsed'].dt.date.isin([today, yesterday])]
-    df_filtered = df[df['open_date_parsed'].dt.date.isin([today])]
+    df_filtered = df[df['open_date_parsed'].dt.date.isin([today, tmmr])]
+    # from datetime import date, timedelta
+    # start_date = date(2025, 7, 16)
+    # end_date = date(2025, 7, 25)
+
+    # # Filter the DataFrame
+    # df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
+    #                 (df['open_date_parsed'].dt.date <= end_date)]
     # add address column fill with ''
     df_filtered['address'] = ''
     # if any field is NaN set to ''
