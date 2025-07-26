@@ -34,15 +34,9 @@ def load_and_filter_tenders(base_dir, csv_file):
     pacific_tz = pytz.timezone('America/Los_Angeles') 
     today = datetime.now(pacific_tz) # Using pytz.utc for consistency with pytz
     # Date filtering logic
+    # set today to the start of the day
+    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # 'US/Pacific' is also commonly used and often redirects to 'America/Los_Angeles'
-    # Note: 'PST' itself is not a valid timezone identifier in pytz as it doesn't account for PDT.
-    # 'America/Los_Angeles' correctly handles both PST and PDT based on the date.
-
-    # utc_now = datetime.now().replace(tzinfo=pytz.utc)
-    tmmr = today + timedelta(days=1)
-    # utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
-    print("time stamp used is ", today, "and", tmmr)
     
     # The date format in the CSV is tricky, so we'll use dateparser
     # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
@@ -59,8 +53,6 @@ def load_and_filter_tenders(base_dir, csv_file):
     print(f"The data type (dtype) of the values within the column is: {df['open_date_parsed'].dtype}")
     print("----------------------------------------------------")
     print(df['open_date_parsed'])
-
-    df_filtered = df[df['open_date_parsed'].dt.date.isin([today, tmmr])]
     # from datetime import date, timedelta
     # start_date = date(2025, 7, 16)
     # end_date = date(2025, 7, 25)
@@ -69,10 +61,30 @@ def load_and_filter_tenders(base_dir, csv_file):
     # df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
     #                 (df['open_date_parsed'].dt.date <= end_date)]
     # add address column fill with ''
-    df_filtered['address'] = ''
+   
+
+    df_date_only = df['open_date_parsed'].dt.date
+
+    # Convert today's date to Pacific Time (just the date part for comparison)
+    today_pst_date = today.astimezone(pacific_tz).date()
+
+    # Calculate tomorrow's date in Pacific Time
+    tmmr_pst_date = (today + timedelta(days=1)).astimezone(pacific_tz).date()
+
+    print("today_pst_date", today_pst_date)
+    # --- Filtering for the date range ---
+    # Use boolean indexing with comparison operators
+    # The '&' operator performs a logical AND between the two conditions.
+    df_filtered_range = df[
+        (df_date_only >= today_pst_date) &
+        (df_date_only <= tmmr_pst_date)
+    ]
+    print(df_filtered_range)
+
+    df_filtered_range['address'] = ''
     # if any field is NaN set to ''
-    df_filtered = df_filtered.fillna('')
-    return df_filtered
+    df_filtered_range = df_filtered_range.fillna('')
+    return df_filtered_range
 
 
 def load_and_filter_tenders_fix(base_dir, csv_file):
@@ -124,6 +136,7 @@ def load_and_filter_tenders_fix(base_dir, csv_file):
     df_filtered['address'] = ''
     # if any field is NaN set to ''
     df_filtered = df_filtered.fillna('')
+
     return df_filtered
 
 def main():
@@ -160,7 +173,7 @@ def main():
         print(f"\n--- Processing {csv_file} for {city_name.capitalize()} ---")
         
         # 1. Load and filter tenders from the current CSV file
-        filtered_tenders_df = load_and_filter_tenders(base_dir, csv_file)
+        filtered_tenders_df = load_and_filter_tenders_fix(base_dir, csv_file)
         
         if not filtered_tenders_df.empty:
             # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
