@@ -6,7 +6,7 @@ from process_project_data import get_project_type_id
 from datetime import date, timedelta, datetime
 from typing import List, Dict
 from dateutil.relativedelta import relativedelta # Import this
-
+from zoneinfo import ZoneInfo # Use standard library for timezones
 # the non bonfire mappers go here, its fine for now, we can consonslidate and refactor
 # at the end.
 def _map_tender_type_to_stage(tender_type_str: str) -> str:
@@ -123,12 +123,17 @@ def _filter_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
         A new list containing only the tender records published on
         the required dates.
     """
+    pst_timezone = ZoneInfo("America/Vancouver") # Use a specific IANA timezone for PST
+    
+    # Get the current datetime in PST
+    now_pst = datetime.now(pst_timezone)
+    today_pst = now_pst.date()
     # 1. Define the date range
     today = date.today()
     # yesterday = today - timedelta(days=1)
-    target_dates = [today]
+    target_dates = [today_pst, today]
 
-    print(f"Filtering records for dates: {today}")
+    print(f"Filtering records for dates: {today} and {today_pst}")
     
     filtered_records = []
 
@@ -179,6 +184,7 @@ def process_and_send_tenders(params: dict):
 
     # --- filter tenders by date ---
     tender_records = _filter_tenders_by_recent_date(tender_records)
+    print("records", tender_records)
     # --- Step 1 & 2: Map each record, then classify and insert ys_project_type ---
     for record in tender_records:
         try:
