@@ -12,6 +12,7 @@ from google import genai
 from google.genai import types
 
 
+
 class DataTypes(Enum):
     UPDATED_TENDERS = 11
     TENDERS = 10
@@ -535,6 +536,7 @@ def map_data(params):
             entry['ys_permit'] = unmapped_entry['folder_no']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
             ys_body['ys_sector'] = 'Private'
+            entry['project_step_id'] = 1001
         else:
             raise Exception(f"Unknown ys_component_id: {ys_component_id}")
         
@@ -584,12 +586,41 @@ def map_data(params):
         insert_response = insert_into_data_resp.json()
 
         print(insert_response)
+        # we could add in logic to 
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
     except:
+        # see if we can parse json from the response, ignore text that is not json
         print(insert_into_data_resp.text)
         with open("insert_into_data_resp.txt", "w", errors='ignore') as f:
             f.write(insert_into_data_resp.text)
+
+        try:
+            import json_repair
+            good_json_string = json_repair.loads(insert_into_data_resp.text)
+            # make sure that inserted_entries and failed_entries is 
+            print("good json string", good_json_string)
+
+            # check failed_entries is not > 0 and 
+            # inserted_entries > 0 else send message to discord
+
+            if good_json_string['failed_entries'] > 0:
+                # send to discord webhook
+                from validate_tenders import send_discord_message
+                discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+                send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
+            elif good_json_string['inserted_entries'] > 0:
+                # send to discord webhook
+                from validate_tenders import send_discord_message
+                discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+                send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
+            else:
+                print("nothing wrong with the json string")
+        except Exception as e:
+            print(f"Error repairing json: {e}")
+            good_json_string = insert_into_data_resp.text
+
+
 
     return
 
