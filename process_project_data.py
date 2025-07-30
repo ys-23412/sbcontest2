@@ -510,19 +510,19 @@ def map_data(params):
 
             # determine if we should update the item to updated_tenders
             found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
-
-            if parsed_date_close.date() > found_issue_date_obj:
-               
-                # make sure that its within the target 
-                if not is_new_tender:
-                    # think this is handled by the cron job on ys website
-                    print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
-                    # current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+            if parsed_date_close:
+                if parsed_date_close.date() > found_issue_date_obj:
+                
+                    # make sure that its within the target 
+                    if not is_new_tender:
+                        # think this is handled by the cron job on ys website
+                        print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
+                        # current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+                    else:
+                        print("this is in the new tender period")
                 else:
-                    print("this is in the new tender period")
-            else:
-                print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
-           
+                    print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
+            
            
             review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
             formatted_review_date = review_date_obj.strftime("%Y-%m-%d")
