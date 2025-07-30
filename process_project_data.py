@@ -523,8 +523,15 @@ def map_data(params):
                 else:
                     print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
             
-           
-            review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+
+            try:
+                if parsed_date_close:
+                    review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+                else:
+                    review_date_obj = date.today() + relativedelta(months=+1)
+            except Exception as e:
+                # Fallback for non-Windows systems
+                review_date_obj = date.today() + relativedelta(months=+1)
             formatted_review_date = review_date_obj.strftime("%Y-%m-%d")
             entry['review_date'] = formatted_review_date # Add to ys_body
             entry['project_step_id'] = 1001
