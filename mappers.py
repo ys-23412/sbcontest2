@@ -101,7 +101,10 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
                 ys_body['ys_closing'] = parsed_date_close.strftime("%m/%d/%Y - %I %p")
             
             # Set review date and project step
-            review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+            if parsed_date_close:
+                review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+            else:
+                review_date_obj = date.today() + relativedelta(months=+1)
             entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
             # hard coded value
             entry['project_step_id'] = 1001
