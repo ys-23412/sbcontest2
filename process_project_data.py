@@ -595,6 +595,18 @@ def map_data(params):
 
         print(insert_response)
         # we could add in logic to 
+        if good_json_string['failed_entries'] > 0:
+            # send to discord webhook
+            from validate_tenders import send_discord_message
+            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+            send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
+        elif good_json_string['inserted_entries'] > 0:
+            # send to discord webhook
+            from validate_tenders import send_discord_message
+            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+            send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
+        else:
+            print("nothing wrong with the json string")
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
     except:
