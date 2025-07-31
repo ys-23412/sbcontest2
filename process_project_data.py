@@ -553,6 +553,7 @@ def map_data(params):
         entry['ys_body'] = ys_body
         entry['isBuildingPermit'] = False
         entry['user_id'] = '2025060339'
+        entry['ys_project_details'] = ''
         mapped_data.append(entry)
 
     if len(mapped_data) == 0:
