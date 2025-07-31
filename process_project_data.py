@@ -429,13 +429,13 @@ def map_data(params):
         # take first 255 characters
         current_ys_component_id = int(ys_component_id)
         if current_ys_component_id == DataTypes.TENDERS.value:
-            entry['ys_description'] = unmapped_entry['project'][:100]
+            entry['ys_description'] = unmapped_entry['project'][:95]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
             entry['ys_description'] = entry['ys_description'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
 
         elif current_ys_component_id == DataTypes.NEW_PROJECT.value:
-            entry['ys_description'] = unmapped_entry['purpose'][:100]
+            entry['ys_description'] = unmapped_entry['purpose'][:95]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
         # strip everything past #, assume that means unit number
