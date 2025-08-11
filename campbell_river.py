@@ -1,0 +1,250 @@
+import asyncio
+import os
+import pandas as pd
+from pydoll.browser.chromium import Chrome
+from pydoll.browser.options import ChromiumOptions
+from random_user_agent.user_agent import UserAgent
+import time
+from io import StringIO
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+from validate_tenders import send_discord_message
+
+
+from mappers import _filter_campbell_tenders_by_recent_date, process_and_send_campbell_tenders # A more robust way to join URL parts
+
+def parse_bid_details_from_html(html_string):
+    """
+    Parses a bid details table from an HTML string and extracts key-value pairs.
+
+    Args:
+        html_string: A string containing the HTML of the bid details table.
+
+    Returns:
+        A dictionary where keys are the bid detail headers (th) and values are
+        the corresponding data (td).
+    """
+    soup = BeautifulSoup(html_string, 'html.parser')
+    bid_details = {}
+    
+    # Find the first table in the HTML
+    table = soup.find('table')
+    if not table:
+        return {"error": "No table found in the HTML."}
+    
+    # Iterate through all table rows (tr)
+    for row in table.find_all('tr'):
+        # Find the header (th) and data (td) in each row
+        header_tag = row.find('th')
+        value_tag = row.find('td')
+        
+        if header_tag and value_tag:
+            # Clean up header text by stripping whitespace and the colon
+            header = header_tag.get_text(strip=True).replace(':', '')
+            
+            # Clean up the value text
+            # This handles nested divs and spans by getting all text content
+            value = value_tag.get_text(separator=' ', strip=True)
+            
+            # Add the key-value pair to the dictionary
+            bid_details[header] = value
+            
+    return bid_details
+
+async def campbell_river_scrap():
+    base_url = os.getenv('CAMPBELL_RIVER_TENDER_URL', 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en')
+    # Create browser options
+    base_dir = os.getenv('BASE_DIR', "data")
+    # options = ChromiumOptions()
+
+    # # Simple proxy without authentication
+    # options.add_argument('--proxy-server=192.168.1.100:8080')
+    # # Or proxy with authentication
+    # # options.add_argument('--proxy-server=username:password@192.168.1.100:8080')
+
+    # # Bypass proxy for specific domains
+    # options.add_argument('--proxy-bypass-list=*.internal.company.com,localhost')
+    options = ChromiumOptions()
+    if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
+        display_var = os.environ.get("DISPLAY")
+        print("display", display_var)
+        options.add_argument(f'--display=:99')
+    # options.add_argument(f'--display=:99')
+    # options.binary_location = '/usr/bin/google-chrome-stable'
+    # options.add_argument('--headless=new')
+    # options.add_argument('--window-size=1920,1080')
+    options.add_argument("--enable-webgl")
+
+    # stealth automation
+    fake_timestamp = int(time.time()) - (90 * 24 * 60 * 60)  # 90 days ago
+
+    options.browser_preferences = {
+        # Simulate realistic browser usage history
+        'profile': {
+            'last_engagement_time': fake_timestamp,
+            'exited_cleanly': True,
+            'exit_type': 'Normal'
+        },
+        # Override new tab page
+        'newtab_page_location_override': 'https://www.google.com',
+        # Disable telemetry
+        'user_experience_metrics': {
+            'reporting_enabled': False
+        }
+    }
+
+    async with Chrome(options=options) as browser:
+        tab = await browser.start()
+
+        await tab.go_to(base_url)
+        print('Page loaded, waiting for captcha to be handled...')
+
+        print('Captcha handling completed, now we can continue...')
+        print('Captcha handled, continuing...')
+        
+        await asyncio.sleep(5)
+
+        page_source = await tab.page_source
+        with open(f'{base_dir}/page_source.html', 'w', errors='ignore') as f:
+            f.write(page_source)
+        tables = pd.read_html(StringIO(page_source))
+
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        # 2. Find the first table on the page
+        table = soup.find('table')
+
+        final_data = []
+
+        if table:
+            # 3. Get all 'tr' (table row) elements from the table's body
+            # Searching within 'tbody' is a good practice to avoid header rows
+            rows = table.find_all('tr')
+            header_row = table.find('thead').find('tr')
+            headers = []
+            # Loop through each header cell (th)
+            for th in header_row.find_all('th'):
+                # 1. Find the first 'div' tag inside the current 'th'
+                div = th.find('div')
+                
+                # 2. Check if a 'div' was actually found
+                if div:
+                    # If found, get the text from the 'div'
+                    headers.append(div.get_text(strip=True))
+                else:
+                    # Fallback: if no 'div', get the text from the 'th' itself
+                    headers.append(th.get_text(strip=True))
+                    # cut the duplicate words in the header
+
+            # 4. Iterate over the list of rows, taking two at a time (a "double row")
+            # We use a for loop with a step of 2
+            for i in range(1, len(rows), 2):
+                # The first row in the current pair
+                row1 = rows[i]
+
+                if i + 1 < len(rows):
+                    row2 = rows[i+1]
+                    
+                    cells1 = row1.find_all('td')
+                    data_row_text = []
+                    for cell in cells1:
+                        data_row_text.append(cell.get_text(strip=True))
+                    # print(f"Found Data: {data_row_text}")
+
+                    # 2. Check if the number of cells matches the number of headers
+                    if len(data_row_text) == len(headers):
+                        # 3. Create a dictionary by zipping the headers and the cell text together
+                        row_dict = dict(zip(headers, data_row_text))
+
+                        links = row2.find_all('a')
+                        
+                        # We can be more specific to get only the links on the right
+                        # links_container = row2.find('div', style='float:right;')
+                        # if links_container:
+                        #    links = links_container.find_all('a')
+
+                        # 3. Process the found links and add them to the dictionary
+                        for link in links:
+                            link_text = link.get_text(strip=True)
+                            relative_url = link.get('href')
+
+                            if relative_url:
+                                # Construct the absolute URL
+                                absolute_url = urljoin(base_url, relative_url)
+                                
+                                # Add to dictionary with a clean key
+                                if 'Bid Details' in link_text:
+                                    row_dict['Details URL'] = absolute_url
+                                elif 'Download Documents' in link_text:
+                                    row_dict['Documents URL'] = absolute_url
+                                elif 'Plan Takers' in link_text:
+                                    row_dict['Plan Takers URL'] = absolute_url
+                        
+                        final_data.append(row_dict)
+                    else:
+                        print(f"Warning: Skipping a row because its cell count ({len(data_row_text)}) doesn't match the header count ({len(headers)}).")
+                        print(data_row_text)
+
+        await asyncio.sleep(4)
+        print(final_data)
+        # This code runs only after the captcha is successfully bypassed
+        output_dir = "screenshots"
+        os.makedirs(output_dir, exist_ok=True) # Ensure the directory exists
+        screenshot_path = os.path.join(output_dir, "cloudflare_bypass_screenshot.png")
+        
+        print(f"Taking screenshot and saving to {screenshot_path}")
+        await tab.take_screenshot(path=screenshot_path, quality=90) # Save as PNG, full page
+
+        print(f"Screenshot saved: {screenshot_path}")
+        
+        # await tab.disable_auto_solve_cloudflare_captcha()
+        # convert to final_data
+        df = pd.DataFrame(final_data)
+        df.to_csv(f'{base_dir}/output.csv', index=False)
+        await asyncio.sleep(3)
+        full_results = []
+        # go through each row and download the files
+        for index, row in df.iterrows():
+            details_url = row['Details URL']
+            print("visiting", details_url)
+            # full results, start with the row
+            # Convert the pandas Series 'row' to a dictionary
+            row_dict = row.to_dict()
+            
+            # Initialize an empty dictionary for the details
+            values = {}
+            
+            if details_url:
+                await tab.go_to(details_url)
+                page_source = await tab.page_source
+                
+                # Parse the HTML page source
+                values = parse_bid_details_from_html(page_source)
+            
+            # Merge the two dictionaries: row_dict and values.
+            # The 'values' dictionary will overwrite any keys that already exist in 'row_dict'.
+            # For example, if both contain 'Bid Name', the one from 'values' will be used.
+            merged_dict = {**row_dict, **values}
+            
+            # Append the new, merged dictionary to the results list
+            full_results.append(merged_dict)
+            await asyncio.sleep(3)
+
+        df = pd.DataFrame(full_results)
+        df.to_csv(f'{base_dir}/full_output.csv', index=False)
+        await asyncio.sleep(3)
+        # await tab.close()
+        # loop through each entry
+        clean_entries = _filter_campbell_tenders_by_recent_date(full_results)
+
+        print("clean entries", clean_entries)
+
+        process_and_send_campbell_tenders({
+            "data": clean_entries,
+            "region_name": "Campbell River", # Use the hardcoded city name as the region
+            'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+            'file_prefix': 'tenders',
+            'tender_authority': "Campbell River - Purchasing", # Dynamic tender authority
+        })
+
+asyncio.run(campbell_river_scrap())
