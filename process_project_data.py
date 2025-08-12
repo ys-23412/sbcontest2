@@ -96,7 +96,8 @@ def find_correct_issue_date(issues, current_datetime_utc):
 
 
     if upcoming_issues:
-        found_issue = upcoming_issues[1]['original_issue']
+        # automatically put in this issue
+        found_issue = upcoming_issues[0]['original_issue']
 
     # --- Determine if current time falls into the 'New Tender' classification period ---
     is_new_tender_period = False
