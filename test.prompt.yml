@@ -1,0 +1,6 @@
+messages:
+  - role: system
+    content: You are an expert in python and web scrapping.
+  - role: user
+    content: Evaluate the code and analysis it for improvements or bugs.
+model: openai/gpt-5
