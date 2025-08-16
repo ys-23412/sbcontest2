@@ -17,11 +17,13 @@ def _map_tender_type_to_stage(tender_type_str: str) -> str:
         'RFSO': 'Request for Proposals', # Request for Standing Offer maps to RFP
         'RFQ': 'Request for Quotations',
         'NRFP': 'Request for Proposals',
-        'RFT': 'Tender Call'
+        'RFT': 'Tender Call',
+        'Tender': 'Tender Call',
+        'Request for Standing Offer': 'Standing Offer',
     }
     # Find a key that is contained within the tender_type_str
     for key, value in type_mapping.items():
-        if key in tender_type_str.upper():
+        if key.upper() in tender_type_str.upper():
             return value
     # Return original if no mapping is found
     return tender_type_str
@@ -244,7 +246,7 @@ def process_and_send_tenders(params: dict):
         # Second API call to insert data
         insert_url = f"{api_url}/api_insert_into_data.php"
         with open(f"data/{file_name_base}_with_fill.json", "w") as f:
-            json.dump(fill_payload, f, indent=4)
+            json.dump(filled_entries, f, indent=4)
         print(f"🚀 Posting filled entries to {insert_url}...")
         insert_resp = requests.post(insert_url, json=filled_entries)
         insert_resp.raise_for_status()
@@ -255,5 +257,7 @@ def process_and_send_tenders(params: dict):
     except requests.HTTPError as http_err:
         print(f"❌ HTTP error occurred: {http_err}")
         print(f"Response Text: {http_err.response.text}")
+        raise e
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
+        raise e
