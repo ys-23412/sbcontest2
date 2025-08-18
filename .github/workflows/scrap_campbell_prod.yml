@@ -1,10 +1,10 @@
-name: Testing pydoll # Name remains as per user's request, but runs on Linux now
+name: Prod Campbell river # Name remains as per user's request, but runs on Linux now
 
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 5:15 PM PST on Monday to Saturday
-    - cron: '15 0 * * 1-6'
+    - cron: '15 0 * * 1-5'
 
 jobs:
   build:
