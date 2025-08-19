@@ -57,6 +57,7 @@ jobs:
     - name: Update
       run: |
         pip install -r requirements.txt
+        pip install -r requirements_tenders.txt
         pip install playwright
         playwright install chromium
 
