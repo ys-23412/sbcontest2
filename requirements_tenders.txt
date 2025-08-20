@@ -6,3 +6,4 @@ pandas
 python-dotenv
 pytz
 python-dateutil
+lxml
