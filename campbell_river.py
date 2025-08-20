@@ -105,6 +105,7 @@ async def campbell_river_scrap():
         await asyncio.sleep(5)
 
         page_source = await tab.page_source
+        os.makedirs(base_dir, exist_ok=True)
         with open(f'{base_dir}/page_source.html', 'w', errors='ignore') as f:
             f.write(page_source)
         tables = pd.read_html(StringIO(page_source))
