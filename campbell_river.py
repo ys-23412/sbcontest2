@@ -51,28 +51,19 @@ def parse_bid_details_from_html(html_string):
             
     return bid_details
 
-async def campbell_river_scrap():
-    base_url = os.getenv('CAMPBELL_RIVER_TENDER_URL', 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en')
-    # Create browser options
+async def scrap_bids_and_tenders_site():
+    base_url = config['url']
+    region_name = config['region_name']
+    tender_authority = config['tender_authority']
+    file_prefix = config['file_prefix']
     base_dir = os.getenv('BASE_DIR', "data")
-    # options = ChromiumOptions()
 
-    # # Simple proxy without authentication
-    # options.add_argument('--proxy-server=192.168.1.100:8080')
-    # # Or proxy with authentication
-    # # options.add_argument('--proxy-server=username:password@192.168.1.100:8080')
-
-    # # Bypass proxy for specific domains
-    # options.add_argument('--proxy-bypass-list=*.internal.company.com,localhost')
     options = ChromiumOptions()
     if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
         display_var = os.environ.get("DISPLAY")
         print("display", display_var)
         options.add_argument(f'--display=:99')
-    # options.add_argument(f'--display=:99')
-    # options.binary_location = '/usr/bin/google-chrome-stable'
-    # options.add_argument('--headless=new')
-    # options.add_argument('--window-size=1920,1080')
+
     options.add_argument("--enable-webgl")
 
     # stealth automation
@@ -97,11 +88,7 @@ async def campbell_river_scrap():
         tab = await browser.start()
 
         await tab.go_to(base_url)
-        print('Page loaded, waiting for captcha to be handled...')
-
-        print('Captcha handling completed, now we can continue...')
-        print('Captcha handled, continuing...')
-        
+        print(f'Page loaded for {region_name}, waiting for captcha to be handled...')
         await asyncio.sleep(5)
 
         page_source = await tab.page_source
@@ -218,13 +205,8 @@ async def campbell_river_scrap():
             if details_url:
                 await tab.go_to(details_url)
                 page_source = await tab.page_source
-                
-                # Parse the HTML page source
                 values = parse_bid_details_from_html(page_source)
             
-            # Merge the two dictionaries: row_dict and values.
-            # The 'values' dictionary will overwrite any keys that already exist in 'row_dict'.
-            # For example, if both contain 'Bid Name', the one from 'values' will be used.
             merged_dict = {**row_dict, **values}
             
             # Append the new, merged dictionary to the results list
@@ -242,10 +224,51 @@ async def campbell_river_scrap():
 
         process_and_send_campbell_tenders({
             "data": clean_entries,
-            "region_name": "Campbell River", # Use the hardcoded city name as the region
+            "region_name": region_name,
             'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
-            'file_prefix': 'tenders',
-            'tender_authority': "Campbell River - Purchasing", # Dynamic tender authority
+            'file_prefix': file_prefix,
+            'tender_authority': tender_authority,
         })
 
-asyncio.run(campbell_river_scrap())
+async def main():
+    """
+    Main function to define and run scrapers for multiple municipalities.
+    """
+    # Define an array of dictionaries, each representing a target site.
+    # You can easily add more municipalities to this list.
+    municipalities_to_scrape = [
+        {
+            "region_name": "Campbell River",
+            "tender_authority": "Campbell River - Purchasing",
+            "file_prefix": "tenders",
+            "url": os.getenv('CAMPBELL_RIVER_TENDER_URL', 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en')
+        },
+        # --- EXAMPLE: Add another city below ---
+        # {
+        #     "region_name": "City of Nanaimo",
+        #     "tender_authority": "City of Nanaimo - Purchasing",
+        #     "file_prefix": "nanaimo_tenders",
+        #     "url": "https://nanaimo.bidsandtenders.ca/Module/Tenders/en"
+        # },
+        # {
+        #     "region_name": "City of Colwood",
+        #     "tender_authority": "City of Colwood - Purchasing",
+        #     "file_prefix": "colwood_tenders",
+        #     "url": "https://colwood.bidsandtenders.ca/Module/Tenders/en"
+        # }
+    ]
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+    for municipality in municipalities_to_scrape:
+        print(f"--- Starting scrape for {municipality['region_name']} ---")
+        try:
+            await scrape_bids_and_tenders_site(municipality)
+            print(f"--- Successfully finished scrape for {municipality['region_name']} ---")
+        except Exception as e:
+            print(f"!!! An error occurred while scraping {municipality['region_name']}: {e} !!!")
+            # Optionally, send an error notification
+            send_discord_message(f"Scraper failed for {municipality['region_name']} with error: {e}", discord_webhook_url)
+        print("-" * 50)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
