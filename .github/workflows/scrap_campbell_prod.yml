@@ -98,7 +98,7 @@ jobs:
         
         # 4. Run your browser automation script
         echo "Running scraper.py..."
-        python campbell_river.py
+        python process_bids_tenders.py
         
         # 5. Stop FFmpeg recording gracefully
         echo "Stopping FFmpeg recording..."
