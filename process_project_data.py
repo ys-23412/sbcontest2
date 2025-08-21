@@ -47,7 +47,6 @@ id,name,sort_order,category,rank,analytics_include
 108,landscaping,3,Tenders,0,0
 99,"comprehensive development",1,Multi-family,7,0
 110,"master plan",1,Consulting,0,0
-111,services,1,Tenders,0,0
 112,"leased space",1,Tenders,0,0
 113,"mechanical, electrical & plumbing",3,Tenders,0,0
 114,"land development",1,Multi-family,0,0
