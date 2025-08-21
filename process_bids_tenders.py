@@ -214,7 +214,8 @@ async def scrap_bids_and_tenders_site():
             await asyncio.sleep(3)
 
         df = pd.DataFrame(full_results)
-        df.to_csv(f'{base_dir}/full_output.csv', index=False)
+        safe_region_name = region_name.replace(' ', '_').lower()
+        df.to_csv(f'{base_dir}/{safe_region_name}_tenders.csv', index=False)
         await asyncio.sleep(3)
         # await tab.close()
         # loop through each entry
