@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 from validate_tenders import send_discord_message
 
 
-from mappers import _filter_campbell_tenders_by_recent_date, process_and_send_campbell_tenders # A more robust way to join URL parts
+from mappers import _filter_bid_tenders_by_recent_date, process_and_send_bid_tenders # A more robust way to join URL parts
 
 def parse_bid_details_from_html(html_string):
     """
@@ -218,11 +218,11 @@ async def scrap_bids_and_tenders_site():
         await asyncio.sleep(3)
         # await tab.close()
         # loop through each entry
-        clean_entries = _filter_campbell_tenders_by_recent_date(full_results)
+        clean_entries = _filter_bid_tenders_by_recent_date(full_results)
 
         print("clean entries", clean_entries)
 
-        process_and_send_campbell_tenders({
+        process_and_send_bid_tenders({
             "data": clean_entries,
             "region_name": region_name,
             'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
@@ -240,7 +240,7 @@ async def main():
         {
             "region_name": "Campbell River",
             "tender_authority": "Campbell River - Purchasing",
-            "file_prefix": "tenders",
+            "file_prefix": "bid_tenders",
             "url": os.getenv('CAMPBELL_RIVER_TENDER_URL', 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en')
         },
         # --- EXAMPLE: Add another city below ---
