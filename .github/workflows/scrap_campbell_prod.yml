@@ -114,6 +114,13 @@ jobs:
         name: cloudflare-screenshots
         path: screenshots/
 
+    - name: Upload Data
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: data
+        path: data/
+
     - name: Upload Video Recording
       if: always() # Upload even if previous steps fail
       uses: actions/upload-artifact@v4
