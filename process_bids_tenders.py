@@ -178,7 +178,7 @@ async def scrap_bids_and_tenders_site(config: dict):
         # This code runs only after the captcha is successfully bypassed
         output_dir = "screenshots"
         os.makedirs(output_dir, exist_ok=True) # Ensure the directory exists
-        screenshot_path = os.path.join(output_dir, "cloudflare_bypass_screenshot.png")
+        screenshot_path = os.path.join(output_dir, f"{file_prefix}_cloudflare_bypass_screenshot.png")
         
         print(f"Taking screenshot and saving to {screenshot_path}")
         await tab.take_screenshot(path=screenshot_path, quality=90) # Save as PNG, full page
