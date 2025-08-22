@@ -51,7 +51,7 @@ def parse_bid_details_from_html(html_string):
             
     return bid_details
 
-async def scrap_bids_and_tenders_site():
+async def scrap_bids_and_tenders_site(config: dict):
     base_url = config['url']
     region_name = config['region_name']
     tender_authority = config['tender_authority']
@@ -262,7 +262,7 @@ async def main():
     for municipality in municipalities_to_scrape:
         print(f"--- Starting scrape for {municipality['region_name']} ---")
         try:
-            await scrape_bids_and_tenders_site(municipality)
+            await scrap_bids_and_tenders_site(municipality)
             print(f"--- Successfully finished scrape for {municipality['region_name']} ---")
         except Exception as e:
             print(f"!!! An error occurred while scraping {municipality['region_name']}: {e} !!!")
