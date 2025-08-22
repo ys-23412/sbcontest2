@@ -16,6 +16,7 @@ jobs:
       YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       HIDE_TINY_URL: True
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -97,7 +98,7 @@ jobs:
         
         # 4. Run your browser automation script
         echo "Running scraper.py..."
-        python campbell_river.py
+        python process_bids_tenders.py
         
         # 5. Stop FFmpeg recording gracefully
         echo "Stopping FFmpeg recording..."
@@ -112,6 +113,13 @@ jobs:
       with:
         name: cloudflare-screenshots
         path: screenshots/
+
+    - name: Upload Data
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: data
+        path: data/
 
     - name: Upload Video Recording
       if: always() # Upload even if previous steps fail

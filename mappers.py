@@ -122,7 +122,7 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
     entry['ys_body'] = ys_body
     return {'entry': entry}
 
-def _map_tender_entry_campbellriver(tender_record: dict, params: dict) -> dict:
+def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
     """
     Maps a single tender data record from Campbell River's bid system to the
     required API structure.
@@ -224,7 +224,7 @@ def _map_tender_entry_campbellriver(tender_record: dict, params: dict) -> dict:
     entry['ys_body'] = ys_body
     return {'entry': entry}
 
-def _filter_campbell_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
+def _filter_bid_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
     """
     Filters a list of tender records to include only those published
     today or yesterday.
@@ -317,7 +317,7 @@ def _filter_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
     return filtered_records
 
 
-def process_and_send_campbell_tenders(params: dict):
+def process_and_send_bid_tenders(params: dict):
     """
     Orchestrates the mapping, classification, and API submission for tender data.
     
@@ -329,28 +329,29 @@ def process_and_send_campbell_tenders(params: dict):
     """
     tender_records = params.get('data', [])
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-    if not tender_records:
-        print("No tender records to process.")
-        send_discord_message("No tender records to process for campbell river.", discord_webhook_url)
-        return
-
     api_url = os.getenv('YS_APIURL', 'http://localhost')
     user_id = os.getenv('YS_USERID', '2025060339')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'tender')
     region_name = params.get('region_name', 'campbell river')
+    if not tender_records:
+        print("No tender records to process.")
+        send_discord_message(f"No tender records to process for {region_name}.", discord_webhook_url)
+        return
+
+
     
     final_mapped_data = []
     print(f"⚙️ Starting processing for {len(tender_records)} tender records...")
 
     # --- filter tenders by date ---
-    tender_records = _filter_campbell_tenders_by_recent_date(tender_records)
+    tender_records = _filter_bid_tenders_by_recent_date(tender_records)
     print("records", tender_records)
     # --- Step 1 & 2: Map each record, then classify and insert ys_project_type ---
     for record in tender_records:
         try:
             # Step 1: Map the tender using the existing function
-            mapped_result = _map_tender_entry_campbellriver(record, params)
+            mapped_result = _map_bid_tender_entry(record, params)
             
             # Step 2: Classify the original record and insert the project type ID
             project_type_id = get_project_type_id(record)
