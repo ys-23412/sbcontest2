@@ -329,16 +329,17 @@ def process_and_send_bid_tenders(params: dict):
     """
     tender_records = params.get('data', [])
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-    if not tender_records:
-        print("No tender records to process.")
-        send_discord_message("No tender records to process for campbell river.", discord_webhook_url)
-        return
-
     api_url = os.getenv('YS_APIURL', 'http://localhost')
     user_id = os.getenv('YS_USERID', '2025060339')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'tender')
     region_name = params.get('region_name', 'campbell river')
+    if not tender_records:
+        print("No tender records to process.")
+        send_discord_message(f"No tender records to process for {region_name}.", discord_webhook_url)
+        return
+
+
     
     final_mapped_data = []
     print(f"⚙️ Starting processing for {len(tender_records)} tender records...")
