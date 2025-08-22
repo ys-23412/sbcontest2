@@ -214,8 +214,7 @@ async def scrap_bids_and_tenders_site(config: dict):
             await asyncio.sleep(3)
 
         df = pd.DataFrame(full_results)
-        safe_region_name = region_name.replace(' ', '_').lower()
-        df.to_csv(f'{base_dir}/{safe_region_name}_tenders.csv', index=False)
+        df.to_csv(f'{base_dir}/{file_prefix}_tenders.csv', index=False)
         await asyncio.sleep(3)
         # await tab.close()
         # loop through each entry
@@ -240,23 +239,35 @@ async def main():
     municipalities_to_scrape = [
         {
             "region_name": "Campbell River",
-            "tender_authority": "Campbell River - Purchasing",
-            "file_prefix": "bid_tenders",
-            "url": os.getenv('CAMPBELL_RIVER_TENDER_URL', 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en')
+            "tender_authority": "Campbell River - Bids and Tenders",
+            "file_prefix": "campbell_river_bid_tenders",
+            "url": 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en'
         },
         # --- EXAMPLE: Add another city below ---
-        # {
-        #     "region_name": "City of Nanaimo",
-        #     "tender_authority": "City of Nanaimo - Purchasing",
-        #     "file_prefix": "nanaimo_tenders",
-        #     "url": "https://nanaimo.bidsandtenders.ca/Module/Tenders/en"
-        # },
-        # {
-        #     "region_name": "City of Colwood",
-        #     "tender_authority": "City of Colwood - Purchasing",
-        #     "file_prefix": "colwood_tenders",
-        #     "url": "https://colwood.bidsandtenders.ca/Module/Tenders/en"
-        # }
+        {
+            "region_name": "Nanaimo",
+            "tender_authority": "Nanaimo - Bids and Tenders",
+            "file_prefix": "nanaimo_tenders",
+            "url": "https://nanaimo.bidsandtenders.ca/Module/Tenders/en"
+        },
+        {
+            "region_name": "Sidney",
+            "tender_authority": "Sidney - Bids and Tenders",
+            "file_prefix": "sidney_tenders",
+            "url": "https://sidney.bidsandtenders.ca/Module/Tenders/en"
+        },
+        {
+            "region_name": "Comox Valley",
+            "tender_authority": "Comox Valley - Bids and Tenders",
+            "file_prefix": "comox_tenders",
+            "url": "https://comoxvalleyrd.bidsandtenders.ca/Module/Tenders/en"
+        },
+        {
+            "region_name": "Campbell River",
+            "tender_authority": "School District 72 (Campbell River) - Bids and Tenders",
+            "file_prefix": "campbell_river_bid_tenders",
+            "url": 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en'
+        }
     ]
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     for municipality in municipalities_to_scrape:
