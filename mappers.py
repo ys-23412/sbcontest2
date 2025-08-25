@@ -29,6 +29,7 @@ def _map_tender_type_to_stage(tender_type_str: str) -> str:
         if key.upper() in tender_type_str.upper():
             return value
     # Return original if no mapping is found
+    print("No mapping found for tender type:", tender_type_str)
     return tender_type_str
 
 def _map_tender_entry(tender_record: dict, params: dict) -> dict:
@@ -121,6 +122,10 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
     ys_body['ys_no_tiny_urls'] = hide_tiny_url
     ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
     entry['ys_body'] = ys_body
+    entry['ys_component'] = int(ys_component_id)
+    project_type_id = get_project_type_id(tender_record)
+    entry['ys_type'] = project_type_id
+    entry['project_type'] = project_type_id
     return {'entry': entry}
 
 def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
@@ -340,8 +345,6 @@ def process_and_send_bid_tenders(params: dict):
         send_discord_message(f"No tender records to process for {region_name}.", discord_webhook_url)
         return
 
-
-    
     final_mapped_data = []
     print(f"⚙️ Starting processing for {len(tender_records)} tender records...")
 
@@ -357,6 +360,7 @@ def process_and_send_bid_tenders(params: dict):
             # Step 2: Classify the original record and insert the project type ID
             project_type_id = get_project_type_id(record)
             mapped_result['entry']['ys_project_type'] = project_type_id
+            mapped_result['entry']['project_type'] = project_type_id
             final_mapped_data.append(mapped_result['entry'])
 
         except Exception as e:
@@ -453,6 +457,7 @@ def process_and_send_tenders(params: dict):
             # Step 2: Classify the original record and insert the project type ID
             project_type_id = get_project_type_id(record)
             mapped_result['entry']['ys_project_type'] = project_type_id
+            mapped_result['entry']['project_type'] = project_type_id
 
             
             final_mapped_data.append(mapped_result['entry'])
