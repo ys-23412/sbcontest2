@@ -282,8 +282,8 @@ def main():
     print(f"\n--- Scraping complete. Processed {len(all_bid_data)} bids. ---")
     
     # Optional: Save all data to a single JSON file
-    # with open("crd_bids.json", "w") as f:
-    #     json.dump(all_bid_data, f, indent=4)
+    with open(f"{BASE_DIR}/crd_bids.json", "w") as f:
+        json.dump(all_bid_data, f, indent=4)
     # print("All bid data saved to crd_bids.json")
     process_and_send_tenders({
         "data": all_bid_data,
