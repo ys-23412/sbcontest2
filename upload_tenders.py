@@ -75,10 +75,28 @@ def load_and_filter_tenders(base_dir, csv_file):
     # --- Filtering for the date range ---
     # Use boolean indexing with comparison operators
     # The '&' operator performs a logical AND between the two conditions.
-    df_filtered_range = df[
-        (df_date_only >= today_pst_date) &
-        (df_date_only <= tmmr_pst_date)
-    ]
+    # make sure the types are the same
+
+    try:
+        df_filtered_range = df[
+            (df_date_only >= today_pst_date) &
+            (df_date_only <= tmmr_pst_date)
+        ]
+
+    except Exception as e:
+        today_pst_ts = pd.to_datetime(today_pst_date)
+        tmmr_pst_ts = pd.to_datetime(tmmr_pst_date)
+
+        print(f"Filtering between {today_pst_ts} and {tmmr_pst_ts}")
+
+        # --- Filtering for the date range ---
+        # Now the comparison will work correctly.
+        df_filtered_range = df[
+            (df_date_only >= today_pst_ts) &
+            (df_date_only <= tmmr_pst_ts)
+        ]
+
+    print("--- Filtered DataFrame ---")
     print(df_filtered_range)
 
     df_filtered_range['address'] = ''
