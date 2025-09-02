@@ -266,7 +266,7 @@ async def main():
             "region_name": "Campbell River",
             "tender_authority": "School District 72 (Campbell River) - Bids and Tenders",
             "file_prefix": "campbell_river_bid_tenders",
-            "url": 'https://campbellriver.bidsandtenders.ca/Module/Tenders/en'
+            "url": 'https://sd72.bidsandtenders.ca/Module/Tenders/en'
         }
     ]
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
