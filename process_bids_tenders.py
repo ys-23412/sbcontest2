@@ -80,7 +80,7 @@ async def scrap_bids_and_tenders_site(config: dict):
 
     async with Chrome(options=options) as browser:
         try:
-            await browser.start()
+            tab = await browser.start()
         except Exception as e:
             print(f"Error starting browser: {e}")
             await asyncio.sleep(5)
