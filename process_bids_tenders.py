@@ -69,23 +69,22 @@ async def scrap_bids_and_tenders_site(config: dict):
     # stealth automation
     fake_timestamp = int(time.time()) - (90 * 24 * 60 * 60)  # 90 days ago
 
-    options.browser_preferences = {
-        # Simulate realistic browser usage history
-        'profile': {
-            'last_engagement_time': fake_timestamp,
-            'exited_cleanly': True,
-            'exit_type': 'Normal'
-        },
-        # Override new tab page
-        'newtab_page_location_override': 'https://www.google.com',
-        # Disable telemetry
-        'user_experience_metrics': {
-            'reporting_enabled': False
-        }
-    }
+    # options.browser_preferences = {
+    #     # Override new tab page
+    #     'newtab_page_location_override': 'https://www.google.com',
+    #     # Disable telemetry
+    #     'user_experience_metrics': {
+    #         'reporting_enabled': False
+    #     }
+    # }
 
     async with Chrome(options=options) as browser:
-        tab = await browser.start()
+        try:
+            await browser.start()
+        except Exception as e:
+            print(f"Error starting browser: {e}")
+            await asyncio.sleep(5)
+            tab = await browser.start()
 
         await tab.go_to(base_url)
         print(f'Page loaded for {region_name}, waiting for captcha to be handled...')
