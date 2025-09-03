@@ -409,7 +409,7 @@ def process_and_send_bid_tenders(params: dict):
         
         print("🎉 API submission successful!")
         print(insert_resp.json())
-        send_discord_message("🎉 API submission successful! for campbell river", discord_webhook_url)
+        send_discord_message(f"API submission successful! for {region_name}", discord_webhook_url)
 
     except requests.HTTPError as http_err:
         print(f"❌ HTTP error occurred: {http_err}")
