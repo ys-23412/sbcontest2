@@ -126,6 +126,10 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
     project_type_id = get_project_type_id(tender_record)
     entry['ys_type'] = project_type_id
     entry['project_type'] = project_type_id
+
+    if entry.get('ys_address') is None or entry.get('ys_address') == "":
+        # TODO scan the rest of the addresses
+        entry['ys_address'] = "Various Locations"
     return {'entry': entry}
 
 def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
@@ -228,6 +232,10 @@ def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
     ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
     
     entry['ys_body'] = ys_body
+
+    if entry.get('ys_address') is None or entry.get('ys_address') == "":
+        # TODO scan the rest of the addresses
+        entry['ys_address'] = "Various Locations"
     return {'entry': entry}
 
 def _filter_bid_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:

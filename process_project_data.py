@@ -426,6 +426,10 @@ def map_data(params):
             entry['ys_address'] = addresses[-1]
             # and we have to set the body the location details
             ys_body['ys_location_detail'] = ", ".join(addresses)
+
+        if entry['ys_address'] is None or entry['ys_address'] == "":
+            # TODO scan the rest of the addresses
+            entry['ys_address'] = "Various Locations"
         # take first 255 characters
         current_ys_component_id = int(ys_component_id)
         if current_ys_component_id == DataTypes.TENDERS.value:
