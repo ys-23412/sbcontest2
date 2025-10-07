@@ -94,6 +94,8 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
         enquiries.append(f"Phone: {contact_phone}")
     ys_body['ys_enquiries'] = ", ".join(enquiries)
 
+    # if none, set value to be determined
+
     # Parse and format the closing date
     closing_date_str = tender_record.get('Closing Date')
     if closing_date_str:
