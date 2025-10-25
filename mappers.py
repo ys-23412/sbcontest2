@@ -1,6 +1,7 @@
 import dateparser
 import requests
 import os
+import re
 import json
 from process_project_data import get_project_type_id
 from datetime import date, timedelta, datetime
@@ -11,6 +12,7 @@ from zoneinfo import ZoneInfo
 from validate_tenders import send_discord_message # Use standard library for timezones
 # the non bonfire mappers go here, its fine for now, we can consonslidate and refactor
 # at the end.
+dash_pattern = r"[\u2013\u2014\u2012\u2015\u200b]"
 def _map_tender_type_to_stage(tender_type_str: str) -> str:
     """Maps various tender type strings to a standardized stage name."""
     type_mapping = {
@@ -73,7 +75,8 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
             entry['ys_date'] = parsed_open_date.strftime('%Y-%m-%d')
 
     # 2. Map 'ys_body' fields
-    ys_body['ys_project'] = tender_record.get('Title', '').replace(" - ", " &ndash; ", 1)
+    
+    ys_body['ys_project'] = re.sub(dash_pattern, '-', tender_record.get('Title', ''))
     ys_body['ys_documents_drawings_link'] = tender_record.get('Link')
     ys_body['ys_sector'] = 'Public' # Tenders are typically public sector
     ys_body['ys_reference'] = entry['ys_permit']
@@ -178,9 +181,8 @@ def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
     review_date_obj = date.today() + relativedelta(months=+1)
     entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
     entry['project_step_id'] = 1001
-
     # 2. Map 'ys_body' fields
-    ys_body['ys_project'] = get_tender_value('Bid Name').replace(" - ", " &ndash; ", 1)
+    ys_body['ys_project'] = re.sub(dash_pattern, '-', get_tender_value('Bid Name'))
     ys_body['ys_documents_drawings_link'] = get_tender_value('Documents URL')
     ys_body['ys_sector'] = 'Public'
     ys_body['ys_reference'] = entry['ys_permit']
