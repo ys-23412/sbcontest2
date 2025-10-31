@@ -436,7 +436,7 @@ def map_data(params):
             entry['ys_description'] = unmapped_entry['project'][:95]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
-            entry['ys_description'] = entry['ys_description'].replace(" - ", " &ndash; ", 1) # Replace only the first instance of " - "
+            entry['ys_description'] = entry['ys_description'].replace(" - ", " - ", 1) # Replace only the first instance of " - "
 
         elif current_ys_component_id == DataTypes.NEW_PROJECT.value:
             entry['ys_description'] = unmapped_entry['purpose'][:95]
