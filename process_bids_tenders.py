@@ -278,6 +278,14 @@ async def main():
             print(f"!!! An error occurred while scraping {municipality['region_name']}: {e} !!!")
             # Optionally, send an error notification
             send_discord_message(f"Scraper failed for {municipality['region_name']} with error: {e}", discord_webhook_url)
+            try:
+                time.sleep(10)
+                await scrap_bids_and_tenders_site(municipality)
+                print(f"--- Successfully finished scrape for {municipality['region_name']} ---")
+            except Exception as e:
+                print(f"!!! An error occurred while scraping {municipality['region_name']}: {e} !!!")
+                send_discord_message(f"Scraper failed for {municipality['region_name']} with error: {e}", discord_webhook_url)
+
         print("-" * 50)
 
 
