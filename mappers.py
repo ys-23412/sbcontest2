@@ -78,7 +78,7 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
     
     ys_body['ys_project'] = re.sub(dash_pattern, '-', tender_record.get('Title', ''))
     try:
-        ys_body['ys_project'] = unidecode(ys_body.get('ys_project', '')]
+        ys_body['ys_project'] = unidecode(ys_body.get('ys_project', ''))]
     except Exception as e:
         print(e)
     ys_body['ys_documents_drawings_link'] = tender_record.get('Link')
