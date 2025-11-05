@@ -3,8 +3,8 @@ name: Scrap CRD Website Prod # Name remains as per user's request, but runs on L
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
-    # Run at 5:10 PM PST on Monday to Saturday
-    - cron: '40 23 * * 1-6'
+    # Run at 5:10 PM PST on Monday to Saturday - adjusted for daylights saving time.
+    - cron: '40 1 * * 1-6'
 
 jobs:
   build:
