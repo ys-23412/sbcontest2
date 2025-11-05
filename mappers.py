@@ -8,7 +8,7 @@ from datetime import date, timedelta, datetime
 from typing import List, Dict
 from dateutil.relativedelta import relativedelta # Import this
 from zoneinfo import ZoneInfo
-
+from unidecode import unidecode
 from validate_tenders import send_discord_message # Use standard library for timezones
 # the non bonfire mappers go here, its fine for now, we can consonslidate and refactor
 # at the end.
@@ -77,6 +77,10 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
     # 2. Map 'ys_body' fields
     
     ys_body['ys_project'] = re.sub(dash_pattern, '-', tender_record.get('Title', ''))
+    try:
+        ys_body['ys_project'] = unidecode(ys_body.get('ys_project', '')]
+    except Exception as e:
+        print(e)
     ys_body['ys_documents_drawings_link'] = tender_record.get('Link')
     ys_body['ys_sector'] = 'Public' # Tenders are typically public sector
     ys_body['ys_reference'] = entry['ys_permit']
@@ -167,6 +171,7 @@ def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
     
     # 1. Map top-level 'entry' fields
     entry['ys_description'] = get_tender_value('Bid Name')[:100].replace("'", "''")
+    entry['ys_description'] = unidecode(entry.get('ys_description'))
     entry['ys_permit'] = get_tender_value('Bid Number')
     entry['ys_component'] = int(ys_component_id)
 
@@ -183,6 +188,10 @@ def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
     entry['project_step_id'] = 1001
     # 2. Map 'ys_body' fields
     ys_body['ys_project'] = re.sub(dash_pattern, '-', get_tender_value('Bid Name'))
+    try:
+        ys_body['ys_project'] = unidecode(ys_body.get('ys_project', ''))
+    except Exception as e:
+        print(e)
     ys_body['ys_documents_drawings_link'] = get_tender_value('Documents URL')
     ys_body['ys_sector'] = 'Public'
     ys_body['ys_reference'] = entry['ys_permit']

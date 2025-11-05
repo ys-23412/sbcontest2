@@ -5,3 +5,4 @@ beautifulsoup4
 google-genai==1.18.0
 pytz
 json-repair
+unidecode
