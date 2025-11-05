@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 5:15 PM PST on Monday to Saturday
-    - cron: '50 23 * * 1-6'
+    - cron: '50 0 * * 1-6'
 
 jobs:
   build:
