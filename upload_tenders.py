@@ -164,7 +164,7 @@ def main():
     # Define the list of CSV files and their corresponding hardcoded city names
     csv_configs = [
         {"file_name": "bonfire_victoria_with_links.csv", "city": "victoria", "tender_authority": "City of Victoria - Purchasing"},
-        {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich", "tender_authority": "City of Saanich - Purchasing"},
+        {"file_name": "bonfire_saanich_with_links.csv", "city": "saanich", "tender_authority": "District of Saanich - Purchasing"},
         {"file_name": "bonfire_north_cowichan_with_links.csv", "city": "north cowichan", "tender_authority": "North Cowichan - Purchasing"},
         {"file_name": "bonfire_cvrd_with_links.csv", "city": "cowichan valley rd", "tender_authority": "Cowichan Valley Regional District - Purchasing"},
         {"file_name": "bonfire_fnha_with_links.csv", "city": "victoria", "tender_authority": "First Nations Health Authority - Purchasing"}, # Assuming 'saanich' was a typo for city in original, changed to a more descriptive name for FNHA, adjust if 'saanich' is indeed intended for city_name
