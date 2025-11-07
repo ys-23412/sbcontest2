@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 5:10 PM PST on Monday to Saturday - adjusted for daylights saving time.
-    - cron: '59 23 * * 1-6'
+    - cron: '54 23 * * 1-6'
 
 jobs:
   build:
@@ -43,6 +43,12 @@ jobs:
         python -m pip install -r requirements.txt
         python -m pip install -r requirements_tenders.txt
 
+
+    - name: Wait for 5 Minutes
+      run: |
+        echo "Sleeping for 5 minutes..."
+        sleep 300  # 300 seconds = 5 minutes
+        echo "Waking up and continuing."
 
     - name: Fetch Tenders ALL
       run: |
