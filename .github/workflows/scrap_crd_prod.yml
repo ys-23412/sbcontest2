@@ -6,6 +6,10 @@ on:
     # Run at 5:10 PM PST on Monday to Saturday - adjusted for daylights saving time.
     - cron: '54 23 * * 1-6'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
