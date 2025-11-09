@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Allows manual trigger
   schedule:
     # Run at 4:59 PM PST on Monday to Saturday
-    - cron: '54 23 * * 1-6'
+    - cron: '54 23 * * 0-6'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
