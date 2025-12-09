@@ -14,6 +14,7 @@ from google.genai import types
 
 
 class DataTypes(Enum):
+    BUILDING_PERMITS = 13
     UPDATED_TENDERS = 11
     TENDERS = 10
     NEW_PROJECT = 7
@@ -352,7 +353,9 @@ def map_data(params):
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'np')
     ys_component_id = os.getenv('YS_COMPONENTID', 7)
-    print("ys_component_id: " + str(ys_component_id))
+    if params.get('ys_component_id_override'):
+        ys_component_id = params.get('ys_component_id_override', 13)
+
     hide_tiny_url_str = params.get('hide_tiny_url', False)
     # Check if the retrieved value is a string and then convert it
     if isinstance(hide_tiny_url_str, str):
@@ -386,32 +389,37 @@ def map_data(params):
     mapped_data = []
     entries_with_project_types = []
     # classified entries
-    print(len(data))
-    print("Mapping Google Project Data?")
-    for unclassified_entry in data:
-        # copy unclassified_entry and remove details_link
-        entry_copy = unclassified_entry.copy()
-        # entry_copy['details_link'] = None
-        try:
-            entry_copy['ys_project_type'] = get_project_type_id(entry_copy)
-            # entry_copy['details_link'] = unclassified_entry['details_link']
-            entries_with_project_types.append(entry_copy)
-        except Exception as e:
-            print("Failed to process entry", e)
-            entry_copy['ys_project_type'] = 0
-            entries_with_project_types.append(entry_copy)
-        time.sleep(4)
 
-    if len(entries_with_project_types) == 0:
-        print("do entries have project types?", entries_with_project_types)
+    if ys_component_id != 13:
+        print(len(data))
+        print("Mapping Google Project Data?")
+        for unclassified_entry in data:
+            # copy unclassified_entry and remove details_link
+            entry_copy = unclassified_entry.copy()
+            # entry_copy['details_link'] = None
+            try:
+                entry_copy['ys_project_type'] = get_project_type_id(entry_copy)
+                # entry_copy['details_link'] = unclassified_entry['details_link']
+                entries_with_project_types.append(entry_copy)
+            except Exception as e:
+                print("Failed to process entry", e)
+                entry_copy['ys_project_type'] = 0
+                entries_with_project_types.append(entry_copy)
+            time.sleep(4)
+
+        if len(entries_with_project_types) == 0:
+            print("do entries have project types?", entries_with_project_types)
     
 
     # print all the entries and save to data
     # add datetime to the filename
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     filename = f"{file_name}_{current_date}_{region_name}.json"
-    with open(f"data/{file_prefix}_with_project_type_{filename}.json", "w") as f:
-        json.dump(entries_with_project_types, f)
+    try:
+        with open(f"data/{file_prefix}_with_project_type_{filename}", "w") as f:
+            json.dump(entries_with_project_types, f)
+    except Exception as e:
+        print("Failed to save data", e)
 
     fill_entries_url = f"{api_url}/api_fill_entries.php"
     for unmapped_entry in entries_with_project_types:
@@ -552,6 +560,8 @@ def map_data(params):
             ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
             ys_body['ys_sector'] = 'Private'
             entry['project_step_id'] = 1001
+        elif int(ys_component_id) == DataTypes.BUILDING_PERMITS.value:
+            pass
         else:
             raise Exception(f"Unknown ys_component_id: {ys_component_id}")
         
