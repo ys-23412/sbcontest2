@@ -76,4 +76,4 @@ jobs:
       with:
         name: upload-data
         path: data/
-        retention-days: 3 # Artifact will now be retained for 90 days
+        retention-days: 10 # Artifact will now be retained for 90 days
