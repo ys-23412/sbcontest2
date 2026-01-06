@@ -24,7 +24,6 @@ project_types_csv = """
 id,name,sort_order,category,rank,analytics_include
 68,"accessory buildings",20,,1,1
 89,"agricultural building",110,,1,1
-33,"civil work",53,Civil,1,0
 20,"commercial add/alter",70,Commercial,5,1
 18,"commercial new",60,Commercial,5,1
 34,demolition/deconstruction,140,,1,1
