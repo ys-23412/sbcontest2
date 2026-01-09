@@ -90,12 +90,15 @@ jobs:
         retention-days: 3 # Artifact will now be retained for 90 days
 
     - name: Upload Data
+      if: always()
       run: |
         python upload_tenders.py
 
     - name: Validate Data
+      if: always()
       run: |
         python validate_tenders.py
+
     - name: Upload Results
       if: always()
       uses: actions/upload-artifact@v4

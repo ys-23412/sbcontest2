@@ -291,6 +291,7 @@ async def main():
     ]
 
     print("--- Initializing AsyncCamoufox Browser ---")
+    has_errors = False
     try:
         # Initialize AsyncCamoufox once
         async with AsyncCamoufox(
@@ -321,7 +322,12 @@ async def main():
             print("--- All tender fetches completed. ---")
 
     except Exception as e:
+        has_errors = True
         print(f"An error occurred during browser initialization or main loop: {e}")
+
+    # if has_errors raise exception
+    if has_errors:
+        raise Exception("An error occurred during browser initialization or main loop.")
 
 # Run the asynchronous main function
 if __name__ == "__main__":
