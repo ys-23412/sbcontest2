@@ -65,7 +65,10 @@ jobs:
         pip install -r requirements_tenders.txt
         pip install playwright
         playwright install chromium
-
+    - name: Wait for 3 minutes
+      run: sleep 180
+    - name: Wait for 3 minutes
+      run: sleep 180
     - name: Run Browser Automation and Record Xvfb Session
         # Set the DISPLAY environment variable for this entire step.
         # All commands within this 'run' block will use this display.
