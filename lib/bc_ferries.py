@@ -64,6 +64,76 @@ def get_browser_options(headless=False):
 
     return options
 
+async def scrape_competition_details(tab):
+    """
+    Scrapes the detail sub-page for a specific competition.
+    Extracts merged headers, key dates, primary email, and introductory text.
+    """
+    # 1. Extract raw text and specific elements using JavaScript
+    page_data = await tab.execute_script("""
+        const container = document.querySelector('.business-ops-details') || document.body;
+        
+        // Select all h2 headings on the page
+        const h2Headings = Array.from(document.querySelectorAll('h2'));
+        
+        // Extract text from the first two h2 headings
+        let firstH2 = h2Headings[0]?.innerText.trim() || "";
+        let secondH2 = h2Headings[1]?.innerText.trim() || "";
+        
+        // Logic to merge and remove duplicates
+        let mergedHeader;
+        if (secondH2.toLowerCase().includes(firstH2.toLowerCase())) {
+            // If the 2nd contains the 1st, just use the 2nd (since it has the full text)
+            mergedHeader = secondH2;
+        } else {
+            // Otherwise merge them with a space
+            mergedHeader = `${firstH2} ${secondH2}`.trim();
+        }
+    
+        // Extract the first sentence after the FIRST h2 heading
+        let firstSentence = "";
+        const titleEl = h2Headings[0];
+        if (titleEl) {
+            let nextEl = titleEl.nextElementSibling;
+            // Skip over empty elements to find the first paragraph of text
+            while (nextEl && !nextEl.innerText.trim()) {
+                nextEl = nextEl.nextElementSibling;
+            }
+            if (nextEl) {
+                const text = nextEl.innerText.trim();
+                // Split by punctuation and keep the first part as a sentence
+                firstSentence = text.split(/[.!?]/)[0] + ".";
+            }
+        }
+    
+        return {
+            mergedHeader,
+            fullText: container.innerText,
+            firstSentence
+        };
+    """)
+
+    text = page_data['fullText']
+    
+    # 2. Extract Key Dates using Regex (Published, Closing Date, Closing Time)
+    # Pattern: Look for labels followed by date/time formats
+    published = re.search(r"Published:\s*(\w+\s+\d{1,2},\s+\d{4})", text)
+    closing_date = re.search(r"Closing Date:\s*(\w+\s+\d{1,2},\s+\d{4})", text)
+    closing_time = re.search(r"Closing Time:\s*(\d{1,2}:\d{2}\s*[apAP][mM])", text)
+
+    # 3. Extract first email under Primary Contact
+    # Finds the block after "Primary Contact" and captures the first email pattern
+    email_match = re.search(r"Primary Contact[\s\S]*?([\w\.-]+@[\w\.-]+\.\w+)", text)
+
+    return {
+        "competition": page_data['mergedHeader'],
+        "published": published.group(1) if published else "N/A",
+        "closing_date": closing_date.group(1) if closing_date else "N/A",
+        "closing_time": closing_time.group(1) if closing_time else "N/A",
+        "primary_email": email_match.group(1) if email_match else "N/A",
+        "intro_sentence": page_data['firstSentence']
+    }
+
 async def main():
     opts = get_browser_options()
     # Initialize Chrome. Pydoll handles the binary and connection automatically.
@@ -122,7 +192,55 @@ async def main():
         # with open("bc_ferries_data.txt", "w") as f:
         #     f.write(page_text)
         with open("bc_ferries_ops.txt", "w", encoding="utf-8") as f:
-                    f.write(content)
+            f.write(content)
+
+        # 3. Scrape Active Competitions
+        # Based on the HTML, competitions are in divs with class 'business-ops'
+        print("Scraping active competitions...")
+        competitions = []
+        
+        # We execute JS to pull all rows under the 'Active competitions' header
+        rows_data = await tab.execute_script("""
+            const rows = Array.from(document.querySelectorAll('.business-ops'));
+            return rows.map(row => {
+                const linkEl = row.querySelector('a');
+                const cols = Array.from(row.querySelectorAll('p')).map(p => p.innerText.trim());
+                return {
+                    title: cols[0] || '',
+                    description: cols[1] || '',
+                    published: cols[2] || '',
+                    closing: cols[3] || '',
+                    url: linkEl ? linkEl.href : ''
+                };
+            });
+        """)
+
+        # 4. Save to CSV
+        csv_file = "active_competitions.csv"
+        keys = ["title", "description", "published", "closing", "url"]
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            dict_writer = csv.DictWriter(f, fieldnames=keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(rows_data)
+        print(f"Saved {len(rows_data)} items to {csv_file}")
+
+        # 5. Iterate and Click through each link
+        for item in rows_data:
+            if item['url']:
+                print(f"Visiting: {item['title']} - {item['url']}")
+                await tab.go_to(item['url'])
+                await tab.wait_for_selector('h2') # Ensure page load
+                details = await scrape_competition_details(tab)
+                print(f"Extracted: {details['competition']}")
+                
+                # Add details to your data structure for CSV saving
+                item.update(details)
+                # Perform sub-page scraping here if needed
+                # example_text = await tab.execute_script("return document.body.innerText")
+                
+                await asyncio.sleep(2) # Throttle to be polite
+                await tab.go_back() # Return to main list
+                await asyncio.sleep(1)
 
 if __name__ == "__main__":
     asyncio.run(main())
