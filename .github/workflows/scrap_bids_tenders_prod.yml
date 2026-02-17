@@ -1,4 +1,4 @@
-name: Prod Campbell river # Name remains as per user's request, but runs on Linux now
+name: Prod Bids and Tenders # Name remains as per user's request, but runs on Linux now
 
 on:
   workflow_dispatch: # Allows manual trigger

@@ -305,7 +305,7 @@ async def main():
             "tender_authority": "School District 72 (Campbell River) - Bids and Tenders",
             "file_prefix": "campbell_river_bid_tenders",
             "url": 'https://sd72.bidsandtenders.ca/Module/Tenders/en'
-        }
+        },
         {
             "region_name": "Victoria",
             "tender_authority": "Island Health - Bids and Tenders",
