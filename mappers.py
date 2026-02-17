@@ -3,6 +3,7 @@ import requests
 import os
 import re
 import json
+from lib.timing import get_execution_window
 from process_project_data import get_project_type_id
 from datetime import date, timedelta, datetime
 from typing import List, Dict
@@ -251,55 +252,11 @@ def _map_bid_tender_entry(tender_record: dict, params: dict) -> dict:
         entry['ys_address'] = "Various Locations"
     return {'entry': entry}
 
-def _filter_bid_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
-    """
-    Filters a list of tender records to include only those published
-    today or yesterday.
-
-    Args:
-        tender_records: A list of raw tender record dictionaries.
-
-    Returns:
-        A new list containing only the tender records published on
-        the required dates.
-    """
-    pst_timezone = ZoneInfo("America/Vancouver") # Use a specific IANA timezone for PST
-    
-    # Get the current datetime in PST
-    now_pst = datetime.now(pst_timezone)
-    today_pst = now_pst.date()
-    # 1. Define the date range
-    today = date.today()
-    # yesterday = today - timedelta(days=1)
-    target_dates = [today_pst, today]
-
-    print(f"Filtering records for dates: {today} and {today_pst}")
-    
-    filtered_records = []
-
-    # 2. Loop through each record and check its PublishedDate
-    for record in tender_records:
-        date_str = record.get('Published Date')
-
-        if not date_str:
-            continue
-
-        # 3. Parse the date and compare
-        try:
-            parsed_datetime = dateparser.parse(date_str)
-            if parsed_datetime and parsed_datetime.date() in target_dates:
-                filtered_records.append(record)
-        except Exception as e:
-            # Handle potential parsing errors if necessary
-            print(f"Could not parse date for record. Error: {e}")
-
-    print(f"Found {len(filtered_records)} matching records.")
-    return filtered_records
 
 def _filter_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
     """
     Filters a list of tender records to include only those published
-    today or yesterday.
+    today or yesterday. Keep function for easy testing.
 
     Args:
         tender_records: A list of raw tender record dictionaries.
@@ -343,6 +300,55 @@ def _filter_tenders_by_recent_date(tender_records: List[Dict]) -> List[Dict]:
     print(f"Found {len(filtered_records)} matching records.")
     return filtered_records
 
+def _filter_bid_tenders_by_last_run(tender_records: List[Dict]) -> List[Dict]:
+    """
+    Filters tender records based on the calculated execution window.
+    """
+    pst_timezone = ZoneInfo("America/Vancouver")
+    now_pst = datetime.now(pst_timezone)
+    
+    start_dt, end_dt = get_execution_window(now_pst)
+
+    print(f"--- Run Configuration ({now_pst.strftime('%H:%M')}) ---")
+    print(f"Target Window: {start_dt.strftime('%m-%d %H:%M')} TO {end_dt.strftime('%m-%d %H:%M')}")
+    
+    filtered_records = []
+
+    for record in tender_records:
+        date_str = record.get('Published Date')
+        if not date_str:
+            continue
+
+        try:
+            # Parse date using Vancouver settings
+            parsed_datetime = dateparser.parse(
+                date_str, 
+                settings={'TIMEZONE': 'America/Vancouver', 'TO_TIMEZONE': 'America/Vancouver'}
+            )
+            
+            if not parsed_datetime:
+                continue
+
+            # Strict Window Check:
+            # We want records strictly AFTER the last run, up to and including the current target.
+            if start_dt < parsed_datetime <= end_dt:
+                filtered_records.append(record)
+            
+            # Fallback: Capture "Date Only" records (e.g. "2023-10-27 00:00:00")
+            # If a record has no time (defaults to midnight) and matches the 'end_dt' date,
+            # we usually want to include it, but only if we are in the Morning run 
+            # (to avoid grabbing it 3 times a day).
+            elif (parsed_datetime.hour == 0 and parsed_datetime.minute == 0):
+                is_morning_run = (end_dt.hour == 8)
+                if parsed_datetime.date() == end_dt.date() and is_morning_run:
+                     filtered_records.append(record)
+
+        except Exception as e:
+            print(f"Date parse error: {e}")
+
+    print(f"Filter complete. Kept {len(filtered_records)} records.")
+    return filtered_records
+
 
 def process_and_send_bid_tenders(params: dict):
     """
@@ -370,7 +376,7 @@ def process_and_send_bid_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} tender records...")
 
     # --- filter tenders by date ---
-    tender_records = _filter_bid_tenders_by_recent_date(tender_records)
+    tender_records = _filter_bid_tenders_by_last_run(tender_records)
     print("records", tender_records)
     # --- Step 1 & 2: Map each record, then classify and insert ys_project_type ---
     for record in tender_records:
@@ -467,7 +473,7 @@ def process_and_send_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} tender records...")
 
     # --- filter tenders by date ---
-    tender_records = _filter_tenders_by_recent_date(tender_records)
+    tender_records = _filter_bid_tenders_by_last_run(tender_records)
     print("records", tender_records)
     # --- Step 1 & 2: Map each record, then classify and insert ys_project_type ---
     for record in tender_records:
