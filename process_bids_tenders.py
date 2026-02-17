@@ -13,6 +13,37 @@ from validate_tenders import send_discord_message
 
 from mappers import _filter_bid_tenders_by_recent_date, process_and_send_bid_tenders # A more robust way to join URL parts
 
+def parse_document_date(html_string):
+    """
+    Parses the 'dgDocuments' grid to find the first date associated with a file.
+    """
+    import re
+    soup = BeautifulSoup(html_string, 'html.parser')
+    print("--- Parsing Document Date ---")
+    # 1. Target the specific container for Documents
+    # We look for the ID 'dgDocuments' or the panel containing the text "Documents"
+    doc_panel = soup.find(id='dgDocuments')
+    print(f"Found panel: {doc_panel}")
+    if not doc_panel:
+        # Fallback: Find header with "Documents" and get parent panel
+        header = soup.find('span', string=re.compile(r"Documents"))
+        if header:
+            doc_panel = header.find_parent(class_="x-panel")
+
+    if not doc_panel:
+        return {"published_date_parsing_error": "Documents panel not found"}
+
+    cell_text = doc_panel.get_text(strip=True)
+    # remove Document from the text
+    cell_text = cell_text.replace("Document", "").replace('document', '').strip()
+    date_pattern = r"([A-Za-z]+ [A-Za-z]+ \d{1,2}, \d{4} \d{1,2}:\d{2} (?:AM|PM))"
+    
+    match = re.search(date_pattern, cell_text)
+    if match:
+        return {"Published Date": match.group(1)}
+            
+    return {"published_date_parsing_error": "Date not found in Documents panel"}
+
 def parse_bid_details_from_html(html_string):
     """
     Parses a bid details table from an HTML string and extracts key-value pairs.
@@ -48,7 +79,15 @@ def parse_bid_details_from_html(html_string):
             
             # Add the key-value pair to the dictionary
             bid_details[header] = value
-            
+    if not bid_details.get('Published Date'):
+        print("No published date found in bid details.")
+        try:
+            bid_details.update(parse_document_date(html_string))
+            print(bid_details)
+        except Exception as e:
+            print(f"Error parsing document date: {e}")
+            bid_details["published_date_parsing_error"] = f"Error parsing document date: {e}"
+
     return bid_details
 
 async def scrap_bids_and_tenders_site(config: dict):
@@ -256,7 +295,7 @@ async def main():
             "url": "https://sidney.bidsandtenders.ca/Module/Tenders/en"
         },
         {
-            "region_name": "Comox Valley",
+            "region_name": "Comox Valley RD",
             "tender_authority": "Comox Valley - Bids and Tenders",
             "file_prefix": "comox_tenders",
             "url": "https://comoxvalleyrd.bidsandtenders.ca/Module/Tenders/en"
@@ -267,10 +306,16 @@ async def main():
             "file_prefix": "campbell_river_bid_tenders",
             "url": 'https://sd72.bidsandtenders.ca/Module/Tenders/en'
         }
+        {
+            "region_name": "Victoria",
+            "tender_authority": "Island Health - Bids and Tenders",
+            "file_prefix": "island_health",
+            "url": "https://islandhealthfdc.bidsandtenders.ca/Module/Tenders/en"
+        }
     ]
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     for municipality in municipalities_to_scrape:
-        print(f"--- Starting scrape for {municipality['region_name']} ---")
+        print(f"--- Starting scrape for {municipality['tender_authority']} ---")
         try:
             await scrap_bids_and_tenders_site(municipality)
             print(f"--- Successfully finished scrape for {municipality['region_name']} ---")
