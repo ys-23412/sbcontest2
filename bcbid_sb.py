@@ -6,14 +6,13 @@ with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
     sb.activate_cdp_mode(url)
     sb.sleep(1.5)
     # print page title to console
-    print(sb.get_title())
     sb.post_message("SeleniumBase wasn't detected", duration=4)
     # wait 10 seconds
     sb.sleep(10)
     
     # full html
     full_html = sb.get_page_source()
-    
+    print("What is going on here?")
     # 3. Use Pandas to parse the HTML string
     # pd.read_html returns a list of DataFrames; we take the first one [0]
     try:
