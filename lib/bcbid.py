@@ -13,7 +13,6 @@ def get_browser_options(headless=False):
     """
     options = ChromiumOptions()
     options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument('--window-size=1920,1080')
     # options.add_argument('--disable-blink-features=AutomationControlled')
     # options.add_argument("--enable-webgl")
     current_time = int(time.time())
