@@ -12,7 +12,7 @@ def get_browser_options(headless=False):
     Returns a configured ChromiumOptions object with stealth settings.
     """
     options = ChromiumOptions()
-    options.add_argument('--disable-blink-features=AutomationControlled')
+    # options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument("--enable-webgl")
 
     # Handle Headless environment variables
@@ -79,7 +79,75 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-async def main():
+import asyncio
+import os
+from camoufox.async_api import AsyncCamoufox
+
+async def navigate_to_opportunitiesv2(page):
+    """
+    Attempts to find the Opportunities link using Playwright locators.
+    """
+    print("Searching for 'Opportunities' link...")
+    
+    # 1. Attempt to find by Text
+    # normalize-space() is handled by Playwright's 'has_text' or regex
+    opps_link = page.get_by_role("link", name="Opportunities", exact=False)
+
+    try:
+        # Check if the text-based link is visible
+        if await opps_link.is_visible():
+            print("Link found via text. Clicking...")
+            await opps_link.click()
+        else:
+            # 2. Fallback: Search by relative href
+            print("Text-based search failed. Attempting fallback via href...")
+            opps_link = page.locator('a[href*="/page.aspx/en/rfp/request_browse_public"]')
+            await opps_link.click()
+            
+        # Wait for network to settle after click
+        await page.wait_for_load_state("networkidle")
+
+        # print page contents
+        print(page)
+        print(await page.content())
+    except Exception as e:
+        print(f"Error: Could not locate or click Opportunities link: {e}")
+
+async def mainv2():
+    # Handle Headless environment variables
+    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    
+    # Camoufox context manager handles browser launch and stealth automatically
+    async with AsyncCamoufox(
+        headless=env_headless,
+        # You can add specific geo/language spoofing here if needed
+        # humanize=True adds random mouse movements/delays
+        humanize=True 
+    ) as browser:
+        
+        print("Starting Camoufox...")
+        # Create a new page (context is handled internally by the library)
+        page = await browser.new_page()
+
+        # 1. Navigate to BC Bid
+        url = "https://bcbid.gov.bc.ca/"
+        print(f"Navigating to {url}...")
+        await page.goto(url, wait_until="domcontentloaded")
+        
+        # 2. Dummy Login Placeholder
+        # await page.fill("#body_x_txtLogin", "YOUR_USERNAME")
+        # await page.fill("#body_x_txtPass", "YOUR_PASSWORD")
+        # await page.click("#body_x_btnLogin")
+
+        # 3. Click on "Browse Opportunities"
+        try:
+            await navigate_to_opportunitiesv2(page)
+        except Exception as e:
+            print(f"Error during navigation: {e}")
+
+        print("Scraping task complete.")
+
+async def mainv1():
     opts = get_browser_options(headless=False)
     
     async with Chrome(options=opts) as browser:
@@ -106,4 +174,4 @@ async def main():
         print("Scraping task complete.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(mainv2())
