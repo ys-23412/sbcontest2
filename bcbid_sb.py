@@ -21,6 +21,8 @@ with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
     except ValueError:
         print("No tables found in the HTML.")
         df = pd.DataFrame()
+    with open("bcbid.html", "w", errors='ignore') as f:
+        f.write(full_html)
         
     # We have to add automatication to click until the last date on the page is before today
     # 4. Clean up the data

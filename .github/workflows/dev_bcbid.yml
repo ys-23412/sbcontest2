@@ -36,6 +36,12 @@ jobs:
         if: always() # Upload even if previous steps fail
         uses: actions/upload-artifact@v4
         with:
+          name: rhtmls
+          path: bcbid.html # Path where your video is saved
+      - name: Upload Video Recording
+        if: always() # Upload even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
           name: results
           path: bid_recent.csv # Path where your video is saved
       
