@@ -20,6 +20,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install seleniumbase
+          pip install pandas
       - name: More install
         run: |
           curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
@@ -31,6 +32,8 @@ jobs:
       - name: Run tests with pytest
         run: |
           python bcbid_sb.py
+
+      
   # bcbid:
   #   runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
   #   env:
@@ -118,9 +121,9 @@ jobs:
   #       name: data
   #       path: data/
       
-  #   - name: Upload Video Recording
-  #     if: always() # Upload even if previous steps fail
-  #     uses: actions/upload-artifact@v4
-  #     with:
-  #       name: xvfb-session-video
-  #       path: video_recordings/session.mp4 # Path where your video is saved
+    - name: Upload Video Recording
+      if: always() # Upload even if previous steps fail
+      uses: actions/upload-artifact@v4
+      with:
+        name: results
+        path: bid_recent.csv # Path where your video is saved
