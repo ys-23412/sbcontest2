@@ -22,7 +22,7 @@ jobs:
           pip install seleniumbase
       - name: Run tests with pytest
         run: |
-          pytest bcbid_sb.py --browser=chrome --headed
+          python bcbid_sb.py --browser=chrome --headed
   # bcbid:
   #   runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
   #   env:
