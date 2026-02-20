@@ -11,7 +11,9 @@ with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
     sb.sleep(10)
     
     # full html
-    full_html = sb.get_page_source()
+    full_html = sb.get_html()
+    with open("bcbid.html", "w", errors='ignore') as f:
+        f.write(full_html)
     print("What is going on here?")
     # 3. Use Pandas to parse the HTML string
     # pd.read_html returns a list of DataFrames; we take the first one [0]
@@ -21,8 +23,6 @@ with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
     except ValueError:
         print("No tables found in the HTML.")
         df = pd.DataFrame()
-    with open("bcbid.html", "w", errors='ignore') as f:
-        f.write(full_html)
         
     # We have to add automatication to click until the last date on the page is before today
     # 4. Clean up the data
