@@ -1,10 +1,10 @@
-name: Dev BC BIG # Name remains as per user's request, but runs on Linux now
+name: Dev BC BID # Name remains as per user's request, but runs on Linux now
 
 on:
   workflow_dispatch: # Allows manual trigger
   push:
       branches:
-        - 'releases/bcbid'
+        - 'feature/bcbid'
 
 jobs:
   bcbid:
