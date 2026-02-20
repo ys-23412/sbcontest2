@@ -13,7 +13,7 @@ def get_browser_options(headless=False):
     Returns a configured ChromiumOptions object with stealth settings.
     """
     options = ChromiumOptions()
-    options.add_argument('--disable-blink-features=AutomationControlled')
+    # options.add_argument('--disable-blink-features=AutomationControlled')
     current_time = int(time.time())
     options.browser_preferences = {
         'profile': {
@@ -25,6 +25,7 @@ def get_browser_options(headless=False):
     }
     
     options.add_argument('--proxy-server=socks5://127.0.0.1:1081')
+    # options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
     if not env_headless and os.environ.get("DISPLAY"):
@@ -162,13 +163,14 @@ async def navigate_to_opportunities(tab: Tab):
 async def main():
     proxy_username = os.getenv('IPROYAL_USERNAME')
     proxy_password = os.getenv('IPROYAL_PASSWORD')
-    proxy_port = 12321
+    full_password = f"{proxy_password}_country-ca_city-vancouver_session-N33zLThd_lifetime-30m"
+    proxy_port = '11200'
     proxy_host = 'geo.iproyal.com'
     forwarder = SOCKS5Forwarder(
         remote_host=proxy_host,
         remote_port=proxy_port,
         username=proxy_username,
-        password=proxy_password,
+        password=full_password,
         local_port=1081,
     )
     async with forwarder:
@@ -179,7 +181,7 @@ async def main():
             tab = await browser.start()
 
             # 1. Navigate to BC Bid
-            url = "https://bcbid.gov.bc.ca"
+            url = "https://bcbid.com"
             print(f"Navigating to {url}...")
             await tab.go_to(url)
             
