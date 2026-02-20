@@ -1,5 +1,5 @@
 import asyncio
-from pydoll.browser.chrome import Chrome
+from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 import time
 import os
