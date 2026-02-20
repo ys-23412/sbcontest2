@@ -2,9 +2,10 @@ from seleniumbase import SB
 import pandas as pd
 
 with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
-    url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
+    url = "https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check"
     sb.activate_cdp_mode(url)
-    sb.sleep(1.5)
+    sb.sleep(3)
+    sb.solve_captcha()
     # print page title to console
     sb.post_message("SeleniumBase wasn't detected", duration=4)
     # wait 10 seconds
