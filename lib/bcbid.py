@@ -12,8 +12,19 @@ def get_browser_options(headless=False):
     Returns a configured ChromiumOptions object with stealth settings.
     """
     options = ChromiumOptions()
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--window-size=1920,1080')
     # options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument("--enable-webgl")
+    # options.add_argument("--enable-webgl")
+    current_time = int(time.time())
+    options.browser_preferences = {
+        'profile': {
+            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
+            'exited_cleanly': True,
+            'exit_type': 'Normal',
+        },
+        'safebrowsing': {'enabled': True},
+    }
 
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
@@ -75,7 +86,12 @@ async def navigate_to_opportunities(tab: Tab):
     if opps_link:
         print("Link found. Clicking...")
         await opps_link.click()
-        await asyncio.sleep(5)  # Wait for portal redirection
+        await asyncio.sleep(3)  # Wait for portal redirection
+        try:
+            submit_button = await tab.find(id='submit-btn')
+            await submit_button.click()
+        except Exception as e:
+            print(f"Error clicking submit button: {e}")
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
@@ -106,14 +122,10 @@ async def navigate_to_opportunitiesv2(page):
             
         # Wait for network to settle after click
         await page.wait_for_load_state("networkidle")
-
-        # print page contents
-        print(page)
-        print(await page.content())
     except Exception as e:
         print(f"Error: Could not locate or click Opportunities link: {e}")
 
-async def mainv2():
+async def main():
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
     
@@ -141,7 +153,7 @@ async def mainv2():
 
         # 3. Click on "Browse Opportunities"
         try:
-            await navigate_to_opportunitiesv2(page)
+            await navigate_to_opportunities(page)
         except Exception as e:
             print(f"Error during navigation: {e}")
 
@@ -174,4 +186,4 @@ async def mainv1():
         print("Scraping task complete.")
 
 if __name__ == "__main__":
-    asyncio.run(mainv2())
+    asyncio.run(main())
