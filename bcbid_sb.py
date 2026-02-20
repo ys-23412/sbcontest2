@@ -9,11 +9,10 @@ with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
     sb.post_message("SeleniumBase wasn't detected", duration=4)
     # wait 10 seconds
     sb.sleep(10)
-    
+    print("Trying to save as html...")
+    sb.save_as_html("bcbid.html")
     # full html
     full_html = sb.get_html()
-    with open("bcbid.html", "w", errors='ignore') as f:
-        f.write(full_html)
     print("What is going on here?")
     # 3. Use Pandas to parse the HTML string
     # pd.read_html returns a list of DataFrames; we take the first one [0]
