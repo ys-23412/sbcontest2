@@ -32,7 +32,12 @@ jobs:
       - name: Run tests with pytest
         run: |
           python bcbid_sb.py
-
+      - name: Upload Video Recording
+        if: always() # Upload even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: bid_recent.csv # Path where your video is saved
       
   # bcbid:
   #   runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
@@ -121,9 +126,4 @@ jobs:
   #       name: data
   #       path: data/
       
-    - name: Upload Video Recording
-      if: always() # Upload even if previous steps fail
-      uses: actions/upload-artifact@v4
-      with:
-        name: results
-        path: bid_recent.csv # Path where your video is saved
+ 
