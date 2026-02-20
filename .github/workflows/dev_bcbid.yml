@@ -17,6 +17,8 @@ jobs:
       YS_COMPONENTID: 10
       HIDE_TINY_URL: True
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
     strategy:
       fail-fast: false
       max-parallel: 6

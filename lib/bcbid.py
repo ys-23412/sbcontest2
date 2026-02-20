@@ -13,8 +13,17 @@ def get_browser_options(headless=False):
     """
     options = ChromiumOptions()
     options.add_argument('--disable-blink-features=AutomationControlled')
-    # options.add_argument('--disable-blink-features=AutomationControlled')
-    # options.add_argument("--enable-webgl")
+    proxy = 'geo.iproyal.com:12321'
+    proxy_username = os.getenv('IPROYAL_USERNAME')
+    proxy_password = os.getenv('IPROYAL_PASSWORD')
+    proxy_auth = f'{proxy_username}:{proxy_password}'
+    proxies = {
+        'http': f'http://{proxy_auth}@{proxy}',
+        'https': f'http://{proxy_auth}@{proxy}'
+    }
+    proxy_url = proxies['http']
+    if proxy_url and proxy_username and proxy_password:
+        options.add_argument(f'--proxy-server={proxy_url}')
     current_time = int(time.time())
     options.browser_preferences = {
         'profile': {
@@ -173,7 +182,7 @@ async def main():
         
         # 2. Dummy Login (Commented out as requested)
         # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
-
+        await asyncio.sleep(5)
         # 3. Click on "Browse Opportunities"
         # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
         print("Clicking on 'Browse Opportunities'...")
