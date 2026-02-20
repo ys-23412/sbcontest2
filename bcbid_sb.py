@@ -2,7 +2,7 @@ from seleniumbase import SB
 import pandas as pd
 
 with SB(uc=True, test=True, locale="en", ad_block=True) as sb:
-    url = "https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check"
+    url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
     sb.activate_cdp_mode(url)
     sb.sleep(1.5)
     # print page title to console
