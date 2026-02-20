@@ -167,7 +167,7 @@ async def main():
         tab = await browser.start()
 
         # 1. Navigate to BC Bid
-        url = "https://bcbid.gov.bc.ca/"
+        url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
         print(f"Navigating to {url}...")
         await tab.go_to(url)
         
@@ -177,11 +177,11 @@ async def main():
         # 3. Click on "Browse Opportunities"
         # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
         print("Clicking on 'Browse Opportunities'...")
-        try:
-            await navigate_to_opportunities(tab)
+        # try:
+        #     await navigate_to_opportunities(tab)
 
-        except Exception as e:
-            print(f"Error clicking opportunities button: {e}")
+        # except Exception as e:
+        #     print(f"Error clicking opportunities button: {e}")
 
         print("Scraping task complete.")
 
