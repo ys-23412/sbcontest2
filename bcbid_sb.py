@@ -7,8 +7,10 @@ proxy_settings = "_country-ca_city-vancouver_session-nnoMTsdN_lifetime-30m"
 # proxy_address = f"{proxy_username}:{proxy_password}{proxy_settings}@socks5://geo.iproyal.com:12321" 
 with SB(uc=True, test=True, incognito=True) as sb:
     url = "https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check"
-    sb.activate_cdp_mode(url)
+    # sb.activate_cdp_mode(url)
+    sb.uc_open_with_reconnect(url, 4)
     sb.sleep(1)
+    sb.uc_gui_handle_captcha()
     # sb.solve_captcha()
     # print page title to console
     sb.set_messenger_theme(location="top_left")
