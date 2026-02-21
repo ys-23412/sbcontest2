@@ -5,7 +5,7 @@ proxy_username = os.getenv('IPROYAL_USERNAME')
 proxy_password = os.getenv('IPROYAL_PASSWORD')
 proxy_settings = "_country-ca_city-vancouver_session-nnoMTsdN_lifetime-30m"
 proxy_address = f"{proxy_username}:{proxy_password}{proxy_settings}@socks5://geo.iproyal.com:12321" 
-with SB(uc=True, test=True, locale="en", proxy=proxy_address) as sb:
+with SB(uc=True, test=True, proxy=proxy_address) as sb:
     url = "https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check"
     sb.activate_cdp_mode(url)
     sb.sleep(3)
@@ -13,6 +13,7 @@ with SB(uc=True, test=True, locale="en", proxy=proxy_address) as sb:
     # print page title to console
     sb.post_message("SeleniumBase wasn't detected", duration=4)
     # wait 10 seconds
+    # go directly
     sb.sleep(10)
     print("Trying to save as html...")
     sb.save_as_html("bcbid.html")

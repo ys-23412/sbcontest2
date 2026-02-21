@@ -3,6 +3,8 @@ import os
 import time
 import csv
 import re
+import random
+import requests
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
@@ -15,30 +17,39 @@ def get_browser_options(headless=False):
     # options.add_argument('--disable-blink-features=AutomationControlled')
     # proxy_url = 'geo.iproyal.com:12321'
     # options.add_argument('--proxy-server=sock5://{proxy_url}')
-    options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
-    # current_time = int(time.time())
-    # options.browser_preferences = {
-    #     'profile': {
-    #         'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
-    #         'exited_cleanly': True,
-    #         'exit_type': 'Normal',
-    #     },
-    #     'safebrowsing': {'enabled': True},
-    # }
+    # options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
+    url = "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/countries/CA/data.txt"
+    response = requests.get(url)
 
-    # # Handle Headless environment variables
-    # env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    # if not env_headless and os.environ.get("DISPLAY"):
-    #     options.add_argument(f'--display={os.environ.get("DISPLAY")}')
+    # 2. Parse the text into a list (splitting by newline and removing empty lines)
+    proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
+    random_proxy = random.choice(proxies)
+    print("using proxy", random_proxy)
+    options.add_argument(f'--proxy-server={random_proxy}')
+    # options.add_argument(f'--proxy-server=http://80.241.251.54:8080')
+    current_time = int(time.time())
+    options.browser_preferences = {
+        'profile': {
+            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
+            'exited_cleanly': True,
+            'exit_type': 'Normal',
+        },
+        'safebrowsing': {'enabled': True},
+    }
+
+    # Handle Headless environment variables
+    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    if not env_headless and os.environ.get("DISPLAY"):
+        options.add_argument(f'--display={os.environ.get("DISPLAY")}')
     
-    # if headless or env_headless:
-    #     options.add_argument("--headless=new")
+    if headless or env_headless:
+        options.add_argument("--headless=new")
 
-    # options.browser_preferences = {
-    #     'profile': {'exit_type': 'Normal'},
-    #     'credentials_enable_service': False,
-    #     'profile.password_manager_enabled': False
-    # }
+    options.browser_preferences = {
+        'profile': {'exit_type': 'Normal'},
+        'credentials_enable_service': False,
+        'profile.password_manager_enabled': False
+    }
     return options
 
 async def dummy_login(tab, username, password):
@@ -86,12 +97,12 @@ async def navigate_to_opportunities(tab: Tab):
     if opps_link:
         print("Link found. Clicking...")
         await opps_link.click()
-        await asyncio.sleep(3)  # Wait for portal redirection
-        try:
-            submit_button = await tab.find(id='submit-btn')
-            await submit_button.click()
-        except Exception as e:
-            print(f"Error clicking submit button: {e}")
+        await asyncio.sleep(25)  # Wait for portal redirection
+        # try:
+        #     submit_button = await tab.find(id='submit-btn')
+        #     await submit_button.click()
+        # except Exception as e:
+        #     print(f"Error clicking submit button: {e}")
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
@@ -166,26 +177,35 @@ async def main():
     async with Chrome(options=opts) as browser:
         print("Starting browser...")
         tab = await browser.start()
-
         # 1. Navigate to BC Bid
-        url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
+        url = "https://bcbid.gov.bc.ca"
         print(f"Navigating to {url}...")
         await tab.go_to(url)
         
         # 2. Dummy Login (Commented out as requested)
         # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
+        
         # 3. Click on "Browse Opportunities"
         # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
         print("Clicking on 'Browse Opportunities'...")
-        # try:
-        #     await navigate_to_opportunities(tab)
+        try:
+            await navigate_to_opportunities(tab)
+        except Exception as e:
+            print(f"Error during navigation: {e}")
 
+        # logs = await tab.get_network_logs()
+
+        # print(f"Total requests captured: {len(logs)}")
+
+        # for log in logs:
+        #     print(log)
+            # print(f"→ {request['method']} {request['url']}")
         # except Exception as e:
         #     print(f"Error clicking opportunities button: {e}")
-
+        # await tab.disable_network_events()
         print("Scraping task complete.")
-        await asyncio.sleep(155)
+        # await asyncio.sleep(155)
 
 if __name__ == "__main__":
     asyncio.run(main())
