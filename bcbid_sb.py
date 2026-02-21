@@ -4,8 +4,8 @@ import os
 proxy_username = os.getenv('IPROYAL_USERNAME')
 proxy_password = os.getenv('IPROYAL_PASSWORD')
 proxy_settings = "_country-ca_city-vancouver_session-nnoMTsdN_lifetime-30m"
-proxy_address = f"{proxy_username}:{proxy_password}{proxy_settings}@socks5://geo.iproyal.com:12321" 
-with SB(uc=True, test=True, incognito=True, proxy=proxy_address) as sb:
+# proxy_address = f"{proxy_username}:{proxy_password}{proxy_settings}@socks5://geo.iproyal.com:12321" 
+with SB(uc=True, test=True, incognito=True) as sb:
     url = "https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check"
     sb.activate_cdp_mode(url)
     sb.sleep(1)
