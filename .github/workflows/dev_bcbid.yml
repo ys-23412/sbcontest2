@@ -27,6 +27,7 @@ jobs:
           pip install requests
           python lib/proxy_whitelist.py setup
       - name: Install Other Dependencies
+        run: |
           pip install seleniumbase
           pip install pandas lxml
       - name: More install
