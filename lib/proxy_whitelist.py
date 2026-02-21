@@ -5,11 +5,11 @@ import os
 
 # Configuration from Environment Variables
 API_TOKEN = os.getenv("IPROYAL_API_TOKEN")
-USER_HASH = os.getenv("IPROYAL_USER_HASH")
+
 # Your specific proxy port assigned by IPRoyal
 PROXY_PORT = os.getenv("IPROYAL_PROXY_PORT", "12321") 
 
-BASE_URL = f"https://resi-api.iproyal.com/v1/residential-users/{USER_HASH}/whitelist-entries"
+
 HEADERS = {
     "Authorization": f"Bearer {API_TOKEN}",
     "Content-Type": "application/json"
@@ -18,7 +18,31 @@ HEADERS = {
 def get_current_ip():
     return requests.get("https://ifconfig.me").text.strip()
 
+
+def get_user_hash():
+    url = 'https://resi-api.iproyal.com/v1/me'
+
+    headers = {
+        'Authorization': f'Bearer {API_TOKEN}'
+    }
+
+    response = requests.get(url, headers=headers)
+
+    # get the response and residential_user_hash
+
+    data = response.json()
+    print("Response:", data)
+    USER_HASH = data['residential_user_hash']
+    print("User Hash:", USER_HASH)
+    return USER_HASH
+
 def add_to_whitelist(ip):
+
+    # get the user token
+
+
+    USER_HASH = get_user_hash()
+    BASE_URL = f"https://resi-api.iproyal.com/v1/residential-users/{USER_HASH}/whitelist-entries"
     print(f"Adding {ip} to IPRoyal whitelist...")
     data = {
         "ip": ip,
@@ -27,14 +51,18 @@ def add_to_whitelist(ip):
     }
     response = requests.post(BASE_URL, json=data, headers=HEADERS)
     if response.status_code in [200, 201]:
-        print("Successfully whitelisted. Waiting 30s for propagation...")
-        time.sleep(30) # Crucial wait time
+        print("Whitelist entry added successfully.", response)
+        print("Successfully whitelisted. Waiting 5s for propagation...")
+        time.sleep(5) # Crucial wait time
     else:
         print(f"Failed to whitelist: {response.text}")
         sys.exit(1)
 
 def remove_from_whitelist(ip):
     print(f"Cleaning up {ip} from whitelist...")
+
+    USER_HASH = get_user_hash()
+    BASE_URL = f"https://resi-api.iproyal.com/v1/residential-users/{USER_HASH}/whitelist-entries"
     # First, we must find the entry ID for this IP
     entries = requests.get(BASE_URL, headers=HEADERS).json()
     

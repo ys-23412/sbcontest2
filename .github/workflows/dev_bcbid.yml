@@ -6,6 +6,9 @@ on:
       branches:
         - 'feature/bcbid'
 
+env:
+  IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+  IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
 jobs:
 
   bcbidsb:

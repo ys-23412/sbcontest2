@@ -4,7 +4,6 @@ import time
 import csv
 import re
 from pydoll.browser.chromium import Chrome
-from pydoll.utils import SOCKS5Forwarder
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
 
@@ -14,31 +13,32 @@ def get_browser_options(headless=False):
     """
     options = ChromiumOptions()
     # options.add_argument('--disable-blink-features=AutomationControlled')
-    current_time = int(time.time())
-    options.browser_preferences = {
-        'profile': {
-            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
-            'exited_cleanly': True,
-            'exit_type': 'Normal',
-        },
-        'safebrowsing': {'enabled': True},
-    }
-    
-    options.add_argument('--proxy-server=socks5://127.0.0.1:1081')
-    # options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
-    # Handle Headless environment variables
-    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    if not env_headless and os.environ.get("DISPLAY"):
-        options.add_argument(f'--display={os.environ.get("DISPLAY")}')
-    
-    if headless or env_headless:
-        options.add_argument("--headless=new")
+    # proxy_url = 'geo.iproyal.com:12321'
+    # options.add_argument('--proxy-server=sock5://{proxy_url}')
+    options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
+    # current_time = int(time.time())
+    # options.browser_preferences = {
+    #     'profile': {
+    #         'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
+    #         'exited_cleanly': True,
+    #         'exit_type': 'Normal',
+    #     },
+    #     'safebrowsing': {'enabled': True},
+    # }
 
-    options.browser_preferences = {
-        'profile': {'exit_type': 'Normal'},
-        'credentials_enable_service': False,
-        'profile.password_manager_enabled': False
-    }
+    # # Handle Headless environment variables
+    # env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    # if not env_headless and os.environ.get("DISPLAY"):
+    #     options.add_argument(f'--display={os.environ.get("DISPLAY")}')
+    
+    # if headless or env_headless:
+    #     options.add_argument("--headless=new")
+
+    # options.browser_preferences = {
+    #     'profile': {'exit_type': 'Normal'},
+    #     'credentials_enable_service': False,
+    #     'profile.password_manager_enabled': False
+    # }
     return options
 
 async def dummy_login(tab, username, password):
@@ -161,43 +161,31 @@ async def navigate_to_opportunities(tab: Tab):
 #         time.sleep(155)
 
 async def main():
-    proxy_username = os.getenv('IPROYAL_USERNAME')
-    proxy_password = os.getenv('IPROYAL_PASSWORD')
-    full_password = f"{proxy_password}_country-ca_city-vancouver_session-N33zLThd_lifetime-30m"
-    proxy_port = '11200'
-    proxy_host = 'geo.iproyal.com'
-    forwarder = SOCKS5Forwarder(
-        remote_host=proxy_host,
-        remote_port=proxy_port,
-        username=proxy_username,
-        password=full_password,
-        local_port=1081,
-    )
-    async with forwarder:
-        opts = get_browser_options(headless=False)
+    opts = get_browser_options(headless=False)
+    
+    async with Chrome(options=opts) as browser:
+        print("Starting browser...")
+        tab = await browser.start()
+
+        # 1. Navigate to BC Bid
+        url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
+        print(f"Navigating to {url}...")
+        await tab.go_to(url)
         
-        async with Chrome(options=opts) as browser:
-            print("Starting browser...")
-            tab = await browser.start()
+        # 2. Dummy Login (Commented out as requested)
+        # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
+        await asyncio.sleep(5)
+        # 3. Click on "Browse Opportunities"
+        # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
+        print("Clicking on 'Browse Opportunities'...")
+        # try:
+        #     await navigate_to_opportunities(tab)
 
-            # 1. Navigate to BC Bid
-            url = "https://bcbid.com"
-            print(f"Navigating to {url}...")
-            await tab.go_to(url)
-            
-            # 2. Dummy Login (Commented out as requested)
-            # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
-            await asyncio.sleep(5)
-            # 3. Click on "Browse Opportunities"
-            # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
-            print("Clicking on 'Browse Opportunities'...")
-            # try:
-            #     await navigate_to_opportunities(tab)
+        # except Exception as e:
+        #     print(f"Error clicking opportunities button: {e}")
 
-            # except Exception as e:
-            #     print(f"Error clicking opportunities button: {e}")
-
-            print("Scraping task complete.")
+        print("Scraping task complete.")
+        await asyncio.sleep(155)
 
 if __name__ == "__main__":
     asyncio.run(main())
