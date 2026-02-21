@@ -9,136 +9,140 @@ on:
 env:
   IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
   IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
+  IPROYAL_API_TOKEN: ${{ secrets.IPROYAL_API_TOKEN }}
+
 jobs:
-
-  # bcbidsb:
-  #     runs-on: ubuntu-latest
-  #     steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: 3.x
+  bcbidsb:
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
           
-  #     - name: Install dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install seleniumbase
-  #         pip install pandas lxml
-  #     - name: More install
-  #       run: |
-  #         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
-  #         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          python lib/proxy_whitelist.py setup
+      - name: Install Other Dependencies
+          pip install seleniumbase
+          pip install pandas lxml
+      - name: More install
+        run: |
+          curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           
-  #         sudo apt update
-  #         sudo apt install google-chrome-stable
-  #         sudo apt-get install -y xvfb ffmpeg
-  #     - name: Run tests with pytest
-  #       run: |
-  #         python bcbid_sb.py
-  #     - name: Upload Video Recording
-  #       if: always() # Upload even if previous steps fail
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: rhtmls
-  #         path: bcbid.html # Path where your video is saved
-  #     - name: Upload Video Recording
-  #       if: always() # Upload even if previous steps fail
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: results
-  #         path: bid_recent.csv # Path where your video is saved
+          sudo apt update
+          sudo apt install google-chrome-stable
+          sudo apt-get install -y xvfb ffmpeg
+      - name: Run tests with pytest
+        run: |
+          python bcbid_sb.py
+      - name: Upload Video Recording
+        if: always() # Upload even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: rhtmls
+          path: bcbid.html # Path where your video is saved
+      - name: Upload Video Recording
+        if: always() # Upload even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: bid_recent.csv # Path where your video is saved
       
-  bcbid:
-    runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
-    env:
-      PY_COLORS: "1"
-      BASE_DIR: "screenshots"
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
-      YS_COMPONENTID: 10
-      HIDE_TINY_URL: True
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
-    strategy:
-      fail-fast: false
-      max-parallel: 6
-      matrix:
-        python-version: ["3.13"]
+  # bcbid:
+  #   runs-on: ubuntu-latest # Changed from macos-latest to ubuntu-latest for Xvfb and apt-get compatibility
+  #   env:
+  #     PY_COLORS: "1"
+  #     BASE_DIR: "screenshots"
+  #     GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+  #     YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+  #     YS_COMPONENTID: 10
+  #     HIDE_TINY_URL: True
+  #     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+  #     IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+  #     IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 6
+  #     matrix:
+  #       python-version: ["3.13"]
 
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Requests
-      env: 
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Set up Python ${{ matrix.python-version }}
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: ${{ matrix.python-version }}
+  #   - name: Install Requests
+  #     env: 
         
-      run: |
-        pip install requests
-        python lib/proxy_whitelist.py setup
-    - name: Install system dependencies for Chrome and Xvfb
-      # Google Chrome is needed for SeleniumBase
-      # xvfb is needed for virtual display if not running in strict headless mode
-      run: |
-        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+  #     run: |
+  #       pip install requests
+  #       python lib/proxy_whitelist.py setup
+  #   - name: Install system dependencies for Chrome and Xvfb
+  #     # Google Chrome is needed for SeleniumBase
+  #     # xvfb is needed for virtual display if not running in strict headless mode
+  #     run: |
+  #       curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+  #       echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
         
-        sudo apt update
-        sudo apt install google-chrome-stable
-        sudo apt-get install -y xvfb ffmpeg
-    - name: Update Dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install -r requirements_tenders.txt
-        pip install playwright
-        playwright install chromium
+  #       sudo apt update
+  #       sudo apt install google-chrome-stable
+  #       sudo apt-get install -y xvfb ffmpeg
+  #   - name: Update Dependencies
+  #     run: |
+  #       pip install -r requirements.txt
+  #       pip install -r requirements_tenders.txt
+  #       pip install playwright
+  #       playwright install chromium
 
-    - name: Run Browser Automation and Record Xvfb Session
-        # Set the DISPLAY environment variable for this entire step.
-        # All commands within this 'run' block will use this display.
-      env:
-        DISPLAY: ":99"
-        # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
-      run: |
+  #   - name: Run Browser Automation and Record Xvfb Session
+  #       # Set the DISPLAY environment variable for this entire step.
+  #       # All commands within this 'run' block will use this display.
+  #     env:
+  #       DISPLAY: ":99"
+  #       # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
+  #     run: |
 
-        mkdir -p video_recordings
-        VIDEO_OUTPUT_PATH="video_recordings/session.mp4"
+  #       mkdir -p video_recordings
+  #       VIDEO_OUTPUT_PATH="video_recordings/session.mp4"
         
-        Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-        echo "Xvfb started on display :99"
+  #       Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+  #       echo "Xvfb started on display :99"
         
-        # Give Xvfb a moment to fully initialize
-        sleep 2
+  #       # Give Xvfb a moment to fully initialize
+  #       sleep 2
         
      
-        ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "$VIDEO_OUTPUT_PATH" &
+  #       ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "$VIDEO_OUTPUT_PATH" &
         
-        FFMPEG_PID=$!
+  #       FFMPEG_PID=$!
 
-        python -m lib.bcbid
+  #       python -m lib.bcbid
         
-        # 5. Stop FFmpeg recording gracefully
-        echo "Stopping FFmpeg recording..."
-        kill -s SIGINT $FFMPEG_PID || true # Send SIGINT to FFmpeg to stop
-        wait $FFMPEG_PID || true # Wait for FFmpeg process to fully terminate
+  #       # 5. Stop FFmpeg recording gracefully
+  #       echo "Stopping FFmpeg recording..."
+  #       kill -s SIGINT $FFMPEG_PID || true # Send SIGINT to FFmpeg to stop
+  #       wait $FFMPEG_PID || true # Wait for FFmpeg process to fully terminate
         
-        echo "Video recording completed: $VIDEO_OUTPUT_PATH"
+  #       echo "Video recording completed: $VIDEO_OUTPUT_PATH"
 
-    - name: Upload Screenshots
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cloudflare-screenshots
-        path: screenshots/
+  #   - name: Upload Screenshots
+  #     if: always()
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: cloudflare-screenshots
+  #       path: screenshots/
 
-    - name: Upload Data
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: data
-        path: data/
+  #   - name: Upload Data
+  #     if: always()
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: data
+  #       path: data/
       
  
