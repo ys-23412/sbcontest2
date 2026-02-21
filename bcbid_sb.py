@@ -13,8 +13,10 @@ with SB(uc=True, test=True, incognito=True) as sb:
     sb.uc_gui_handle_captcha()
     # sb.solve_captcha()
     # print page title to console
-    sb.set_messenger_theme(location="top_left")
+    print(sb.get_title())
     sb.post_message("SeleniumBase wasn't detected", duration=3)
+
+    sb.uc_open_with_reconnect("https://bcbid.gov.bc.ca/page.aspx/en/bas/browser_check", 4)
     # wait 10 seconds
     # go directly
     sb.sleep(10)
