@@ -14,11 +14,13 @@ def get_browser_options(headless=False):
     Returns a configured ChromiumOptions object with stealth settings.
     """
     options = ChromiumOptions()
+    # MOST PROXY SERVICES HAVE LIMITATIONS ON SCRAPING sites with
+    # .gov in it, not just the US government
+    # bc bid counts as one of these sites.
     # options.add_argument('--disable-blink-features=AutomationControlled')
-    # proxy_url = 'geo.iproyal.com:12321'
     # options.add_argument('--proxy-server=sock5://{proxy_url}')
     # options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
-    url = "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/countries/CA/data.txt"
+    url = "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
     response = requests.get(url)
 
     # 2. Parse the text into a list (splitting by newline and removing empty lines)
