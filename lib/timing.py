@@ -52,7 +52,7 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
     # 1. Define today's target slots
     # We use .replace() to keep the date but set the specific target times
     today_targets = [
-        now_pst.replace(hour=9, minute=30, second=0, microsecond=0),  # Morning
+        now_pst.replace(hour=8, minute=30, second=0, microsecond=0),  # Morning
         now_pst.replace(hour=12, minute=30, second=0, microsecond=0), # Noon
         now_pst.replace(hour=17, minute=0, second=0, microsecond=0)   # Evening
     ]
@@ -66,14 +66,14 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
     # Default Logic: Start time is the *previous* slot relative to the end_time
     if closest_target.hour == 17: # If snapped to 5:00 PM
         # Window: 12:30 PM -> 5:00 PM
-        start_time = end_time.replace(hour=12, minute=30)
+        start_time = closest_target.replace(hour=12, minute=30)
     elif closest_target.hour == 12: # If snapped to 12:30 PM
         # Window: 8:30 AM -> 12:30 PM
-        start_time = end_time.replace(hour=8, minute=30)
+        start_time = closest_target.replace(hour=8, minute=30)
     else: # If snapped to 8:30 AM (or default fallback)
         # Window: Yesterday 5:00 PM -> Today 8:30 AM
         # We subtract 1 day and set to 17:00
-        start_time = (end_time - timedelta(days=1)).replace(hour=17, minute=0)
+        start_time = (closest_target - timedelta(days=1)).replace(hour=17, minute=0)
 
     end_time = now_pst
     # 4. API Override (Crucial for Data Integrity)
@@ -88,5 +88,6 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
         
         print(f"API Update: Overriding calculated start time ({start_time}) with last successful run ({last_run_actual})")
         start_time = last_run_actual
-
+    print("Using start_time", start_time)
+    print("Using end_time", end_time)
     return start_time, end_time
