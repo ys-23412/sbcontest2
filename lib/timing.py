@@ -10,7 +10,7 @@ def _fetch_last_successful_run_from_api(workflow_name="Scrap Sites Dev") -> Opti
     """
     repo = os.getenv("GITHUB_REPOSITORY", "ys-23412/sbcontest2")
     # Filter by 'status=completed' and 'status=success' to get only the wins
-    url = f"https://api.github.com/repos/{repo}/actions/runs?status=success&per_page=1"
+    url = f"https://api.github.com/repos/{repo}/actions/runs?status=success&per_page=40"
     workflow_name = os.getenv("GH_WORKFLOW_NAME", workflow_name)
     token = os.getenv("GITHUB_TOKEN")
     headers = {"Authorization": f"Bearer {token}"} if token else {}
