@@ -15,6 +15,7 @@ def _fetch_last_successful_run_from_api(workflow_name="Scrap Sites Dev") -> Opti
     workflow_name = os.getenv("GH_WORKFLOW_NAME", workflow_name)
     token = os.getenv("GITHUB_TOKEN")
     headers = {"Authorization": f"Bearer {token}"} if token else {}
+    pacific_tz = ZoneInfo("America/Vancouver")
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -31,11 +32,13 @@ def _fetch_last_successful_run_from_api(workflow_name="Scrap Sites Dev") -> Opti
             return None
         # Extract the creation time of the most recent successful run
         last_run_str = matching_run.get("created_at") # e.g., "2026-02-17T01:24:19Z"
-        
+        utc_dt = datetime.fromisoformat(last_run_str.replace("Z", "+00:00"))
         # Convert ISO 8601 string to datetime object
+        pst_dt = utc_dt.astimezone(pacific_tz)
+        print(f"Last successful run (PST): {pst_dt}")
         # Note: .replace(tzinfo=None) if you need naive UTC, 
         # or keep as is for timezone awareness.
-        return datetime.fromisoformat(last_run_str.replace("Z", "+00:00"))
+        return pst_dt
 
     except (requests.RequestException, ValueError, IndexError) as e:
         print(f"Error fetching run data: {e}")
