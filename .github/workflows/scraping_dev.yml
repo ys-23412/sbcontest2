@@ -21,6 +21,7 @@ env:
     HIDE_TINY_URL: True
     GH_WORKFLOW_NAME: ${{ github.workflow }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
 jobs:
   # JOB 1: Camofox Dev Tenders
