@@ -162,12 +162,13 @@ def main():
             print('filtered_entries', filtered_entries)
             # Call map_data for each CSV file individually
             try:
+                authority = config.get("tender_authority")
                 map_result = map_data({
                     "data": filtered_entries,
                     "region_name": city_name, # Use the hardcoded city name as the region
                     'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
                     'file_prefix': 'tenders',
-                    'tender_authority': config.get("tender_authority"), # Dynamic tender authority
+                    'tender_authority': authority, # Dynamic tender authority
                 })
                # Extract stats from the map_result dictionary
                 current_success = map_result.get("inserted_entries", 0)
