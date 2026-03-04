@@ -138,7 +138,7 @@ def main():
     for config in csv_configs:
         csv_file = config["file_name"]
         city_name = config["city"]
-
+        authority = config.get("tender_authority")
         print(f"\n--- Processing {csv_file} for {city_name.capitalize()} ---")
         
         # 1. Load and filter tenders from the current CSV file
@@ -162,7 +162,6 @@ def main():
             print('filtered_entries', filtered_entries)
             # Call map_data for each CSV file individually
             try:
-                authority = config.get("tender_authority")
                 map_result = map_data({
                     "data": filtered_entries,
                     "region_name": city_name, # Use the hardcoded city name as the region
