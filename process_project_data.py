@@ -378,12 +378,16 @@ def map_data(params):
     file_name = "AutoHarvest"
 
     issue_results = get_latest_issue()
-    found_issue = issue_results.get('found_issue', {})
+    found_issue = issue_results['found_issue']
     latest_issue = issue_results['issues']
     is_new_tender = issue_results['is_new_tender_period']
 
     print("Using found issue", found_issue)
-    ys_volume_id = found_issue.get('id', 1)
+    try:
+        ys_volume_id = found_issue['id']
+    except Exception as e:
+        print("didnt find found issue")
+        ys_volume_id = 1
 
     mapped_data = []
     entries_with_project_types = []
