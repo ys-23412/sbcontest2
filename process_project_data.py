@@ -343,11 +343,20 @@ def get_project_type_id(project_data_entry):
 
 
 def map_data(params):
-
+    stats = {
+        "found_count": 0,
+        "mapped_count": 0,
+        "inserted_entries": 0,
+        "failed_entries": 0,
+        "status": "success"
+    }
     data = params.get('data', [])
+    stats["found_count"] = len(data)
     if len(data) == 0:
         print("No data to map")
-        return
+        stats["status"] = "empty"
+        return stats
+
     region_name = params.get('region_name', 'Saanich')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'np')
@@ -577,9 +586,10 @@ def map_data(params):
         entry['ys_project_details'] = ''
         mapped_data.append(entry)
 
-    if len(mapped_data) == 0:
-        print("no mapped data returning")
-        return
+    stats["mapped_count"] = len(mapped_data)
+    if not mapped_data:
+        stats["status"] = "failed_mapping"
+        return stats
 
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
@@ -616,18 +626,14 @@ def map_data(params):
 
         print(insert_response)
         # we could add in logic to 
-        if good_json_string['failed_entries'] > 0:
-            # send to discord webhook
-            from validate_tenders import send_discord_message
-            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-            send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
-        elif good_json_string['inserted_entries'] > 0:
-            # send to discord webhook
-            from validate_tenders import send_discord_message
-            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-            send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
+        if insert_response['failed_entries'] > 0:
+            send_discord_message(f"Error inserting into data: {insert_response}", discord_webhook_url)
+        elif insert_response['inserted_entries'] > 0:
+            send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
+        stats["inserted_entries"] = result_data.get('inserted_entries', 0)
+        stats["failed_entries"] = result_data.get('failed_entries', 0)
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
     except:
@@ -663,7 +669,7 @@ def map_data(params):
 
 
 
-    return
+    return stats
 
 if __name__ == "__main__":
 
