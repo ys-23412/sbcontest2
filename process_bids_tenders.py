@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 from validate_tenders import send_discord_message
 
 
-from mappers import _filter_bid_tenders_by_recent_date, process_and_send_bid_tenders # A more robust way to join URL parts
+from mappers import _filter_bid_tenders_by_last_run, process_and_send_bid_tenders # A more robust way to join URL parts
 
 def parse_document_date(html_string):
     """
@@ -256,7 +256,7 @@ async def scrap_bids_and_tenders_site(config: dict):
         await asyncio.sleep(3)
         # await tab.close()
         # loop through each entry
-        clean_entries = _filter_bid_tenders_by_recent_date(full_results)
+        clean_entries = _filter_bid_tenders_by_last_run(full_results)
 
         print("clean entries", clean_entries)
 
