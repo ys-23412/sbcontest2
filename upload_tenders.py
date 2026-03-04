@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 import dateparser
 import os 
 import pytz
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from lib.timing import get_execution_window
 from dotenv import load_dotenv
 import re
 import json
@@ -32,70 +34,32 @@ def load_and_filter_tenders(base_dir, csv_file):
     df = clean_column_names(df)
     # Assuming the script runs at 5:00 AM, so 'today' is based on the start of the day
     pacific_tz = pytz.timezone('America/Los_Angeles') 
-    today = datetime.now(pacific_tz) # Using pytz.utc for consistency with pytz
-    # Date filtering logic
-    # set today to the start of the day
-    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
-
     
-    # The date format in the CSV is tricky, so we'll use dateparser
-    # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
+    now_pst = datetime.now(ZoneInfo("America/Vancouver"))
+    start_time, _ = get_execution_window(now_pst)
     print(df['open_date'])
+
+    start_time_utc = pd.to_datetime(start_time).tz_convert('UTC')
     df['open_date_parsed'] = df['open_date'].apply(
         lambda x: dateparser.parse(re.sub(r'(\d+)(st|nd|rd|th)', r'\1', x)) if isinstance(x, str) else None
     )
 
     df['open_date_parsed'] = pd.to_datetime(df['open_date_parsed'], utc=True)
 
-    # --- PRINTING THE TYPE INFORMATION ---
-    print("--- Type Information for 'open_date_parsed' column ---")
-    print(f"The object type of the column is: {type(df['open_date_parsed'])}")
-    print(f"The data type (dtype) of the values within the column is: {df['open_date_parsed'].dtype}")
-    print("----------------------------------------------------")
-    print(df['open_date_parsed'])
-    # from datetime import date, timedelta
-    # start_date = date(2025, 7, 16)
-    # end_date = date(2025, 7, 25)
+    print(f"--- Filtering Strategy ---")
+    print(f"Start Time (PST): {start_time}")
+    print(f"Filter Boundary (UTC): {start_time_utc}")
+    print("--------------------------")
 
-    # # Filter the DataFrame
-    # df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
-    #                 (df['open_date_parsed'].dt.date <= end_date)]
-    # add address column fill with ''
-   
-
-    df_date_only = df['open_date_parsed'].dt.date
-
-    # Convert today's date to Pacific Time (just the date part for comparison)
-    today_pst_date = today.astimezone(pacific_tz).date()
-
-    # Calculate tomorrow's date in Pacific Time
-    tmmr_pst_date = (today + timedelta(days=1)).astimezone(pacific_tz).date()
-
-    print("today_pst_date", today_pst_date)
-    # --- Filtering for the date range ---
-    # Use boolean indexing with comparison operators
-    # The '&' operator performs a logical AND between the two conditions.
-    # make sure the types are the same
-
+    # 5. Perform Filtering
+    # We filter for anything that opened AT or AFTER the last execution start_time
     try:
-        df_filtered_range = df[
-            (df_date_only >= today_pst_date) &
-            (df_date_only <= tmmr_pst_date)
-        ]
-
+        df_filtered_range = df[df['open_date_parsed'] >= start_time_utc].copy()
     except Exception as e:
-        today_pst_ts = pd.to_datetime(today_pst_date)
-        tmmr_pst_ts = pd.to_datetime(tmmr_pst_date)
-
-        print(f"Filtering between {today_pst_ts} and {tmmr_pst_ts}")
-
-        # --- Filtering for the date range ---
-        # Now the comparison will work correctly.
-        df_filtered_range = df[
-            (df_date_only >= today_pst_ts) &
-            (df_date_only <= tmmr_pst_ts)
-        ]
-
+        print(f"Fallback filtering triggered due to: {e}")
+        # Ensure comparison is possible if types drifted
+        df_filtered_range = df[pd.to_datetime(df['open_date_parsed'], utc=True) >= start_time_utc].copy()
+   
     print("--- Filtered DataFrame ---")
     print(df_filtered_range)
 
