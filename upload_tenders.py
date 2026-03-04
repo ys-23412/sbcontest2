@@ -169,17 +169,21 @@ def main():
                     'file_prefix': 'tenders',
                     'tender_authority': config.get("tender_authority"), # Dynamic tender authority
                 })
-                success_count = num_records 
-                if map_result:
-                    if isinstance(map_result, dict) and "Successfully Mapped" in map_result:
-                        success_count = map_result["Successfully Mapped"]
-                total_success += success_count
-                fail_count = num_records - success_count
-                total_failed += fail_count
-                if fail_count == 0:
-                    regions_processed.append(f"✅ **{authority}**: {success_count} sent")
+               # Extract stats from the map_result dictionary
+                current_success = map_result.get("inserted_entries", 0)
+                current_failed = map_result.get("failed_entries", 0)
+                
+                # If map_data hit a total API error, ensure we account for the missing records
+                if map_result.get("status") == "api_error" and current_success == 0:
+                    current_failed = num_records
+
+                total_success += current_success
+                total_failed += current_failed
+                
+                if current_failed == 0:
+                    regions_processed.append(f"✅ **{authority}**: {current_success} sent")
                 else:
-                    regions_processed.append(f"⚠️ **{authority}**: {success_count} sent, {fail_count} failed")
+                    regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed")
             except Exception as e:
                 print(f"❌ Failed to process data for {authority}: {e}")
                 total_failed += num_records
