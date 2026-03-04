@@ -193,6 +193,7 @@ def main():
             regions_empty.append(authority)
             print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
     # --- SEND DISCORD NOTIFICATION ---
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     if total_found > 0 or regions_failed:
         color_code = 3066993 if total_failed == 0 else 15158332 # Green if all good, Red if any failures
         
