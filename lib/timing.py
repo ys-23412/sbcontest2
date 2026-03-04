@@ -8,7 +8,7 @@ def _fetch_last_successful_run_from_api(workflow_name="Scrap Sites Dev") -> Opti
     """
     Fetches the last successful GitHub Action run timestamp for sbcontest2.
     """
-    repo = "ys-23412/sbcontest2"
+    repo = os.getenv("GITHUB_REPOSITORY", "ys-23412/sbcontest2")
     # Filter by 'status=completed' and 'status=success' to get only the wins
     url = f"https://api.github.com/repos/{repo}/actions/runs?status=success&per_page=1"
     workflow_name = os.getenv("GH_WORKFLOW_NAME", workflow_name)
@@ -48,10 +48,11 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
     This handles early/late cron executions (e.g., 4:00 PM counts as the 5:00 PM run)
     and DST offsets naturally.
     """
+    print("[get_execution_window] - Using now_pst time", now_pst)
     # 1. Define today's target slots
     # We use .replace() to keep the date but set the specific target times
     today_targets = [
-        now_pst.replace(hour=8, minute=30, second=0, microsecond=0),  # Morning
+        now_pst.replace(hour=9, minute=30, second=0, microsecond=0),  # Morning
         now_pst.replace(hour=12, minute=30, second=0, microsecond=0), # Noon
         now_pst.replace(hour=17, minute=0, second=0, microsecond=0)   # Evening
     ]
@@ -61,14 +62,12 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
     # It calculates the absolute time difference between NOW and each Target.
     closest_target = min(today_targets, key=lambda t: abs((now_pst - t).total_seconds()))
 
-    end_time = closest_target
-
     # 3. Determine the 'start_time' based on which slot we snapped to
     # Default Logic: Start time is the *previous* slot relative to the end_time
-    if end_time.hour == 17: # If snapped to 5:00 PM
+    if closest_target.hour == 17: # If snapped to 5:00 PM
         # Window: 12:30 PM -> 5:00 PM
         start_time = end_time.replace(hour=12, minute=30)
-    elif end_time.hour == 12: # If snapped to 12:30 PM
+    elif closest_target.hour == 12: # If snapped to 12:30 PM
         # Window: 8:30 AM -> 12:30 PM
         start_time = end_time.replace(hour=8, minute=30)
     else: # If snapped to 8:30 AM (or default fallback)
@@ -76,6 +75,7 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
         # We subtract 1 day and set to 17:00
         start_time = (end_time - timedelta(days=1)).replace(hour=17, minute=0)
 
+    end_time = now_pst
     # 4. API Override (Crucial for Data Integrity)
     # If the previous run failed or the cron was skipped, the default 'start_time' above 
     # might leave a gap. We fetch the ACTUAL last run time to ensure we pick up exactly where we left off.
