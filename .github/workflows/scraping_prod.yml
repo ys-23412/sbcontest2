@@ -8,9 +8,6 @@ on:
     # close enough
     - cron: '34 15,19 * * 1-6'
     - cron: '53 23 * * 1-6'
-  push:
-    branches:
-      - "main"
 
 env:
     PY_COLORS: "1"
