@@ -626,12 +626,12 @@ def map_data(params):
         insert_response = insert_into_data_resp.json()
 
         print(insert_response)
-        stats["inserted_entries"] = insert_response.get('inserted_entries', 0)
-        stats["failed_entries"] = insert_response.get('failed_entries', 0)
-        # we could add in logic to 
-        if len(insert_response.get('failed_entries', [])) > 0:
+        stats["inserted_entries"] = len(insert_response.get('inserted_entries', []))
+        stats["failed_entries"] = len(insert_response.get('failed_entries', []))
+        discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+        if stats["inserted_entries"] > 0:
             send_discord_message(f"Error inserting into data: {insert_response}", discord_webhook_url)
-        elif len(insert_response.get('inserted_entries', [])) > 0:
+        elif stats["failed_entries"] > 0:
             send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
