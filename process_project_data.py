@@ -626,6 +626,8 @@ def map_data(params):
         insert_response = insert_into_data_resp.json()
 
         print(insert_response)
+        stats["inserted_entries"] = insert_response.get('inserted_entries', 0)
+        stats["failed_entries"] = insert_response.get('failed_entries', 0)
         # we could add in logic to 
         if len(insert_response.get('failed_entries', [])) > 0:
             send_discord_message(f"Error inserting into data: {insert_response}", discord_webhook_url)
@@ -633,11 +635,11 @@ def map_data(params):
             send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
-        stats["inserted_entries"] = insert_response.get('inserted_entries', 0)
-        stats["failed_entries"] = insert_response.get('failed_entries', 0)
+
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
-    except:
+    except Exception as err:
+        print(f'Other error occurred: {err}')
         # see if we can parse json from the response, ignore text that is not json
         print(insert_into_data_resp.text)
         with open("insert_into_data_resp.txt", "w", errors='ignore') as f:
