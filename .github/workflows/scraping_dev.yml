@@ -7,9 +7,7 @@ on:
     # 5:00 PM PST (01:00 UTC next day)
     # close enough
     - cron: '30 16,20,1 * * 6'
-  push:
-    branches:
-      - "feature/test-merge-scrapping" 
+
 env:
     PY_COLORS: "1"
     DISPLAY: ":99"
@@ -25,7 +23,7 @@ env:
 
 jobs:
   # JOB 1: Camofox Dev Tenders
-  camofox-tenders:
+  camofox-tenders-dev:
     runs-on: ubuntu-latest
     # Job-specific Environment Variables
     env:
@@ -101,7 +99,7 @@ jobs:
           retention-days: 3
 
   # JOB 2: Dev Bids and Tenders
-  bids-and-tenders:
+  bids-and-tenders-dev:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

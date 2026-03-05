@@ -166,7 +166,7 @@ jobs:
           path: video_recordings/session.mp4
 
   # JOB 3: Scrap CRD Website Dev
-  scrape-crd-dev:
+  scrape-crd:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
