@@ -6,6 +6,7 @@ import pytz
 import re
 import requests # Added for Discord webhook
 from dotenv import load_dotenv
+from lib.discord import send_discord_message
 
 def clean_column_names(df):
     """
@@ -15,22 +16,6 @@ def clean_column_names(df):
     new_cols = [col.lower().replace(' ', '_') for col in cols]
     df.columns = new_cols
     return df
-
-def send_discord_message(message, webhook_url):
-    """
-    Sends a message to a Discord channel via webhook.
-    """
-    if not webhook_url:
-        print("Discord webhook URL not configured. Skipping Discord notification.")
-        return
-
-    data = {"content": message}
-    try:
-        response = requests.post(webhook_url, json=data)
-        response.raise_for_status() # Raise an exception for HTTP errors
-        print("Discord message sent successfully.")
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to send Discord message: {e}")
 
 def validate_tenders(base_dir, csv_file, city_name, pacific_tz):
     """

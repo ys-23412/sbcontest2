@@ -2,9 +2,9 @@ name: Dev Bids and Tenders # Name remains as per user's request, but runs on Lin
 
 on:
   workflow_dispatch: # Allows manual trigger
-  schedule:
-    # Run at 5:15 PM PST on Monday to Saturday
-    - cron: '50 23 * * 1'
+  # schedule:
+  #   # Run at 5:15 PM PST on Monday to Saturday
+  #   - cron: '50 23 * * 1'
 
 jobs:
   build:

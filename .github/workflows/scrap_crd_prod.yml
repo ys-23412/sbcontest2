@@ -2,9 +2,9 @@ name: Scrap CRD Website Prod # Name remains as per user's request, but runs on L
 
 on:
   workflow_dispatch: # Allows manual trigger
-  schedule:
-    # Run at 5:10 PM PST on Monday to Saturday - adjusted for daylights saving time.
-    - cron: '53 23 * * 1-6'
+  # schedule:
+  #   # Run at 5:10 PM PST on Monday to Saturday - adjusted for daylights saving time.
+  #   - cron: '53 23 * * 1-6'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

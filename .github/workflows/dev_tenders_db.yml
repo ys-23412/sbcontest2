@@ -2,9 +2,9 @@ name: Camofox Dev Tenders # Name remains as per user's request, but runs on Linu
 
 on:
   workflow_dispatch: # Allows manual trigger
-  schedule:
-    # Run at 5:00 AM UTC on Monday and Thursday
-    - cron: '5 17 * * 4'
+  # schedule:
+  #   # Run at 5:00 AM UTC on Monday and Thursday
+  #   - cron: '5 17 * * 4'
 
 jobs:
   build:

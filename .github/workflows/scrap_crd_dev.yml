@@ -2,9 +2,9 @@ name: Scrap CRD Website Dev # Name remains as per user's request, but runs on Li
 
 on:
   workflow_dispatch: # Allows manual trigger
-  schedule:
-    # Run at 5:25 PM PST on Monday to Saturday
-    - cron: '25 0 * * 5'
+  # schedule:
+  #   # Run at 5:25 PM PST on Monday to Saturday
+  #   - cron: '25 0 * * 5'
 
 jobs:
   build:
