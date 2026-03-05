@@ -323,12 +323,13 @@ def _filter_bid_tenders_by_last_run(tender_records: List[Dict]) -> List[Dict]:
             # Parse date using Vancouver settings
             parsed_datetime = dateparser.parse(
                 date_str, 
-                settings={'TIMEZONE': 'America/Vancouver', 'TO_TIMEZONE': 'America/Vancouver'}
+                settings={'TIMEZONE': 'America/Vancouver', 'TO_TIMEZONE': 'America/Vancouver', 'RETURN_AS_TIMEZONE_AWARE': True,}
             )
             
             if not parsed_datetime:
                 continue
-
+            
+            print(f"Date: {parsed_datetime}")
             # Strict Window Check:
             # We want records strictly AFTER the last run, up to and including the current target.
             if start_dt < parsed_datetime <= end_dt:
