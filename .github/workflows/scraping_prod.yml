@@ -1,4 +1,4 @@
-name: Scrap Sites Prod
+name: Scrap Sites
 on:
   workflow_dispatch:
   schedule:
