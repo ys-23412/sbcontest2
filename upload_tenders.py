@@ -3,6 +3,7 @@ from web_requests import get_filtered_permits_with_contacts, NewProjectSiteTypes
 from process_project_data import map_data
 from datetime import datetime, timedelta, timezone
 import dateparser
+import traceback
 import os 
 import pytz
 from datetime import datetime
@@ -140,7 +141,9 @@ def main():
                     'file_prefix': 'tenders',
                     'tender_authority': authority, # Dynamic tender authority
                 })
-               # Extract stats from the map_result dictionary
+
+                print("Map result:", map_result)
+                # Extract stats from the map_result dictionary
                 current_success = map_result.get("inserted_entries", 0)
                 current_failed = map_result.get("failed_entries", 0)
                 
@@ -156,6 +159,8 @@ def main():
                 else:
                     regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed")
             except Exception as e:
+                # print full stack trace
+                traceback.print_exc()
                 print(f"❌ Failed to process data for {authority}: {e}")
                 total_failed += num_records
                 regions_failed.append(f"❌ **{authority}**: Failed ({num_records} records lost)")

@@ -626,9 +626,9 @@ def map_data(params):
 
         print(insert_response)
         # we could add in logic to 
-        if insert_response['failed_entries'] > 0:
+        if len(insert_response.get('failed_entries', [])) > 0:
             send_discord_message(f"Error inserting into data: {insert_response}", discord_webhook_url)
-        elif insert_response['inserted_entries'] > 0:
+        elif len(insert_response.get('inserted_entries', [])) > 0:
             send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
