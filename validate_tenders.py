@@ -6,6 +6,7 @@ import pytz
 import re
 import requests # Added for Discord webhook
 from dotenv import load_dotenv
+from lib.discord import send_discord_message
 
 def clean_column_names(df):
     """

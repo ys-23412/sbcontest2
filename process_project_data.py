@@ -133,6 +133,7 @@ def find_correct_issue_date(issues, current_datetime_utc):
     if wednesday_noon_this_week <= current_datetime_pst < sunday_10pm_this_week:
         is_new_tender_period = True
         # grab this week's tender for this sunday
+        # add try catch
         found_issue = upcoming_issues[0]['original_issue']
 
     return found_issue, is_new_tender_period

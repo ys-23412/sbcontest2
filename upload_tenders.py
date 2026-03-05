@@ -159,6 +159,7 @@ def main():
                 else:
                     regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed")
             except Exception as e:
+                # IF DEV CHECK FOR LATEST_ISSUE UPDATE
                 # print full stack trace
                 traceback.print_exc()
                 print(f"❌ Failed to process data for {authority}: {e}")
