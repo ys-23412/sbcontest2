@@ -10,7 +10,7 @@ from typing import List, Dict
 from dateutil.relativedelta import relativedelta # Import this
 from zoneinfo import ZoneInfo
 from unidecode import unidecode
-from validate_tenders import send_discord_message # Use standard library for timezones
+from lib.discord import send_discord_message # Use standard library for timezones
 # the non bonfire mappers go here, its fine for now, we can consonslidate and refactor
 # at the end.
 dash_pattern = r"[\u2013\u2014\u2012\u2015\u200b]"

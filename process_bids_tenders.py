@@ -8,7 +8,7 @@ import time
 from io import StringIO
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from validate_tenders import send_discord_message
+from lib.discord import send_discord_message
 
 
 from mappers import _filter_bid_tenders_by_last_run, process_and_send_bid_tenders # A more robust way to join URL parts

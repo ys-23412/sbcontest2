@@ -9,6 +9,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from lib.timing import get_execution_window
 from dotenv import load_dotenv
+from lib.discord import send_discord_embed
 import re
 import json
 import requests  # Ensure requests is imported for the Discord webhook
@@ -69,36 +70,6 @@ def load_and_filter_tenders(base_dir, csv_file):
     df_filtered_range = df_filtered_range.fillna('')
     return df_filtered_range
 
-def send_discord_embed(webhook_url: str, title: str, description: str, fields: dict, color: int = 3447003):
-    """
-    Sends a rich embed message to a Discord channel via webhook.
-    """
-    if not webhook_url:
-        print("Discord webhook URL not configured. Skipping Discord notification.")
-        return
-
-    # Convert the dictionary of stats into Discord's expected 'fields' array
-    embed_fields = [
-        {"name": str(key), "value": str(value), "inline": False} # Changed to False for better list readability
-        for key, value in fields.items() if value # Only add field if it has content
-    ]
-
-    embed = {
-        "title": title,
-        "description": description,
-        "color": color,
-        "fields": embed_fields,
-        "timestamp": datetime.now(ZoneInfo("UTC")).isoformat()
-    }
-    
-    data = {"embeds": [embed]}
-    
-    try:
-        response = requests.post(webhook_url, json=data)
-        response.raise_for_status()
-        print("Discord embed message sent successfully.")
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to send Discord embed message: {e}")
 
 def main():
     load_dotenv()

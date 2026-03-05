@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta # Import this
 import pytz
 from google import genai
 from google.genai import types
-
+from lib.discord import send_discord_message
 
 
 class DataTypes(Enum):
@@ -632,8 +632,8 @@ def map_data(params):
             send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
-        stats["inserted_entries"] = result_data.get('inserted_entries', 0)
-        stats["failed_entries"] = result_data.get('failed_entries', 0)
+        stats["inserted_entries"] = insert_response.get('inserted_entries', 0)
+        stats["failed_entries"] = insert_response.get('failed_entries', 0)
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
     except:
@@ -653,12 +653,11 @@ def map_data(params):
 
             if good_json_string['failed_entries'] > 0:
                 # send to discord webhook
-                from validate_tenders import send_discord_message
+
                 discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
                 send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
             elif good_json_string['inserted_entries'] > 0:
                 # send to discord webhook
-                from validate_tenders import send_discord_message
                 discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
                 send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
             else:
