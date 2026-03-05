@@ -6,7 +6,7 @@ on:
     # 12:30 PM PST (20:30 UTC)
     # 6:00 PM PST (01:00 UTC next day)
     # close enough
-    - cron: '30 15,19 * * 1-6'
+    - cron: '35 15,19 * * 1-6'
     - cron: '53 23 * * 1-6'
 env:
     PY_COLORS: "1"
