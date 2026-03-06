@@ -7,6 +7,7 @@ from io import StringIO
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
+from pydoll.constants import By
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -90,7 +91,15 @@ async def navigate_to_opportunities(tab: Tab):
         await opps_link.click()
         await asyncio.sleep(3)
         await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True,)
-        await asyncio.sleep(25)  # Wait for portal redirection
+        await asyncio.sleep(4)  # Wait for portal redirection
+        # wait for page to load
+        selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
+        
+        try:
+            await tab.find_or_wait_element(By.XPATH, selector, timeout=30000)
+            print("Found the Opportunities header!")
+        except Exception as e:
+            print(f"Timed out waiting for text: {e}")
         # take a screenshot
         await tab.take_screenshot(f'{FILE_DIR}/after_login.png', quality=90, beyond_viewport=True)
         # try:
