@@ -1,3 +1,1 @@
-This is the repo to seed the data and make sure it works.
-
-update
+Scrapping sites and downloads information to upload to the apis.
