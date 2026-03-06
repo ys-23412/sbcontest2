@@ -139,7 +139,7 @@ async def main():
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
         
         try:
-             await submit_button.click(
+            await submit_button.click(
                 x_offset=5,   # 5 pixels right of center
                 y_offset=-3   # 3 pixels above center
             )
@@ -147,7 +147,7 @@ async def main():
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
-             await submit_button.click(
+            await submit_button.click(
                 x_offset=5,   # 5 pixels right of center
                 y_offset=-3   # 3 pixels above center
             )
@@ -217,7 +217,7 @@ async def main():
         try:
             print("Starting tabular data extraction...")
             all_table_htmls = []
-            all_dfs = [] # List to hold DataFrames for each page
+            all_dfs =[] # List to hold DataFrames for each page
             page = 1
             # we apply filtering to grab recent entries so the number of pages should be quite low, 20
             # is probably overkill
@@ -246,7 +246,7 @@ async def main():
                     # This perfectly matches the rows that Pandas extracted.
                     rows = tree.xpath("//table[@id='body_x_grid_grd']//tr[td]")
                     
-                    urls = []
+                    urls =[]
                     for row in rows:
                         # Grab the 'href' from the <a> tag inside the 2nd <td>
                         # Note: XPath indexing is 1-based, so td[2] is the second column
