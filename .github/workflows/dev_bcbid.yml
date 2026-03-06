@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # Install pydoll and keep your previous dependencies
-          pip install pydoll requests pandas lxml
+          pip install pydoll-python requests pandas lxml
           
       - name: Run Pydoll script
         run: |
