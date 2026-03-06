@@ -150,7 +150,7 @@ async def set_date_filters(tab: Tab):
         }})()
     """)
 
-    await asyncio.sleep(3)
+    await asyncio.sleep(10)
 
     # click on search button
     try:
@@ -179,7 +179,7 @@ async def scrape_tabular_data(tab: Tab):
         
         try:
             # Wait for AJAX table to fully load
-            await asyncio.sleep(4)
+            await asyncio.sleep(8)
             page_source = await tab.page_source
             # 1. Grab the table HTML directly using JavaScript
 

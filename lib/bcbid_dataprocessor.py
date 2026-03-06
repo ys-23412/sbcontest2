@@ -357,11 +357,16 @@ def process_and_send_bcbid_tenders(params: dict):
 
 if __name__ == "__main__":
     MAIN_DIR = "screenshots"
-    tender_records = pd.read_csv(f"{MAIN_DIR}/bid_recent.csv")
-    # make into json objects
-    tender_records = tender_records.to_dict('records')
-    params = {
-        'data': tender_records,
-        'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
-    }
-    process_and_send_bcbid_tenders(params)
+    # check if csv exists
+    if not os.path.exists(f"{MAIN_DIR}/bid_recent.csv"):
+        print(f"Error: The file {MAIN_DIR}/bid_recent.csv was not found.")
+    else:
+        print(f"Processing {MAIN_DIR}/bid_recent.csv...")
+        tender_records = pd.read_csv(f"{MAIN_DIR}/bid_recent.csv")
+        # make into json objects
+        tender_records = tender_records.to_dict('records')
+        params = {
+            'data': tender_records,
+            'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+        }
+        process_and_send_bcbid_tenders(params)
