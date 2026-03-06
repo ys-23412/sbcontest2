@@ -43,8 +43,6 @@ jobs:
         with:
           chrome-version: stable # You can change this to 'latest' or a specific version like '120' if needed
 
-      - name: Verify Chrome Installation
-        run: chrome --version # A quick sanity check to log the installed version
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
