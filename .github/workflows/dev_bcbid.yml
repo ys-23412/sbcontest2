@@ -10,6 +10,17 @@ env:
   IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
   IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
   IPROYAL_API_TOKEN: ${{ secrets.IPROYAL_API_TOKEN }}
+  PY_COLORS: "1"
+  DISPLAY: ":99"
+  # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
+  BASE_DIR: "screenshots"
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+  YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
+  YS_COMPONENTID: 10
+  HIDE_TINY_URL: True
+  GH_WORKFLOW_NAME: ${{ github.workflow }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
 jobs:
   bcbidsb:
@@ -32,11 +43,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # Install pydoll and keep your previous dependencies
-          pip install pydoll-python requests pandas lxml
+          pip install pydoll-python requests pandas lxml dateparser
           
       - name: Run Pydoll script
         run: |
-          python lib/bcbid.py
+          python lib/bcbid_scraper.py
+          python -m lib.bcbid_dataprocessor
           
       - name: Upload HTML output
         if: always() # Upload even if previous steps fail
