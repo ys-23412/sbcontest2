@@ -52,6 +52,7 @@ jobs:
 
       - name: Handle scrapped data
         run: |
+          pip install -r requirements.txt
           python -m lib.bcbid_dataprocessor
           # we dont want to reupload the data folder
           rm -rf data/city.csv
