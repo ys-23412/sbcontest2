@@ -10,10 +10,11 @@ from typing import List, Dict
 from dateutil.relativedelta import relativedelta # Import this
 from zoneinfo import ZoneInfo
 from unidecode import unidecode
+from lib.utils import dash_pattern
 from lib.discord import send_discord_message # Use standard library for timezones
 # the non bonfire mappers go here, its fine for now, we can consonslidate and refactor
 # at the end.
-dash_pattern = r"[\u2013\u2014\u2012\u2015\u200b]"
+
 def _map_tender_type_to_stage(tender_type_str: str) -> str:
     """Maps various tender type strings to a standardized stage name."""
     type_mapping = {
@@ -544,3 +545,4 @@ def process_and_send_tenders(params: dict):
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
         raise e
+

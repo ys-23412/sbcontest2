@@ -1,5 +1,9 @@
 .env
-data
+data/*.csv
+data/*.json
 __pycache__
 more_testing.py
 screenshots_output
+
+!data/city.csv
+screenshots

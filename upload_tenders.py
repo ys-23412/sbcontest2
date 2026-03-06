@@ -131,7 +131,6 @@ def main():
             
             # Convert DataFrame to a list of dictionaries for map_data
             filtered_entries = filtered_tenders_df.to_dict('records')
-            print('filtered_entries', filtered_entries)
             # Call map_data for each CSV file individually
             try:
                 map_result = map_data({
