@@ -3,7 +3,6 @@ import os
 import time
 import lxml
 import pandas as pd
-import random
 from io import StringIO
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
@@ -41,6 +40,28 @@ def get_browser_options(headless=False):
         'profile.password_manager_enabled': False
     }
     return options
+
+async def dummy_login(tab, username, password):
+    """
+    Placeholder login logic for BC Bid portal.
+    Targeting IDs found in the provided HTML: body_x_txtLogin and body_x_txtPass
+    """
+    print("Attempting login...")
+    # Find username field
+    # username_field = await tab.find(id="body_x_txtLogin")
+    # await username_field.type_text(username)
+
+    # Find password field
+    # password_field = await tab.find(id="body_x_txtPass")
+    # await password_field.type_text(password)
+
+    # Click login button
+    # login_btn = await tab.find(id="body_x_btnLogin")
+    # await login_btn.click()
+    
+    # Wait for session to establish
+    # await asyncio.sleep(5)
+    pass
 
 async def navigate_to_opportunities(tab: Tab):
     """
@@ -91,7 +112,6 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-
 async def main():
     opts = get_browser_options()
     
@@ -107,45 +127,28 @@ async def main():
             os.mkdir(FILE_DIR)
         # 2. Dummy Login (Commented out as requested)
         # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-        for _ in range(random.randint(2, 4)):
-            scroll_amount = random.randint(200, 500)
-            await tab.scroll.by(ScrollPosition.DOWN, scroll_amount, smooth=True)
-            await asyncio.sleep(random.uniform(0.8, 2.0))
+        await asyncio.sleep(10)
         await tab.mouse.drag(100, 200, 500, 400, humanize=True)
         await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
         await tab.mouse.move(500, 300, humanize=True)
         # wait for page to load
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
-
-        # success = await perform_human_loop(tab, selector)
-
-        # if not success:
-        #     print("Target not found after actions. Forcing navigation/wait...")
-        #     try:
-        #         await tab.go_to(url)
-        #         await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
-        #         await tab.take_screenshot(f'{FILE_DIR}/recovery_success.png')
-        #     except Exception as e:
-        #         print(f"Final recovery failed: {e}")
-        #         await tab.take_screenshot(f'{FILE_DIR}/final_timeout.png')
         
         try:
-            await tab.find_or_wait_element(By.XPATH, selector, timeout=5)
+            await tab.find_or_wait_element(By.XPATH, selector, timeout=40)
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
             url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
             print(f"Navigating to {url}...")
             await tab.go_to(url)
-            await tab.mouse.move(400, 350, humanize=True)
             await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
             await tab.take_screenshot(f'{FILE_DIR}/trying_to_login2.png', quality=90, beyond_viewport=True)
-       #  take a screenshot
+        # take a screenshot
         await tab.take_screenshot(f'{FILE_DIR}/after_login.png', quality=90, beyond_viewport=True)
         # 3. Click on "Browse Opportunities"
         # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
-        # print("Clicking on 'Browse Opportunities'...")
+        print("Clicking on 'Browse Opportunities'...")
         try:
             pass
             # await navigate_to_opportunities(tab)
