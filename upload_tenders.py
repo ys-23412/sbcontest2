@@ -144,8 +144,12 @@ def main():
 
                 print("Map result:", map_result)
                 # Extract stats from the map_result dictionary
-                current_success = len(map_result.get("inserted_entries", []))
-                current_failed = len(map_result.get("failed_entries", []))
+                try:
+                    current_success = map_result.get("inserted_entries", 0)
+                    current_failed = map_result.get("failed_entries", 0)
+                except Exception as e:
+                    current_success = 0
+                    current_failed = num_records
                 
                 # If map_data hit a total API error, ensure we account for the missing records
                 if map_result.get("status") == "api_error" and current_success == 0:
