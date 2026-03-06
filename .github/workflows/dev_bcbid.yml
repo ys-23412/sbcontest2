@@ -27,7 +27,6 @@ jobs:
         run: |
           brew update
           brew install --cask google-chrome
-          brew install ffmpeg
 
       - name: Install Python Dependencies
         run: |
@@ -35,43 +34,9 @@ jobs:
           # Install pydoll and keep your previous dependencies
           pip install pydoll-python requests pandas lxml
           
-      - name: Run Browser Automation and Record macOS Session
+      - name: Run Pydoll script
         run: |
-          # 1. Create directory for video recordings
-          mkdir -p video_recordings
-          VIDEO_OUTPUT_PATH="video_recordings/session.mp4"
-          
-          # 2. Start FFmpeg recording in the background using AVFoundation (macOS native)
-          # On a headless macOS runner without webcams, display index "0" is the main screen.
-          echo "Starting macOS screen recording..."
-          ffmpeg -y -f avfoundation -framerate 15 -i "0" -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "$VIDEO_OUTPUT_PATH" &
-          
-          # Store the FFmpeg process ID
-          FFMPEG_PID=$!
-          echo "FFmpeg recording started with PID: $FFMPEG_PID"
-          
-          # Give FFmpeg a second to initialize
-          sleep 2
-          
-          # 3. Run your browser automation script
-          # Note: run path directly, not with -m
-          echo "Running scraper..."
           python lib/bcbid.py
-          
-          # 4. Stop FFmpeg recording gracefully
-          echo "Stopping FFmpeg recording..."
-          kill -s SIGINT $FFMPEG_PID || true # Send SIGINT to FFmpeg to stop
-          wait $FFMPEG_PID || true # Wait for FFmpeg process to fully terminate
-          
-          echo "Video recording completed: $VIDEO_OUTPUT_PATH"
-
-      - name: Upload Video Recording
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: video-recording
-          path: video_recordings/session.mp4
-
           
       - name: Upload HTML output
         if: always() # Upload even if previous steps fail

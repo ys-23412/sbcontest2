@@ -1,10 +1,8 @@
 import asyncio
 import os
 import time
-import csv
-import re
-import random
-import requests
+import pandas as pd
+from io import StringIO
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
@@ -14,21 +12,6 @@ def get_browser_options(headless=False):
     Returns a configured ChromiumOptions object with stealth settings.
     """
     options = ChromiumOptions()
-    # MOST PROXY SERVICES HAVE LIMITATIONS ON SCRAPING sites with
-    # .gov in it, not just the US government
-    # bc bid counts as one of these sites.
-    # options.add_argument('--disable-blink-features=AutomationControlled')
-    # options.add_argument('--proxy-server=sock5://{proxy_url}')
-    # options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
-    # url = "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
-    # response = requests.get(url)
-    auth = "USERNAME"
-    # # 2. Parse the text into a list (splitting by newline and removing empty lines)
-    # proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
-    # random_proxy = random.choice(proxies)
-    # print("using proxy", random_proxy)
-    # options.add_argument(f'--proxy-server={random_proxy}')
-    # options.add_argument(f'--proxy-server=http://80.241.251.54:8080')
     current_time = int(time.time())
     options.browser_preferences = {
         'profile': {
@@ -41,8 +24,6 @@ def get_browser_options(headless=False):
 
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    if not env_headless and os.environ.get("DISPLAY"):
-        options.add_argument(f'--display={os.environ.get("DISPLAY")}')
     
     if headless or env_headless:
         options.add_argument("--headless=new")
@@ -101,10 +82,10 @@ async def navigate_to_opportunities(tab: Tab):
         os.mkdir("screenshots")
         await opps_link.click()
         await asyncio.sleep(3)
-        await tab.take_screenshot('screenshots/page.png', quality=100)
+        await tab.take_screenshot('screenshots/page.png', quality=90, beyond_viewport=True,)
         await asyncio.sleep(25)  # Wait for portal redirection
         # take a screenshot
-        await tab.take_screenshot('screenshots/page2.png', quality=100)
+        await tab.take_screenshot('screenshots/page2.png', quality=90, beyond_viewport=True)
         # try:
         #     submit_button = await tab.find(id='submit-btn')
         #     await submit_button.click()
@@ -113,70 +94,105 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-# import asyncio
-# import os
-# from camoufox.async_api import AsyncCamoufox
-
-# async def navigate_to_opportunitiesv2(page):
-#     """
-#     Attempts to find the Opportunities link using Playwright locators.
-#     """
-#     print("Searching for 'Opportunities' link...")
+async def scrape_tabular_data(tab: Tab):
+    """
+    Scrapes the table with id 'body_x_grid_grd' across all paginated pages.
+    Uses JS evaluation to avoid Stale Element Reference errors common in ASP.NET AJAX sites.
+    """
+    print("Starting tabular data extraction...")
+    all_table_htmls = []
+    all_dfs = [] # List to hold DataFrames for each page
+    page = 1
+    max_pages = 100 # Safety limit to prevent infinite loops
     
-#     # 1. Attempt to find by Text
-#     # normalize-space() is handled by Playwright's 'has_text' or regex
-#     opps_link = page.get_by_role("link", name="Opportunities", exact=False)
-
-#     try:
-#         # Check if the text-based link is visible
-#         if await opps_link.is_visible():
-#             print("Link found via text. Clicking...")
-#             await opps_link.click()
-#         else:
-#             # 2. Fallback: Search by relative href
-#             print("Text-based search failed. Attempting fallback via href...")
-#             opps_link = page.locator('a[href*="/page.aspx/en/rfp/request_browse_public"]')
-#             await opps_link.click()
+    while page <= max_pages:
+        print(f"Extracting data from page {page}...")
+        
+        try:
+            # Wait for AJAX table to fully load
+            await asyncio.sleep(4)
             
-#         # Wait for network to settle after click
-#         await page.wait_for_load_state("networkidle")
-#     except Exception as e:
-#         print(f"Error: Could not locate or click Opportunities link: {e}")
+            # 1. Grab the table HTML directly using JavaScript
+            table_html = await tab.evaluate("""
+                document.getElementById('body_x_grid_grd') 
+                ? document.getElementById('body_x_grid_grd').outerHTML 
+                : null
+            """)
+            
+            if table_html:
+                all_table_htmls.append(table_html)
+                print(f"Successfully captured table HTML for page {page}.")
+                try:
+                    # pd.read_html returns a list of dataframes found in the HTML string.
+                    # We wrap the string in StringIO to avoid Pandas FutureWarnings.
+                    dfs = pd.read_html(StringIO(table_html))
+                    if dfs:
+                        df = dfs[0] # Grab the first (and only) table
+                        all_dfs.append(df)
+                        print(f"Successfully parsed {len(df)} rows from page {page} into DataFrame.")
+                except Exception as e:
+                    print(f"Pandas failed to parse the HTML table on page {page}: {e}")
+            else:
+                print(f"Warning: Table 'body_x_grid_grd' not found on page {page}.")
+                break
+                
+            # 2. Check if the 'Next' button is disabled or missing
+            is_disabled = await tab.evaluate("""
+                (() => {
+                    const nextBtn = document.getElementById("body_x_grid_gridPagerBtnNextPage");
+                    if (!nextBtn) return true; // Treat as disabled if element doesn't exist
+                    
+                    // Check if the class contains 'disabled' (standard for BC Bid pagination)
+                    const isClassDisabled = nextBtn.className.toLowerCase().includes('disabled');
+                    return isClassDisabled || nextBtn.disabled;
+                })()
+            """)
+            
+            if is_disabled:
+                print("Next button is disabled. Reached the last page.")
+                break
+                
+            # 3. Click the 'Next' button via JS to trigger the site's AJAX pagination
+            print(f"Clicking 'Next' button to navigate to page {page + 1}...")
+            await tab.evaluate('document.getElementById("body_x_grid_gridPagerBtnNextPage").click()')
+            
+            page += 1
+            
+        except Exception as e:
+            print(f"Error encountered during pagination on page {page}: {e}")
+            break
+            
+    # Save all gathered HTML to a file so the Github Action can upload it
+    print(f"Finished scraping. Saving {len(all_table_htmls)} pages of tables to bcbid.html...")
+    try:
+        with open("bcbid.html", "w", encoding="utf-8") as f:
+            f.write("<html><head><meta charset='utf-8'></head><body>\n")
+            for idx, html_content in enumerate(all_table_htmls):
+                f.write(f"<h2>Page {idx + 1}</h2>\n")
+                f.write(html_content)
+                f.write("\n<hr>\n")
+            f.write("</body></html>\n")
+        print("Successfully saved 'bcbid.html'")
+    except Exception as e:
+        print(f"Failed to write HTML file: {e}")
 
-# async def mainv2():
-#     # Handle Headless environment variables
-#     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    
-#     # Camoufox context manager handles browser launch and stealth automatically
-#     async with AsyncCamoufox(
-#         headless=env_headless,
-#         # You can add specific geo/language spoofing here if needed
-#         # humanize=True adds random mouse movements/delays
-#         humanize=True 
-#     ) as browser:
-        
-#         print("Starting Camoufox...")
-#         # Create a new page (context is handled internally by the library)
-#         page = await browser.new_page()
-
-#         # 1. Navigate to BC Bid
-#         url = "https://bcbid.gov.bc.ca/"
-#         print(f"Navigating to {url}...")
-#         await page.goto(url, wait_until="domcontentloaded")
-        
-#         # 2. Dummy Login Placeholder
-#         # await page.fill("#body_x_txtLogin", "YOUR_USERNAME")
-#         # await page.fill("#body_x_txtPass", "YOUR_PASSWORD")
-#         # await page.click("#body_x_btnLogin")
-
-#         # 3. Click on "Browse Opportunities"
-#         try:
-#             await navigate_to_opportunities(page)
-#         except Exception as e:
-#             print(f"Error during navigation: {e}")
-
-#         print("Scraping task complete.")
-#         time.sleep(155)
+    if all_dfs:
+        try:
+            # Concatenate all individual page DataFrames into one massive DataFrame
+            final_df = pd.concat(all_dfs, ignore_index=True)
+            
+            # Optional: Clean up empty columns or rows that Pandas might have picked up
+            final_df.dropna(how='all', inplace=True) 
+            
+            print(f"Total rows extracted across all pages: {len(final_df)}")
+            
+            # Save the DataFrame to CSV
+            final_df.to_csv("bid_recent.csv", index=False, encoding='utf-8')
+            print("Successfully saved data to 'bid_recent.csv'")
+        except Exception as e:
+            print(f"Failed to concatenate or save CSV: {e}")
+    else:
+        print("No DataFrames were created. Skipping CSV generation.")
 
 async def main():
     opts = get_browser_options(headless=False)
@@ -200,6 +216,11 @@ async def main():
             await navigate_to_opportunities(tab)
         except Exception as e:
             print(f"Error during navigation: {e}")
+
+        try:
+            await scrape_tabular_data(tab)
+        except Exception as e:
+            print(f"Error during tabular data extraction: {e}")
 
         # logs = await tab.get_network_logs()
 
