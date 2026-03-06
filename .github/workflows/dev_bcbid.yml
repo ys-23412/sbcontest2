@@ -151,6 +151,13 @@ jobs:
         
         echo "Video recording completed: $VIDEO_OUTPUT_PATH"
 
+    - name: Recording
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: video
+        path: video_recordings/session.mp4
+
     - name: Upload Screenshots
       if: always()
       uses: actions/upload-artifact@v4
