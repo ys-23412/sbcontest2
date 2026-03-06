@@ -22,29 +22,6 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-name: Dev BC BID
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - 'feature/bcbid'
-
-env:
-  IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-  IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
-  IPROYAL_API_TOKEN: ${{ secrets.IPROYAL_API_TOKEN }}
-  PY_COLORS: "1"
-  DISPLAY: ":99"
-  BASE_DIR: "screenshots"
-  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-  YS_APIURL: ${{ secrets.YS_APIURL_DEV }}
-  YS_COMPONENTID: 10
-  HIDE_TINY_URL: True
-  GH_WORKFLOW_NAME: ${{ github.workflow }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
 jobs:
   scraper_job:
     runs-on: macos-latest
