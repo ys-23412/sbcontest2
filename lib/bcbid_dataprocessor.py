@@ -16,8 +16,6 @@ from lib.timing import get_execution_window
 from mappers import _map_tender_type_to_stage
 from process_project_data import get_project_type_id
 
-
-
 def load_city_mapping(filepath="city.csv") -> dict:
     """Loads city.csv into a dictionary mapped by city_name -> city_id."""
     city_mapping = {}
@@ -360,6 +358,7 @@ if __name__ == "__main__":
     # check if csv exists
     if not os.path.exists(f"{MAIN_DIR}/bid_recent.csv"):
         print(f"Error: The file {MAIN_DIR}/bid_recent.csv was not found.")
+        raise ValueError("No File Found")
     else:
         print(f"Processing {MAIN_DIR}/bid_recent.csv...")
         tender_records = pd.read_csv(f"{MAIN_DIR}/bid_recent.csv")
