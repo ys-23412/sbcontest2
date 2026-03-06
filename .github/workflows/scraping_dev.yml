@@ -202,7 +202,7 @@ jobs:
 
     # JOB 4 run test functions
     # JOB 4 bc bid
-    scrape-bcbid_dev:
+    scrape-bcbid-dev:
       runs-on: macos-latest # Changed to macOS
       steps:
         - name: Checkout Repository
