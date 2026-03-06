@@ -24,7 +24,7 @@ env:
 
 jobs:
   bcbidsb:
-    runs-on: windows-latest
+    runs-on: macos-26-intel
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Recommended stable version
+          python-version: '3.12' # Recommended stable version
           
       # - name: Install Google Chrome (macOS)
       #   run: |
