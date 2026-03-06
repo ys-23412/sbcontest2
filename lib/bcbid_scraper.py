@@ -22,7 +22,7 @@ def get_browser_options(headless=False):
     current_time = int(time.time())
     options.browser_preferences = {
         'profile': {
-            'last_engagement_time': str(current_time - (10 * 60 * 60)),  # 3 hours ago
+            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
             'exited_cleanly': True,
             'exit_type': 'Normal',
         },
