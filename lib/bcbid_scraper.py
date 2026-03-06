@@ -81,7 +81,7 @@ async def action_micro_clicks(tab: Tab):
     """Simulates clicking in a neutral 'dead' area of the page."""
     print("Executing: Micro Clicks")
     await tab.mouse.move(50, 50, humanize=True)
-    await tab.mouse.click()
+    # await tab.mouse.click(50, 50)
     await asyncio.sleep(random.uniform(1.0, 2.0))
 
 async def navigate_to_opportunities(tab: Tab):
