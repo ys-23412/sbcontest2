@@ -102,11 +102,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Requests
-      env: 
-        
-      run: |
-        pip install requests
+
     - name: Install system dependencies for Chrome and Xvfb
       # Google Chrome is needed for SeleniumBase
       # xvfb is needed for virtual display if not running in strict headless mode
