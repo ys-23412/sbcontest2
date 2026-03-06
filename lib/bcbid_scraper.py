@@ -131,26 +131,14 @@ async def main():
         await tab.mouse.drag(100, 200, 500, 400, humanize=True)
         await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
         await tab.mouse.move(500, 300, humanize=True)
-        await submit_button.click(
-            x_offset=5,   # 5 pixels right of center
-            y_offset=-3   # 3 pixels above center
-        )
         # wait for page to load
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
         
         try:
-            await submit_button.click(
-                x_offset=5,   # 5 pixels right of center
-                y_offset=-3   # 3 pixels above center
-            )
             await tab.find_or_wait_element(By.XPATH, selector, timeout=40)
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
-            await submit_button.click(
-                x_offset=5,   # 5 pixels right of center
-                y_offset=-3   # 3 pixels above center
-            )
             url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
             print(f"Navigating to {url}...")
             await tab.go_to(url)
