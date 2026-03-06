@@ -283,7 +283,7 @@ async def scrape_tabular_data(tab: Tab):
     await tab.take_screenshot(f'{FILE_DIR}/last_page.png', quality=90, beyond_viewport=True)
 
 async def main():
-    opts = get_browser_options(headless=True)
+    opts = get_browser_options()
     
     async with Chrome(options=opts) as browser:
         print("Starting browser...")

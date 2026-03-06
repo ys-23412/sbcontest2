@@ -34,10 +34,10 @@ jobs:
         with:
           python-version: '3.12' # Recommended stable version
           
-      - name: Install Google Chrome (macOS)
-        run: |
-          brew update
-          brew install --cask google-chrome
+      # - name: Install Google Chrome (macOS)
+      #   run: |
+      #     brew update
+      #     brew install --cask google-chrome
 
       - name: Install Python Dependencies
         run: |
