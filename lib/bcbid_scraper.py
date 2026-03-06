@@ -136,6 +136,10 @@ async def main():
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
+            url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
+            print(f"Navigating to {url}...")
+            await tab.go_to(url)
+            await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
         # take a screenshot
         await tab.take_screenshot(f'{FILE_DIR}/after_login.png', quality=90, beyond_viewport=True)
         # 3. Click on "Browse Opportunities"
