@@ -36,7 +36,7 @@ jobs:
           
       - name: Run Pydoll script
         run: |
-          python bcbid_sb.py
+          python lib/bcbid.py
           
       - name: Upload HTML output
         if: always() # Upload even if previous steps fail
@@ -51,3 +51,4 @@ jobs:
         with:
           name: results
           path: bid_recent.csv
+  
