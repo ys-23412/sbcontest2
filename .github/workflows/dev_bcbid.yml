@@ -89,7 +89,9 @@ jobs:
       - name: Handle scrapped data
         run: |
           ls
+          ls screenshots
           pip install -r requirements.txt
+          pip install -r requirements_tenders.txt
           python -m lib.bcbid_dataprocessor
           rm -rf data/city.csv
 
