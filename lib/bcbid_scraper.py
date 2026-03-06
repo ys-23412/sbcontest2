@@ -8,6 +8,7 @@ from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
 from pydoll.constants import By
+from pydoll.constants import ScrollPosition
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -96,6 +97,7 @@ async def navigate_to_opportunities(tab: Tab):
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
         
         try:
+            await tab.scroll.by(ScrollPosition.DOWN, 500, humanize=True)
             await tab.find_or_wait_element(By.XPATH, selector, timeout=40000)
             print("Found the Opportunities header!")
         except Exception as e:
