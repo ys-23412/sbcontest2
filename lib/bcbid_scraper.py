@@ -20,7 +20,7 @@ def get_browser_options(headless=False):
     current_time = int(time.time())
     options.browser_preferences = {
         'profile': {
-            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
+            'last_engagement_time': str(current_time - (10 * 60 * 60)),  # 3 hours ago
             'exited_cleanly': True,
             'exit_type': 'Normal',
         },
@@ -30,8 +30,8 @@ def get_browser_options(headless=False):
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
     
-    if headless or env_headless:
-        options.add_argument("--headless=new")
+    # if headless or env_headless:
+    #     options.add_argument("--headless=new")
 
     options.browser_preferences = {
         'profile': {'exit_type': 'Normal'},
@@ -126,20 +126,34 @@ async def main():
         # 2. Dummy Login (Commented out as requested)
         # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
         await asyncio.sleep(10)
+        await tab.mouse.drag(100, 200, 500, 400, humanize=True)
         await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
-        await asyncio.sleep(4)  # Wait for portal redirection
+        await tab.mouse.move(500, 300, humanize=True)
+        await submit_button.click(
+            x_offset=5,   # 5 pixels right of center
+            y_offset=-3   # 3 pixels above center
+        )
         # wait for page to load
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
         
         try:
+             await submit_button.click(
+                x_offset=5,   # 5 pixels right of center
+                y_offset=-3   # 3 pixels above center
+            )
             await tab.find_or_wait_element(By.XPATH, selector, timeout=40)
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
+             await submit_button.click(
+                x_offset=5,   # 5 pixels right of center
+                y_offset=-3   # 3 pixels above center
+            )
             url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
             print(f"Navigating to {url}...")
             await tab.go_to(url)
             await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
+            await tab.take_screenshot(f'{FILE_DIR}/trying_to_login2.png', quality=90, beyond_viewport=True)
         # take a screenshot
         await tab.take_screenshot(f'{FILE_DIR}/after_login.png', quality=90, beyond_viewport=True)
         # 3. Click on "Browse Opportunities"
