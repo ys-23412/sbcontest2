@@ -22,7 +22,7 @@ def get_browser_options(headless=False):
     # options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
     # url = "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
     # response = requests.get(url)
-
+    auth = "USERNAME"
     # # 2. Parse the text into a list (splitting by newline and removing empty lines)
     # proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
     # random_proxy = random.choice(proxies)
@@ -98,8 +98,13 @@ async def navigate_to_opportunities(tab: Tab):
 
     if opps_link:
         print("Link found. Clicking...")
+        os.mkdir("screenshots")
         await opps_link.click()
+        await asyncio.sleep(3)
+        await tab.take_screenshot('screenshots/page.png', quality=100)
         await asyncio.sleep(25)  # Wait for portal redirection
+        # take a screenshot
+        await tab.take_screenshot('screenshots/page2.png', quality=100)
         # try:
         #     submit_button = await tab.find(id='submit-btn')
         #     await submit_button.click()
