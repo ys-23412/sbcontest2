@@ -228,15 +228,6 @@ def process_and_send_bcbid_tenders(params: dict):
             project_id = record.get('Opportunity ID', 'N/A')
             print(f"⚠️ Failed to process BC Bid tender {project_id}. Error: {e}")
 
-    if not final_mapped_data:
-         send_discord_embed(
-            webhook_url=discord_webhook_url,
-            title="🤖 BC Bid Harvester: Run Complete",
-            description="Automated run finished processing BC Bid tenders.",
-            fields={},
-            color=15844367
-        )
-        return
 
     print(f"✅ Successfully mapped and classified {len(final_mapped_data)} BC Bid records.")
     grouped_data = {}
