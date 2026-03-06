@@ -90,7 +90,7 @@ async def navigate_to_opportunities(tab: Tab):
             os.mkdir(FILE_DIR)
         await opps_link.click()
         await asyncio.sleep(3)
-        await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True,)
+        await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
         await asyncio.sleep(4)  # Wait for portal redirection
         # wait for page to load
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
