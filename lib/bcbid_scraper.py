@@ -292,7 +292,9 @@ async def main():
         url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
         print(f"Navigating to {url}...")
         await tab.go_to(url)
-        
+        if not os.path.exists(FILE_DIR):
+            # remove directory
+            os.mkdir(FILE_DIR)
         # 2. Dummy Login (Commented out as requested)
         # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
         await asyncio.sleep(10)
