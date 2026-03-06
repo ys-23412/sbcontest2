@@ -20,14 +20,14 @@ def get_browser_options(headless=False):
     # options.add_argument('--disable-blink-features=AutomationControlled')
     # options.add_argument('--proxy-server=sock5://{proxy_url}')
     # options.add_argument('--proxy-server=socks5://geo.iproyal.com:12321')
-    url = "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
-    response = requests.get(url)
+    # url = "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
+    # response = requests.get(url)
 
-    # 2. Parse the text into a list (splitting by newline and removing empty lines)
-    proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
-    random_proxy = random.choice(proxies)
-    print("using proxy", random_proxy)
-    options.add_argument(f'--proxy-server={random_proxy}')
+    # # 2. Parse the text into a list (splitting by newline and removing empty lines)
+    # proxies = [line.strip() for line in response.text.splitlines() if line.strip()]
+    # random_proxy = random.choice(proxies)
+    # print("using proxy", random_proxy)
+    # options.add_argument(f'--proxy-server={random_proxy}')
     # options.add_argument(f'--proxy-server=http://80.241.251.54:8080')
     current_time = int(time.time())
     options.browser_preferences = {
