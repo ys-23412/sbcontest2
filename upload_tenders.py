@@ -3,12 +3,17 @@ from web_requests import get_filtered_permits_with_contacts, NewProjectSiteTypes
 from process_project_data import map_data
 from datetime import datetime, timedelta, timezone
 import dateparser
+import traceback
 import os 
 import pytz
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from lib.timing import get_execution_window
 from dotenv import load_dotenv
+from lib.discord import send_discord_embed
 import re
 import json
+import requests  # Ensure requests is imported for the Discord webhook
 
 def clean_column_names(df):
     """
@@ -32,70 +37,32 @@ def load_and_filter_tenders(base_dir, csv_file):
     df = clean_column_names(df)
     # Assuming the script runs at 5:00 AM, so 'today' is based on the start of the day
     pacific_tz = pytz.timezone('America/Los_Angeles') 
-    today = datetime.now(pacific_tz) # Using pytz.utc for consistency with pytz
-    # Date filtering logic
-    # set today to the start of the day
-    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
-
     
-    # The date format in the CSV is tricky, so we'll use dateparser
-    # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
+    now_pst = datetime.now(ZoneInfo("America/Vancouver"))
+    start_time, _ = get_execution_window(now_pst)
     print(df['open_date'])
+
+    start_time_utc = pd.to_datetime(start_time).tz_convert('UTC')
     df['open_date_parsed'] = df['open_date'].apply(
         lambda x: dateparser.parse(re.sub(r'(\d+)(st|nd|rd|th)', r'\1', x)) if isinstance(x, str) else None
     )
 
     df['open_date_parsed'] = pd.to_datetime(df['open_date_parsed'], utc=True)
 
-    # --- PRINTING THE TYPE INFORMATION ---
-    print("--- Type Information for 'open_date_parsed' column ---")
-    print(f"The object type of the column is: {type(df['open_date_parsed'])}")
-    print(f"The data type (dtype) of the values within the column is: {df['open_date_parsed'].dtype}")
-    print("----------------------------------------------------")
-    print(df['open_date_parsed'])
-    # from datetime import date, timedelta
-    # start_date = date(2025, 7, 16)
-    # end_date = date(2025, 7, 25)
+    print(f"--- Filtering Strategy ---")
+    print(f"Start Time (PST): {start_time}")
+    print(f"Filter Boundary (UTC): {start_time_utc}")
+    print("--------------------------")
 
-    # # Filter the DataFrame
-    # df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
-    #                 (df['open_date_parsed'].dt.date <= end_date)]
-    # add address column fill with ''
-   
-
-    df_date_only = df['open_date_parsed'].dt.date
-
-    # Convert today's date to Pacific Time (just the date part for comparison)
-    today_pst_date = today.astimezone(pacific_tz).date()
-
-    # Calculate tomorrow's date in Pacific Time
-    tmmr_pst_date = (today + timedelta(days=1)).astimezone(pacific_tz).date()
-
-    print("today_pst_date", today_pst_date)
-    # --- Filtering for the date range ---
-    # Use boolean indexing with comparison operators
-    # The '&' operator performs a logical AND between the two conditions.
-    # make sure the types are the same
-
+    # 5. Perform Filtering
+    # We filter for anything that opened AT or AFTER the last execution start_time
     try:
-        df_filtered_range = df[
-            (df_date_only >= today_pst_date) &
-            (df_date_only <= tmmr_pst_date)
-        ]
-
+        df_filtered_range = df[df['open_date_parsed'] >= start_time_utc].copy()
     except Exception as e:
-        today_pst_ts = pd.to_datetime(today_pst_date)
-        tmmr_pst_ts = pd.to_datetime(tmmr_pst_date)
-
-        print(f"Filtering between {today_pst_ts} and {tmmr_pst_ts}")
-
-        # --- Filtering for the date range ---
-        # Now the comparison will work correctly.
-        df_filtered_range = df[
-            (df_date_only >= today_pst_ts) &
-            (df_date_only <= tmmr_pst_ts)
-        ]
-
+        print(f"Fallback filtering triggered due to: {e}")
+        # Ensure comparison is possible if types drifted
+        df_filtered_range = df[pd.to_datetime(df['open_date_parsed'], utc=True) >= start_time_utc].copy()
+   
     print("--- Filtered DataFrame ---")
     print(df_filtered_range)
 
@@ -104,58 +71,6 @@ def load_and_filter_tenders(base_dir, csv_file):
     df_filtered_range = df_filtered_range.fillna('')
     return df_filtered_range
 
-
-# def load_and_filter_tenders_fix(base_dir, csv_file):
-#     """
-#     Loads tenders from a CSV file, cleans column names, and filters for recent entries.
-#     """
-#     csv_path = os.path.join(base_dir, csv_file)
-#     if not os.path.exists(csv_path):
-#         print(f"Error: The file {csv_path} was not found.")
-#         return pd.DataFrame()
-
-#     df = pd.read_csv(csv_path)
-#     df = clean_column_names(df)
-
-#     # Date filtering logic
-#     # Assuming the script runs at 5:00 AM, so 'today' is based on the start of the day
-#     # today = datetime.now(datetime.timezone.utc)
-#     # tmmr = today + timedelta(days=1)
-#     # utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
-
-    
-#     # The date format in the CSV is tricky, so we'll use dateparser
-#     # We need to remove the ordinal indicators (st, nd, rd, th) for robust parsing
-#     print(df['open_date'])
-#     df['open_date_parsed'] = df['open_date'].apply(
-#         lambda x: dateparser.parse(re.sub(r'(\d+)(st|nd|rd|th)', r'\1', x)) if isinstance(x, str) else None
-#     )
-
-#     df['open_date_parsed'] = pd.to_datetime(df['open_date_parsed'], utc=True)
-
-#     # --- PRINTING THE TYPE INFORMATION ---
-#     print("--- Type Information for 'open_date_parsed' column ---")
-#     print(f"The object type of the column is: {type(df['open_date_parsed'])}")
-#     print(f"The data type (dtype) of the values within the column is: {df['open_date_parsed'].dtype}")
-#     print("----------------------------------------------------")
-#     print(df['open_date_parsed'])
-    
-#     # Filter rows where the open_date is today or yesterday
-#     # df_filtered = df[df['open_date_parsed'].dt.date.isin([today, yesterday])]
-#     # df_filtered = df[df['open_date_parsed'].dt.date.isin([today, tmmr])]
-#     from datetime import date, timedelta
-#     start_date = date(2025, 7, 16)
-#     end_date = date(2025, 7, 25)
-
-#     # Filter the DataFrame
-#     df_filtered = df[(df['open_date_parsed'].dt.date >= start_date) & 
-#                     (df['open_date_parsed'].dt.date <= end_date)]
-#     # add address column fill with ''
-#     df_filtered['address'] = ''
-#     # if any field is NaN set to ''
-#     df_filtered = df_filtered.fillna('')
-
-#     return df_filtered
 
 def main():
     load_dotenv()
@@ -184,10 +99,18 @@ def main():
     if not os.path.exists("data"):
         os.makedirs("data")
 
+    # --- STATS TRACKING ---
+    total_found = 0
+    total_success = 0
+    total_failed = 0
+    
+    regions_processed = []
+    regions_failed = []
+    regions_empty = []
     for config in csv_configs:
         csv_file = config["file_name"]
         city_name = config["city"]
-
+        authority = config.get("tender_authority")
         print(f"\n--- Processing {csv_file} for {city_name.capitalize()} ---")
         
         # 1. Load and filter tenders from the current CSV file
@@ -195,6 +118,8 @@ def main():
         
         if not filtered_tenders_df.empty:
             # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
+            num_records = len(filtered_tenders_df)
+            total_found += num_records
             if 'open_date_parsed' in filtered_tenders_df.columns:
                 del filtered_tenders_df['open_date_parsed']
                 print(f"Removed 'open_date_parsed' column from the DataFrame for {csv_file}.")
@@ -208,15 +133,80 @@ def main():
             filtered_entries = filtered_tenders_df.to_dict('records')
             print('filtered_entries', filtered_entries)
             # Call map_data for each CSV file individually
-            map_data({
-                "data": filtered_entries,
-                "region_name": city_name, # Use the hardcoded city name as the region
-                'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
-                'file_prefix': 'tenders',
-                'tender_authority': config.get("tender_authority"), # Dynamic tender authority
-            })
-        else:
-            print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
+            try:
+                map_result = map_data({
+                    "data": filtered_entries,
+                    "region_name": city_name, # Use the hardcoded city name as the region
+                    'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+                    'file_prefix': 'tenders',
+                    'tender_authority': authority, # Dynamic tender authority
+                })
 
+                print("Map result:", map_result)
+                # Extract stats from the map_result dictionary
+                try:
+                    current_success = map_result.get("inserted_entries", 0)
+                    current_failed = map_result.get("failed_entries", 0)
+                except Exception as e:
+                    current_success = 0
+                    current_failed = num_records
+                
+                # If map_data hit a total API error, ensure we account for the missing records
+                if map_result.get("status") == "api_error" and current_success == 0:
+                    current_failed = num_records
+
+                total_success += current_success
+                total_failed += current_failed
+                
+                if current_failed == 0:
+                    regions_processed.append(f"✅ **{authority}**: {current_success} sent")
+                else:
+                    regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed")
+            except Exception as e:
+                # IF DEV CHECK FOR LATEST_ISSUE UPDATE
+                # print full stack trace
+                traceback.print_exc()
+                print(f"❌ Failed to process data for {authority}: {e}")
+                total_failed += num_records
+                regions_failed.append(f"❌ **{authority}**: Failed ({num_records} records lost)")
+                
+        else:
+            regions_empty.append(authority)
+            print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
+    # --- SEND DISCORD NOTIFICATION ---
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+    if total_found > 0 or regions_failed:
+        color_code = 3066993 if total_failed == 0 else 15158332 # Green if all good, Red if any failures
+        
+        embed_fields = {
+            "📊 Run Summary": f"**Total Found:** {total_found}\n**Total Success:** {total_success}\n**Total Failed:** {total_failed}",
+        }
+        
+        if regions_processed:
+            embed_fields["🚀 Processed Regions"] = "\n".join(regions_processed)
+            
+        if regions_failed:
+            embed_fields["🚨 Failed Regions"] = "\n".join(regions_failed)
+            
+        if regions_empty:
+            # Join empty regions with a comma to save vertical space
+            embed_fields["💤 No New Tenders"] = ", ".join(regions_empty)
+
+        send_discord_embed(
+            webhook_url=discord_webhook_url,
+            title="🤖 Bonfire Harvester: Run Complete",
+            description="Automated run finished processing Bonfire CSVs.",
+            fields=embed_fields,
+            color=color_code
+        )
+    else:
+        # Optional: Send a lightweight "Nothing found" message, or stay silent to avoid spam.
+        send_discord_embed(
+            webhook_url=discord_webhook_url,
+            title="🤖 Bonfire Harvester: Zero Tenders",
+            description="Run completed successfully, but no new tenders were found in any CSVs.",
+            fields={"💤 Status": "All regions empty"},
+            color=9807270 # Grey
+        )
 if __name__ == "__main__":
     main()

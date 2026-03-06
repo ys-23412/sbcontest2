@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta # Import this
 import pytz
 from google import genai
 from google.genai import types
-
+from lib.discord import send_discord_message
 
 
 class DataTypes(Enum):
@@ -133,6 +133,7 @@ def find_correct_issue_date(issues, current_datetime_utc):
     if wednesday_noon_this_week <= current_datetime_pst < sunday_10pm_this_week:
         is_new_tender_period = True
         # grab this week's tender for this sunday
+        # add try catch
         found_issue = upcoming_issues[0]['original_issue']
 
     return found_issue, is_new_tender_period
@@ -343,11 +344,20 @@ def get_project_type_id(project_data_entry):
 
 
 def map_data(params):
-
+    stats = {
+        "found_count": 0,
+        "mapped_count": 0,
+        "inserted_entries": 0,
+        "failed_entries": 0,
+        "status": "success"
+    }
     data = params.get('data', [])
+    stats["found_count"] = len(data)
     if len(data) == 0:
         print("No data to map")
-        return
+        stats["status"] = "empty"
+        return stats
+
     region_name = params.get('region_name', 'Saanich')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     file_prefix = params.get('file_prefix', 'np')
@@ -383,7 +393,11 @@ def map_data(params):
     is_new_tender = issue_results['is_new_tender_period']
 
     print("Using found issue", found_issue)
-    ys_volume_id = found_issue['id']
+    try:
+        ys_volume_id = found_issue['id']
+    except Exception as e:
+        print("didnt find found issue")
+        ys_volume_id = 1
 
     mapped_data = []
     entries_with_project_types = []
@@ -523,22 +537,22 @@ def map_data(params):
                 elif unmapped_entry['type'] == 'NOI':
                     ys_body['ys_stage'] = 'NOI - Notice of Intent'
 
-            # determine if we should update the item to updated_tenders
-            found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
-            if parsed_date_close:
-                if parsed_date_close.date() > found_issue_date_obj:
-                
-                    # make sure that its within the target 
-                    if not is_new_tender:
-                        # think this is handled by the cron job on ys website
-                        print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
-                        # current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+            # 1. Guard check: Ensure found_issue exists and has a 'date'
+            if found_issue and 'date' in found_issue:
+                # determine if we should update the item to updated_tenders
+                found_issue_date_obj = datetime.strptime(found_issue['date'], '%Y-%m-%d').date()
+                if parsed_date_close:
+                    if parsed_date_close.date() > found_issue_date_obj:
+                    
+                        # make sure that its within the target 
+                        if not is_new_tender:
+                            # think this is handled by the cron job on ys website
+                            print(f"Tender closing date ({parsed_date_close.date()}) is after issue date ({found_issue_date_obj}). Classifying as Updated Tender.")
+                            # current_ys_component_id = DataTypes.UPDATED_TENDERS.value # Change component_id to 11 for Updated Tenders
+                        else:
+                            print("this is in the new tender period")
                     else:
-                        print("this is in the new tender period")
-                else:
-                    print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
-            
-
+                        print(f"Tender closing date ({parsed_date_close.date()}) is on or before issue date ({found_issue_date_obj}). Classifying as New Tender.")
             try:
                 if parsed_date_close:
                     review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
@@ -573,9 +587,10 @@ def map_data(params):
         entry['ys_project_details'] = ''
         mapped_data.append(entry)
 
-    if len(mapped_data) == 0:
-        print("no mapped data returning")
-        return
+    stats["mapped_count"] = len(mapped_data)
+    if not mapped_data:
+        stats["status"] = "failed_mapping"
+        return stats
 
     curr_date = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
@@ -611,22 +626,20 @@ def map_data(params):
         insert_response = insert_into_data_resp.json()
 
         print(insert_response)
-        # we could add in logic to 
-        if good_json_string['failed_entries'] > 0:
-            # send to discord webhook
-            from validate_tenders import send_discord_message
-            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-            send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
-        elif good_json_string['inserted_entries'] > 0:
-            # send to discord webhook
-            from validate_tenders import send_discord_message
-            discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-            send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
+        stats["inserted_entries"] = len(insert_response.get('inserted_entries', []))
+        stats["failed_entries"] = len(insert_response.get('failed_entries', []))
+        discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+        if stats["inserted_entries"] > 0:
+            send_discord_message(f"Error inserting into data: {insert_response}", discord_webhook_url)
+        elif stats["failed_entries"] > 0:
+            send_discord_message(f"Successfully inserted into data: for bonfire", discord_webhook_url)
         else:
             print("nothing wrong with the json string")
+
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
-    except:
+    except Exception as err:
+        print(f'Other error occurred: {err}')
         # see if we can parse json from the response, ignore text that is not json
         print(insert_into_data_resp.text)
         with open("insert_into_data_resp.txt", "w", errors='ignore') as f:
@@ -643,12 +656,11 @@ def map_data(params):
 
             if good_json_string['failed_entries'] > 0:
                 # send to discord webhook
-                from validate_tenders import send_discord_message
+
                 discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
                 send_discord_message(f"Error inserting into data: {good_json_string}", discord_webhook_url)
             elif good_json_string['inserted_entries'] > 0:
                 # send to discord webhook
-                from validate_tenders import send_discord_message
                 discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
                 send_discord_message(f"Successfully inserted into data: {good_json_string}", discord_webhook_url)
             else:
@@ -659,7 +671,7 @@ def map_data(params):
 
 
 
-    return
+    return stats
 
 if __name__ == "__main__":
 
