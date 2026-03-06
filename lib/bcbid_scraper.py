@@ -132,7 +132,7 @@ async def main():
         selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
         
         try:
-            await tab.find_or_wait_element(By.XPATH, selector, timeout=40000)
+            await tab.find_or_wait_element(By.XPATH, selector, timeout=40)
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
