@@ -48,7 +48,9 @@ jobs:
           
       - name: Run Pydoll script
         run: |
-          python lib/bcbid_scraper.py
+          python -m lib.bcbid_scraper
+          ls 
+          ls screenshots
           python -m lib.bcbid_dataprocessor
           
       - name: Upload HTML output

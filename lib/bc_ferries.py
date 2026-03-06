@@ -1,4 +1,5 @@
 import asyncio
+import csv
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 import time
