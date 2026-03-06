@@ -27,6 +27,7 @@ jobs:
         run: |
           brew update
           brew install --cask google-chrome
+          brew install ffmpeg
 
       - name: Install Python Dependencies
         run: |
