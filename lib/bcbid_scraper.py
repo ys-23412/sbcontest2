@@ -110,178 +110,6 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-async def set_date_filters(tab: Tab):
-    """
-    Sets the Minimum and Maximum Issue Dates.
-    Uses JS evaluation to bypass the jQuery UI calendar popup which can block the screen.
-    """
-    print("Setting date filters...")
-    
-    # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
-    # If you meant "past 2 days":
-    min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    max_date = datetime.now().strftime('%Y-%m-%d')
-    
-    # OR if you literally meant "2 days in the future" for min_date, use:
-    # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
-
-    # Inject the values directly into the input fields and trigger the 'change' event
-    await tab.execute_script(f"""
-        (() => {{
-            // 1. Set Min Date
-            const minInput = document.getElementById('body_x_txtRfpBeginDate');
-            if (minInput) {{
-                minInput.value = '{min_date}';
-                minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            }}
-            
-            // 2. Set Max Date
-            const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
-            if (maxInput) {{
-                maxInput.value = '{max_date}';
-                maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            }}
-            
-            // 3. Hide the calendar popup if it accidentally opened
-            const datePickerDiv = document.getElementById('ui-datepicker-div');
-            if (datePickerDiv) {{
-                datePickerDiv.style.display = 'none';
-            }}
-        }})()
-    """)
-
-    await asyncio.sleep(10)
-
-    # click on search button
-    try:
-        search_button = await tab.find(id='body_x_prxFilterBar_x_cmdSearchBtn')
-        await search_button.click()
-    except Exception as e:
-        print(f"Error clicking search button: {e}")
-    
-    print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
-
-async def scrape_tabular_data(tab: Tab):
-    """
-    Scrapes the table with id 'body_x_grid_grd' across all paginated pages.
-    Uses JS evaluation to avoid Stale Element Reference errors common in ASP.NET AJAX sites.
-    """
-    print("Starting tabular data extraction...")
-    all_table_htmls = []
-    all_dfs = [] # List to hold DataFrames for each page
-    page = 1
-    # we apply filtering to grab recent entries so the number of pages should be quite low, 20
-    # is probably overkill
-    max_pages = 20 # Safety limit to prevent infinite loops
-    
-    while page <= max_pages:
-        print(f"Extracting data from page {page}...")
-        
-        try:
-            # Wait for AJAX table to fully load
-            await asyncio.sleep(8)
-            page_source = await tab.page_source
-            # 1. Grab the table HTML directly using JavaScript
-
-            dfs = pd.read_html(
-                    StringIO(page_source), 
-                    attrs={'id': 'body_x_grid_grd'}
-                )
-            df = dfs[0]
-
-              # --- NEW URL EXTRACTION LOGIC ---
-            # Parse the HTML with lxml to extract the hidden hrefs
-            tree = lxml.html.fromstring(page_source)
-            
-            # Find all table rows inside the grid that contain data cells (<td>)
-            # This perfectly matches the rows that Pandas extracted.
-            rows = tree.xpath("//table[@id='body_x_grid_grd']//tr[td]")
-            
-            urls = []
-            for row in rows:
-                # Grab the 'href' from the <a> tag inside the 2nd <td>
-                # Note: XPath indexing is 1-based, so td[2] is the second column
-                hrefs = row.xpath("./td[2]//a/@href")
-                if hrefs:
-                    urls.append(f"https://bcbid.gov.bc.ca{hrefs[0]}")
-                else:
-                    urls.append("")
-            
-            # Attach the URLs as a new column to the DataFrame
-            df['Opportunity Url'] = pd.Series(urls)
-            table_html = df.to_html(index=False)
-  
-            all_table_htmls.append(table_html)
-            all_dfs.append(df)
-                
-            # 2. Check if the 'Next' button is disabled or missing
-            scriptReturnResult = await tab.execute_script("""
-                (() => {
-                    const nextBtn = document.getElementById("body_x_grid_gridPagerBtnNextPage");
-                    if (!nextBtn) return true; // Treat as disabled if element doesn't exist
-                    
-                    // Check if the class contains 'disabled' (standard for BC Bid pagination)
-                    const isClassDisabled = nextBtn.className.toLowerCase().includes('disabled');
-                    return isClassDisabled || nextBtn.disabled;
-                })()
-            """, return_by_value=True, await_promise=True)
-            print(f"Next button is disabled: {scriptReturnResult}")
-            # check if element exists
-
-            try:
-                is_disabled = scriptReturnResult.get('result', {}).get('result', {}).get('value')
-            except Exception as e:
-                print(f"Error checking if next button is disabled: {e}")
-                is_disabled = True
-            
-            if is_disabled:
-                print("Next button is disabled. Reached the last page.")
-                break
-                
-            # 3. Click the 'Next' button via JS to trigger the site's AJAX pagination
-            print(f"Clicking 'Next' button to navigate to page {page + 1}...")
-            await tab.execute_script('document.getElementById("body_x_grid_gridPagerBtnNextPage").click()')
-            
-            page += 1
-            
-        except Exception as e:
-            print(f"Error encountered during pagination on page {page}: {e}")
-            break
-            
-    # Save all gathered HTML to a file so the Github Action can upload it
-    print(f"Finished scraping. Saving {len(all_table_htmls)} pages of tables to bcbid.html...")
-    try:
-        with open(f"{FILE_DIR}/bcbid.html", "w", encoding="utf-8") as f:
-            f.write("<html><head><meta charset='utf-8'></head><body>\n")
-            for idx, html_content in enumerate(all_table_htmls):
-                f.write(f"<h2>Page {idx + 1}</h2>\n")
-                f.write(html_content)
-                f.write("\n<hr>\n")
-            f.write("</body></html>\n")
-        print("Successfully saved 'bcbid.html'")
-    except Exception as e:
-        print(f"Failed to write HTML file: {e}")
-
-    if all_dfs:
-        try:
-            # Concatenate all individual page DataFrames into one massive DataFrame
-            final_df = pd.concat(all_dfs, ignore_index=True)
-            
-            # Optional: Clean up empty columns or rows that Pandas might have picked up
-            final_df.dropna(how='all', inplace=True) 
-            
-            print(f"Total rows extracted across all pages: {len(final_df)}")
-            
-            # Save the DataFrame to CSV
-            final_df.to_csv(f"{FILE_DIR}/bid_recent.csv", index=False, encoding='utf-8')
-            print("Successfully saved data to 'bid_recent.csv'")
-        except Exception as e:
-            print(f"Failed to concatenate or save CSV: {e}")
-    else:
-        print("No DataFrames were created. Skipping CSV generation.")
-
-    await tab.take_screenshot(f'{FILE_DIR}/last_page.png', quality=90, beyond_viewport=True)
-
 async def main():
     opts = get_browser_options()
     
@@ -319,11 +147,169 @@ async def main():
         except Exception as e:
             print(f"Error during navigation: {e}")
         try:
-            await set_date_filters(tab)
+            print("Setting date filters...")
+            
+            # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
+            # If you meant "past 2 days":
+            min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            max_date = datetime.now().strftime('%Y-%m-%d')
+            
+            # OR if you literally meant "2 days in the future" for min_date, use:
+            # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+
+            # Inject the values directly into the input fields and trigger the 'change' event
+            await tab.execute_script(f"""
+                (() => {{
+                    // 1. Set Min Date
+                    const minInput = document.getElementById('body_x_txtRfpBeginDate');
+                    if (minInput) {{
+                        minInput.value = '{min_date}';
+                        minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    }}
+                    
+                    // 2. Set Max Date
+                    const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
+                    if (maxInput) {{
+                        maxInput.value = '{max_date}';
+                        maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    }}
+                    
+                    // 3. Hide the calendar popup if it accidentally opened
+                    const datePickerDiv = document.getElementById('ui-datepicker-div');
+                    if (datePickerDiv) {{
+                        datePickerDiv.style.display = 'none';
+                    }}
+                }})()
+            """)
+
+            await asyncio.sleep(10)
+
+            # click on search button
+            try:
+                search_button = await tab.find(id='body_x_prxFilterBar_x_cmdSearchBtn')
+                await search_button.click()
+            except Exception as e:
+                print(f"Error clicking search button: {e}")
+            
+            print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
         except Exception as e:
             print(f"Error during date filtering: {e}")
         try:
-            await scrape_tabular_data(tab)
+            print("Starting tabular data extraction...")
+            all_table_htmls = []
+            all_dfs = [] # List to hold DataFrames for each page
+            page = 1
+            # we apply filtering to grab recent entries so the number of pages should be quite low, 20
+            # is probably overkill
+            max_pages = 20 # Safety limit to prevent infinite loops
+            
+            while page <= max_pages:
+                print(f"Extracting data from page {page}...")
+                
+                try:
+                    # Wait for AJAX table to fully load
+                    await asyncio.sleep(8)
+                    page_source = await tab.page_source
+                    # 1. Grab the table HTML directly using JavaScript
+
+                    dfs = pd.read_html(
+                            StringIO(page_source), 
+                            attrs={'id': 'body_x_grid_grd'}
+                        )
+                    df = dfs[0]
+
+                    # --- NEW URL EXTRACTION LOGIC ---
+                    # Parse the HTML with lxml to extract the hidden hrefs
+                    tree = lxml.html.fromstring(page_source)
+                    
+                    # Find all table rows inside the grid that contain data cells (<td>)
+                    # This perfectly matches the rows that Pandas extracted.
+                    rows = tree.xpath("//table[@id='body_x_grid_grd']//tr[td]")
+                    
+                    urls = []
+                    for row in rows:
+                        # Grab the 'href' from the <a> tag inside the 2nd <td>
+                        # Note: XPath indexing is 1-based, so td[2] is the second column
+                        hrefs = row.xpath("./td[2]//a/@href")
+                        if hrefs:
+                            urls.append(f"https://bcbid.gov.bc.ca{hrefs[0]}")
+                        else:
+                            urls.append("")
+                    
+                    # Attach the URLs as a new column to the DataFrame
+                    df['Opportunity Url'] = pd.Series(urls)
+                    table_html = df.to_html(index=False)
+        
+                    all_table_htmls.append(table_html)
+                    all_dfs.append(df)
+                        
+                    # 2. Check if the 'Next' button is disabled or missing
+                    scriptReturnResult = await tab.execute_script("""
+                        (() => {
+                            const nextBtn = document.getElementById("body_x_grid_gridPagerBtnNextPage");
+                            if (!nextBtn) return true; // Treat as disabled if element doesn't exist
+                            
+                            // Check if the class contains 'disabled' (standard for BC Bid pagination)
+                            const isClassDisabled = nextBtn.className.toLowerCase().includes('disabled');
+                            return isClassDisabled || nextBtn.disabled;
+                        })()
+                    """, return_by_value=True, await_promise=True)
+                    print(f"Next button is disabled: {scriptReturnResult}")
+                    # check if element exists
+
+                    try:
+                        is_disabled = scriptReturnResult.get('result', {}).get('result', {}).get('value')
+                    except Exception as e:
+                        print(f"Error checking if next button is disabled: {e}")
+                        is_disabled = True
+                    
+                    if is_disabled:
+                        print("Next button is disabled. Reached the last page.")
+                        break
+                        
+                    # 3. Click the 'Next' button via JS to trigger the site's AJAX pagination
+                    print(f"Clicking 'Next' button to navigate to page {page + 1}...")
+                    await tab.execute_script('document.getElementById("body_x_grid_gridPagerBtnNextPage").click()')
+                    
+                    page += 1
+                    
+                except Exception as e:
+                    print(f"Error encountered during pagination on page {page}: {e}")
+                    break
+                    
+            # Save all gathered HTML to a file so the Github Action can upload it
+            print(f"Finished scraping. Saving {len(all_table_htmls)} pages of tables to bcbid.html...")
+            try:
+                with open(f"{FILE_DIR}/bcbid.html", "w", encoding="utf-8") as f:
+                    f.write("<html><head><meta charset='utf-8'></head><body>\n")
+                    for idx, html_content in enumerate(all_table_htmls):
+                        f.write(f"<h2>Page {idx + 1}</h2>\n")
+                        f.write(html_content)
+                        f.write("\n<hr>\n")
+                    f.write("</body></html>\n")
+                print("Successfully saved 'bcbid.html'")
+            except Exception as e:
+                print(f"Failed to write HTML file: {e}")
+
+            if all_dfs:
+                try:
+                    # Concatenate all individual page DataFrames into one massive DataFrame
+                    final_df = pd.concat(all_dfs, ignore_index=True)
+                    
+                    # Optional: Clean up empty columns or rows that Pandas might have picked up
+                    final_df.dropna(how='all', inplace=True) 
+                    
+                    print(f"Total rows extracted across all pages: {len(final_df)}")
+                    
+                    # Save the DataFrame to CSV
+                    final_df.to_csv(f"{FILE_DIR}/bid_recent.csv", index=False, encoding='utf-8')
+                    print("Successfully saved data to 'bid_recent.csv'")
+                except Exception as e:
+                    print(f"Failed to concatenate or save CSV: {e}")
+            else:
+                print("No DataFrames were created. Skipping CSV generation.")
+
+            await tab.take_screenshot(f'{FILE_DIR}/last_page.png', quality=90, beyond_viewport=True)
         except Exception as e:
             print(f"Error during tabular data extraction: {e}")
         # save page source
