@@ -19,7 +19,7 @@ env:
     GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
     YS_COMPONENTID: 10
-    HIDE_TINY_URL: True
+    HIDE_TINY_URL: False
     GH_WORKFLOW_NAME: ${{ github.workflow }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
