@@ -9,10 +9,10 @@ on:
     # 12:30 PM PST (20:30 UTC)
     # 6:00 PM PST (01:00 UTC next day)
     # close enough
-    - cron: '34 15,19 * * 1-5'
-    - cron: '53 23 * * 1-5'
-    - cron: '34 19 * * 6'
-    - cron: '53 23 * * 6'
+    # - cron: '34 15,19 * * 1-5'
+    # - cron: '53 23 * * 1-5'
+    # - cron: '34 19 * * 6'
+    - cron: '53 0 * * 7'
 
 env:
   IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}

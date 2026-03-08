@@ -1,5 +1,6 @@
 
 import requests
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,10 @@ def send_discord_message(message, webhook_url):
         return
 
     data = {"content": message}
+    if not "username" in data:
+        workflow_name = os.getenv("GH_WORKFLOW_NAME", None)
+        if workflow_name:
+            data[workflow_name] = workflow_name
     try:
         response = requests.post(webhook_url, json=data)
         response.raise_for_status() # Raise an exception for HTTP errors
