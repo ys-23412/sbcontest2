@@ -222,7 +222,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # Install pydoll and keep your previous dependencies
-          pip install -r pandas pydoll-python requests lxml unidecode python-dateutil
+          pip install pandas pydoll-python requests lxml unidecode python-dateutil
           
       - name: Run Pydoll script
         run: |
