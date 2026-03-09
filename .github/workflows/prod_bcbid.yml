@@ -1,4 +1,4 @@
-name: Dev BC BID
+name: BC BID
 
 on:
   workflow_dispatch: # Allows manual trigger
