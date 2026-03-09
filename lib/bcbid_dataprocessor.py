@@ -134,6 +134,8 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
 
     # 2. Map 'ys_body' fields
     ys_body['ys_project'] = re.sub(dash_pattern, '-', description)
+    # cap to 90 characters
+    ys_body['ys_project'] = ys_body['ys_project'][:99]
     try:
         ys_body['ys_project'] = unidecode(ys_body.get('ys_project', ''))
     except:
@@ -367,4 +369,8 @@ if __name__ == "__main__":
             'data': tender_records,
             'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
         }
-        process_and_send_bcbid_tenders(params)
+        try:
+            # we dont want to reupload the entire file if anything goes wrong
+            process_and_send_bcbid_tenders(params)
+        except Exception as e:
+            print(f"❌ An unexpected error occurred: {e}")
