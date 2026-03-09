@@ -106,7 +106,7 @@ async def action_micro_clicks(tab):
         y += random.randint(-4, 4)
         await tab.mouse.move(x, y, humanize=False) # Skip humanize for micro pixel shifts
         
-        await tab.mouse.click() # Actually execute the click!
+        # await tab.mouse.click() # Actually execute the click!
         
         # Sometime double click fast, sometimes pause
         await asyncio.sleep(random.uniform(0.05, 0.4))
