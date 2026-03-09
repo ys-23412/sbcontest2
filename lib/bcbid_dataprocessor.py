@@ -1,4 +1,5 @@
 import csv
+import traceback
 from datetime import date, datetime
 import json
 import pandas as pd
@@ -142,8 +143,8 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     ys_body['ys_reference'] = entry['ys_permit']
     
     # Authority (Fallback to 'Issued for' if 'Issued by' is missing)
-    org_by = tender_record.get('Organization (Issued by)', '').strip()
-    org_for = tender_record.get('Organization (Issued for)', '').strip()
+    org_by = str(tender_record.get('Organization (Issued by)', '')).strip()
+    org_for = str(tender_record.get('Organization (Issued for)', '')).strip()
     ys_body['ys_tender_authority'] = org_by if org_by else org_for
     ys_body['ys_documents_drawings_link'] = tender_record.get('Opportunity Url', '')
     
@@ -225,6 +226,7 @@ def process_and_send_bcbid_tenders(params: dict):
             final_mapped_data.append(mapped_result['entry'])
 
         except Exception as e:
+            traceback.print_exc()
             project_id = record.get('Opportunity ID', 'N/A')
             print(f"⚠️ Failed to process BC Bid tender {project_id}. Error: {e}")
 

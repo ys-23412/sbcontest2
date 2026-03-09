@@ -1,6 +1,7 @@
 import dateparser
 import requests
 import os
+import traceback
 import re
 import json
 from lib.timing import get_execution_window
@@ -394,6 +395,7 @@ def process_and_send_bid_tenders(params: dict):
 
         except Exception as e:
             project_id = record.get('Project #', 'N/A')
+            traceback.print_exc()
             print(f"⚠️ Failed to process tender {project_id}. Error: {e}")
 
     if not final_mapped_data:
