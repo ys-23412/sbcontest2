@@ -260,7 +260,7 @@ def process_and_send_bcbid_tenders(params: dict):
     for city_name, city_entries in grouped_data.items():
         print(f"\n--- Processing API Submission for: {city_name} ({len(city_entries)} records) ---")
         current_date_str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        file_name_base = f"{file_prefix}_{agent_id}_{current_date_str}_{region_name.replace(' ', '_')}"
+        file_name_base = f"{file_prefix}_{agent_id}_{current_date_str}_{city_name}_{region_name.replace(' ', '_')}"
 
         fill_payload = [{
             'filename': f"{file_name_base}.json",
