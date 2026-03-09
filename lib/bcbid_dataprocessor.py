@@ -374,3 +374,14 @@ if __name__ == "__main__":
             process_and_send_bcbid_tenders(params)
         except Exception as e:
             print(f"❌ An unexpected error occurred: {e}")
+            try:
+                discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+                send_discord_embed(
+                    webhook_url=discord_webhook_url,
+                    title="🤖 BC Bid Harvester: Failure",
+                    description="Csv processing failed, csv should exist.",
+                    fields={"💤 Status": "BAD THINGS HAPPENED"},
+                    color=9807270 # Grey
+                )
+            except Exception as e:
+                print(f"❌ An unexpected error occurred: {e}")
