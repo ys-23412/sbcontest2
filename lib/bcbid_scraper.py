@@ -249,12 +249,20 @@ async def main():
             # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
             # If you meant "past 2 days":
             min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            max_date = datetime.now().strftime('%Y-%m-%d')
+            # max_date = datetime.now().strftime('%Y-%m-%d')
             
             # OR if you literally meant "2 days in the future" for min_date, use:
             # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
 
             # Inject the values directly into the input fields and trigger the 'change' event
+                                
+            # // 2. Set Max Date
+            # const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
+            # if (maxInput) {{
+            #     maxInput.value = '{max_date}';
+            #     maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            # }}
+            
             await tab.execute_script(f"""
                 (() => {{
                     // 1. Set Min Date
@@ -263,14 +271,7 @@ async def main():
                         minInput.value = '{min_date}';
                         minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
                     }}
-                    
-                    // 2. Set Max Date
-                    const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
-                    if (maxInput) {{
-                        maxInput.value = '{max_date}';
-                        maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    }}
-                    
+
                     // 3. Hide the calendar popup if it accidentally opened
                     const datePickerDiv = document.getElementById('ui-datepicker-div');
                     if (datePickerDiv) {{
@@ -308,7 +309,9 @@ async def main():
                     await asyncio.sleep(8)
                     page_source = await tab.page_source
                     # 1. Grab the table HTML directly using JavaScript
-
+                    # save the page source to a html page
+                    with open(f'{FILE_DIR}/page_{page}.html', 'w', encoding='utf-8') as f:
+                        f.write(page_source)
                     dfs = pd.read_html(
                             StringIO(page_source), 
                             attrs={'id': 'body_x_grid_grd'}
