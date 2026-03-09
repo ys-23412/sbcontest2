@@ -20,9 +20,10 @@ def get_browser_options(headless=False):
     """
     options = ChromiumOptions()
     current_time = int(time.time())
+    number_last = random.randint(1, 3)
     options.browser_preferences = {
         'profile': {
-            'last_engagement_time': str(current_time - (3 * 60 * 60)),  # 3 hours ago
+            'last_engagement_time': str(current_time - (number_last * 60 * 60)),  # 3 hours ago
             'exited_cleanly': True,
             'exit_type': 'Normal',
         },
@@ -70,19 +71,45 @@ async def action_hesitant_scroll(tab: Tab):
     await asyncio.sleep(1)
     await tab.scroll.by(ScrollPosition.UP, 200, smooth=True)
 
-async def action_wide_mouse_sweep(tab: Tab):
-    """Simulates a user moving the mouse across the screen."""
+async def action_wide_mouse_sweep(tab):
+    """Simulates a user moving the mouse across the screen arbitrarily."""
     print("Executing: Wide Mouse Sweep")
-    await tab.mouse.move(10, 10, humanize=True)
-    await tab.mouse.move(800, 600, humanize=True)
+    # Determine sweeping from left-to-right or right-to-left
+    if random.choice([True, False]):
+        start_x, end_x = random.randint(10, 200), random.randint(700, 1100)
+    else:
+        start_x, end_x = random.randint(700, 1100), random.randint(10, 200)
+        
+    start_y = random.randint(50, 800)
+    end_y = random.randint(50, 800)
+
+    await tab.mouse.move(start_x, start_y, humanize=True)
+    await asyncio.sleep(random.uniform(0.1, 0.5))
+    await tab.mouse.move(end_x, end_y, humanize=True)
     await asyncio.sleep(random.uniform(0.5, 1.5))
 
-async def action_micro_clicks(tab: Tab):
-    """Simulates clicking in a neutral 'dead' area of the page."""
+async def action_micro_clicks(tab):
+    """Simulates distracted clicking in neutral 'dead' areas with heavy cursor jitter."""
     print("Executing: Micro Clicks")
-    await tab.mouse.move(50, 50, humanize=True)
-    await tab.mouse.click(50, 50)
-    await asyncio.sleep(random.uniform(1.0, 2.0))
+    
+    # Target "dead" margin areas (far left/right or extreme top/bottom)
+    x = random.choice([random.randint(10, 150), random.randint(850, 1100)])
+    y = random.choice([random.randint(10, 150), random.randint(600, 900)])
+    
+    await tab.mouse.move(x, y, humanize=True)
+    await asyncio.sleep(random.uniform(0.3, 1.0))
+
+    # Perform 1 to 4 random, jittery clicks
+    for _ in range(random.randint(1, 4)):
+        # Apply a tiny bit of jitter between clicks (like a shaky hand)
+        x += random.randint(-4, 4)
+        y += random.randint(-4, 4)
+        await tab.mouse.move(x, y, humanize=False) # Skip humanize for micro pixel shifts
+        
+        await tab.mouse.click() # Actually execute the click!
+        
+        # Sometime double click fast, sometimes pause
+        await asyncio.sleep(random.uniform(0.05, 0.4))
 
 async def navigate_to_opportunities(tab: Tab):
     """
@@ -133,7 +160,7 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-async def perform_human_loop(tab: Tab, selector: str, max_attempts=5):
+async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
     """Loops through human actions until the selector is found."""
     actions = [
         action_scroll_and_hover, action_random_drag, action_reading_pause,
@@ -222,12 +249,20 @@ async def main():
             # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
             # If you meant "past 2 days":
             min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            max_date = datetime.now().strftime('%Y-%m-%d')
+            # max_date = datetime.now().strftime('%Y-%m-%d')
             
             # OR if you literally meant "2 days in the future" for min_date, use:
             # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
 
             # Inject the values directly into the input fields and trigger the 'change' event
+                                
+            # // 2. Set Max Date
+            # const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
+            # if (maxInput) {{
+            #     maxInput.value = '{max_date}';
+            #     maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            # }}
+            
             await tab.execute_script(f"""
                 (() => {{
                     // 1. Set Min Date
@@ -236,14 +271,7 @@ async def main():
                         minInput.value = '{min_date}';
                         minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
                     }}
-                    
-                    // 2. Set Max Date
-                    const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
-                    if (maxInput) {{
-                        maxInput.value = '{max_date}';
-                        maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    }}
-                    
+
                     // 3. Hide the calendar popup if it accidentally opened
                     const datePickerDiv = document.getElementById('ui-datepicker-div');
                     if (datePickerDiv) {{
@@ -281,7 +309,9 @@ async def main():
                     await asyncio.sleep(8)
                     page_source = await tab.page_source
                     # 1. Grab the table HTML directly using JavaScript
-
+                    # save the page source to a html page
+                    with open(f'{FILE_DIR}/page_{page}.html', 'w', encoding='utf-8') as f:
+                        f.write(page_source)
                     dfs = pd.read_html(
                             StringIO(page_source), 
                             attrs={'id': 'body_x_grid_grd'}
