@@ -163,7 +163,7 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
 
     # we are scrapping the new issue dates so it should default to Request for Proposal
     if ys_body['ys_stage'] == tender_type:
-        ys_body['ys_stage'] = 'Request for Proposal'
+        ys_body['ys_stage'] = 'Request for Proposals'
     # if not stage, we can default the bcbid entries to
     # Build Enquiries
     # enquiries_info = []
