@@ -12,7 +12,7 @@ import requests
 import unidecode
 import re
 from lib.discord import send_discord_embed, send_discord_message
-from lib.utils import dash_pattern
+from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities
 from lib.timing import get_execution_window
 from mappers import _map_tender_type_to_stage
 from process_project_data import get_project_type_id
@@ -109,13 +109,18 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     hide_tiny_url_str = params.get('hide_tiny_url', False)
     hide_tiny_url = str(hide_tiny_url_str).lower() == 'true'
 
+    opp_id = tender_record.get('Opportunity ID', '')
     # 1. Map top-level 'entry' fields
-    description = tender_record.get('Opportunity Description', '')
-    entry['ys_description'] = description[:100].replace("'", "''")
+    description: str = tender_record.get('Opportunity Description', '')
+    # 1. Remove the ID if it's at the start
+    if description.startswith(opp_id):
+        description = description[len(opp_id):]
     try:
-        entry['ys_description'] = unidecode(entry['ys_description'])
+        description = unidecode(description)
     except Exception as e:
         pass
+
+    entry['ys_description'] = description[:99].replace("'", "''")
 
     entry['ys_permit'] = tender_record.get('Opportunity ID', '')
     entry['ys_component'] = int(ys_component_id)
@@ -133,7 +138,9 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     entry['ys_address'] = matched_city
 
     # 2. Map 'ys_body' fields
-    ys_body['ys_project'] = re.sub(dash_pattern, '-', description)
+    ys_body['ys_project'] = re.sub(dash_pattern, '-', description).replace('–', '-')
+
+    # we want to adjust to split
     # cap to 90 characters
     ys_body['ys_project'] = ys_body['ys_project'][:99]
     try:
@@ -149,10 +156,15 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     org_for = str(tender_record.get('Organization (Issued for)', '')).strip()
     ys_body['ys_tender_authority'] = org_by if org_by else org_for
     ys_body['ys_documents_drawings_link'] = tender_record.get('Opportunity Url', '')
-    
-    # Stage
-    ys_body['ys_stage'] = _map_tender_type_to_stage(tender_record.get('Type', ''))
 
+    tender_type = tender_record.get('Type', '')
+    # Stage
+    ys_body['ys_stage'] = _map_tender_type_to_stage(tender_type)
+
+    # we are scrapping the new issue dates so it should default to Request for Proposal
+    if ys_body['ys_stage'] == tender_type:
+        ys_body['ys_stage'] = 'Request for Proposal'
+    # if not stage, we can default the bcbid entries to
     # Build Enquiries
     # enquiries_info = []
     if org_for and org_for != org_by:
@@ -211,11 +223,51 @@ def process_and_send_bcbid_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} BC Bid tender records...")
 
     # Filter by Execution Window
-    tender_records = _filter_bcbid_tenders_by_last_run(tender_records)
+    # tender_records = _filter_bcbid_tenders_by_last_run(tender_records)
     
+    # we want filter out unrelated records
+    # keywords to filter by
+
+    unrelated_phrases_lower = [phrase.lower() for phrase in unrelated_phrases]
+    unrelated_commodities_lower = [comm.lower() for comm in unrelated_commodities]
+    
+    # filter out by commodities
+    # Filter out unrelated records
+    filtered_tender_records = []
+    for record in tender_records:
+        # Safely get the description and normalize to lowercase
+        description = record.get('Opportunity Description', '').lower()
+        # 1. Get raw commodity string (DO NOT lowercase it yet, or we lose the split pattern)
+        raw_commodity = record.get('Commodities', '') 
+        
+        # 2. Split on the boundary between a lowercase letter and an uppercase letter
+        # (?<=[a-z]) looks behind for a lowercase letter
+        # (?=[A-Z]) looks ahead for an uppercase letter
+        split_commodities = re.split(r'(?<=[a-z])(?=[A-Z])', raw_commodity)
+        # 3. Convert the split list to lowercase for matching
+        split_commodities_lower = [comm.lower() for comm in split_commodities]
+
+        # Check if any lowercase unrelated phrase is found in the description
+        is_unrelated_desc = any(phrase in description for phrase in unrelated_phrases_lower)
+        
+        # 4. Improved commodity matching: Check if ANY of the individual split commodities 
+        # are in the unrelated_commodities_lower list.
+        is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
+        opp_id = record.get('Opportunity ID', 'Unknown ID')
+        if is_unrelated_desc:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
+            print(f"Description: {description}")
+        elif is_unrelated_comm:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
+            print(f"Commodity: {raw_commodity}\n")
+        else:
+            filtered_tender_records.append(record)
+
+    print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
+    exit(1)
     final_mapped_data = []
 
-    for record in tender_records:
+    for record in filtered_tender_records:
         try:
             # Map the record using BC Bid logic and inject city_mapping
             mapped_result = _map_bcbid_tender_entry(record, params, city_mapping)

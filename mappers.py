@@ -28,6 +28,9 @@ def _map_tender_type_to_stage(tender_type_str: str) -> str:
         'Tender': 'Tender Call',
         'Request for Standing Offer': 'Standing Offer',
         'Request for Proposal': 'Request for Proposals',
+        'Request for Proposal (BPS)': 'Request for Proposals',
+        'Request for Quotation': 'Request for Quotations',
+        'Invitation to Tender': 'Tender Call',
     }
     # Find a key that is contained within the tender_type_str
     for key, value in type_mapping.items():
