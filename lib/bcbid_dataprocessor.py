@@ -223,7 +223,7 @@ def process_and_send_bcbid_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} BC Bid tender records...")
 
     # Filter by Execution Window
-    # tender_records = _filter_bcbid_tenders_by_last_run(tender_records)
+    tender_records = _filter_bcbid_tenders_by_last_run(tender_records)
     
     # we want filter out unrelated records
     # keywords to filter by
@@ -264,7 +264,6 @@ def process_and_send_bcbid_tenders(params: dict):
             filtered_tender_records.append(record)
 
     print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
-    exit(1)
     final_mapped_data = []
 
     for record in filtered_tender_records:
