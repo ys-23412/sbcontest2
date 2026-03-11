@@ -120,7 +120,7 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     except Exception as e:
         pass
 
-    entry['ys_description'] = description[:99].replace("'", "''")
+    entry['ys_description'] = description[:97].replace("'", "''")
 
     entry['ys_permit'] = tender_record.get('Opportunity ID', '')
     entry['ys_component'] = int(ys_component_id)
@@ -142,7 +142,7 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
 
     # we want to adjust to split
     # cap to 90 characters
-    ys_body['ys_project'] = ys_body['ys_project'][:99]
+    ys_body['ys_project'] = ys_body['ys_project'][:97]
     try:
         ys_body['ys_project'] = unidecode(ys_body.get('ys_project', ''))
     except:
