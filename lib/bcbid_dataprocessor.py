@@ -1,4 +1,5 @@
 import csv
+import platform
 import traceback
 from datetime import date, datetime
 import json
@@ -172,16 +173,20 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     
     # Extra Info for description
     # ys_body['ys_description_full'] = f"Commodities: {tender_record.get('Commodities', 'N/A')}"
-
+    is_windows = platform.system() == "Windows"
     # Parse Closing date
     closing_date_str = tender_record.get('Closing Date and Time (Pacific Time)')
     if closing_date_str:
         parsed_date_close = dateparser.parse(closing_date_str)
         if parsed_date_close:
-            try:
-                ys_body['ys_closing'] = parsed_date_close.strftime("%#m/%#d/%Y - %-I %p")
-            except ValueError:
-                ys_body['ys_closing'] = parsed_date_close.strftime("%m/%d/%Y - %I %p")
+            if is_windows:
+                # Use '#' for Windows
+                fmt = "%#m/%#d/%Y - %#I %p"
+            else:
+                # Use '-' for Linux/macOS
+                fmt = "%-m/%-d/%Y - %-I %p"
+            
+            ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
             
             review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
             entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
