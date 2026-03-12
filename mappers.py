@@ -118,7 +118,7 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
             try:
                 is_windows = platform.system() == "Windows"
                 if is_windows:
-                    fmt = '%#m/%#d/%Y - %-I %p"
+                    fmt = "%#m/%#d/%Y - %-I %p"
                 else:
                     fmt = "%m/%d/%Y - %I %p"
                 ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
