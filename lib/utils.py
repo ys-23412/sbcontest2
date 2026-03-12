@@ -12,7 +12,11 @@ unrelated_phrases = [
     "Free Growing Surveys",
     "Silviculture Surveys",
     "Prime Consultant Services",
-    "Drainage Improvements"
+    "Drainage Improvements",
+    "Water System Capital Upgrades",
+    "Child and Family Services Building",
+    "Canoe Procurement",
+    "Geohazard Overview and Mapping"
 ]
 
 # these are the bc commodities
@@ -36,6 +40,7 @@ health_stuff = [
     "Personal Care Products",
     "Wound care products",
     "Medical Equipment and Accessories and Supplies",
+    "Healthcare Services",
     # "Mammography x ray units",
 ]
 
@@ -67,6 +72,14 @@ unrelated_commodities = [
     "Automation control devices and components and accessories",
     "Process control or packaged automation systems",
     "Laboratory and scientific equipment",
+    "Environmental Services",
+    "Light trucks or sport utility vehicles",
+    "Culvert",
+    "Highway and road paving service",
+    "Highway and road resurfacing service",
+    "Refuse collection and disposal",
+    "Electronic Components and Supplies",
+    "Employee assistance programs",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
