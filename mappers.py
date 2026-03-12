@@ -1,4 +1,5 @@
 import dateparser
+import platform
 import requests
 import os
 import traceback
@@ -115,8 +116,12 @@ def _map_tender_entry(tender_record: dict, params: dict) -> dict:
         parsed_date_close = dateparser.parse(closing_date_str)
         if parsed_date_close:
             try:
-                # Windows-specific format codes ('#')
-                ys_body['ys_closing'] = parsed_date_close.strftime("%#m/%#d/%Y - %-I %p")
+                is_windows = platform.system() == "Windows"
+                if is_windows:
+                    fmt = '%#m/%#d/%Y - %-I %p"
+                else:
+                    fmt = "%m/%d/%Y - %I %p"
+                ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
             except ValueError:
                 # Fallback for non-Windows systems
                 ys_body['ys_closing'] = parsed_date_close.strftime("%m/%d/%Y - %I %p")
