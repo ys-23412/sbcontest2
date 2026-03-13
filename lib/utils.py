@@ -16,7 +16,17 @@ unrelated_phrases = [
     "Water System Capital Upgrades",
     "Child and Family Services Building",
     "Canoe Procurement",
-    "Geohazard Overview and Mapping"
+    "Geohazard Overview and Mapping",
+    "Public Washrooms",
+    "Concrete Floor Renewal",
+    "Asphalt Overlay Program",
+    "RIH Diswasher",
+    "Electric Bear Fencing",
+    "Parking Lot Paving",
+    "Cottonwood Tennis Courts Civil and Landscape Construction Services",
+    "Yard Parking Lot Paving",
+    "Engineered Structure Assessment Services",
+    "HEARTH Operator Services",
 ]
 
 # these are the bc commodities
@@ -35,23 +45,29 @@ technical_stuff = [
     "Software",
     "Laboratory and scientific equipment",
     "Networking software",
+    "Network switches",
+    "Contact center software",
+    "Data services",
 ]
 health_stuff = [
     "Personal Care Products",
     "Wound care products",
     "Medical Equipment and Accessories and Supplies",
     "Healthcare Services",
+    "Health service planning",
     # "Mammography x ray units",
 ]
 
 economic_stuff = [
     "Economic analysis",
     "Environmental economics advisory services",
-    "Management advisory services"
+    "Management advisory services",
+    "Management and Business Professionals and Administrative Services"
 ]
 
 forestry_stuff = [
-    "Silviculture"
+    "Silviculture",
+    "Forestry management",
 ]
 
 unrelated_commodities = [
@@ -80,6 +96,9 @@ unrelated_commodities = [
     "Refuse collection and disposal",
     "Electronic Components and Supplies",
     "Employee assistance programs",
+    "Cleaning and janitorial services",
+    "Archaeological services",
+    "Structures and Building and Construction and Manufacturing Components and Supplies",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
