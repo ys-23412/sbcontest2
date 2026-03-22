@@ -111,6 +111,58 @@ async def action_micro_clicks(tab):
         # Sometime double click fast, sometimes pause
         await asyncio.sleep(random.uniform(0.05, 0.4))
 
+async def action_read_and_highlight(tab: Tab):
+    """Simulates a user highlighting a line of text while reading it."""
+    print("Executing: Read and Highlight")
+    
+    # Pick a starting point vaguely in the central content area
+    start_x = random.randint(200, 500)
+    start_y = random.randint(300, 600)
+    
+    # Move to the start of the "sentence"
+    await tab.mouse.move(start_x, start_y, humanize=True)
+    await asyncio.sleep(random.uniform(0.5, 1.0))
+    
+    # Drag horizontally to the right, simulating highlighting text
+    drag_length = random.randint(150, 450)
+    # Add a slight vertical drift to mimic an imperfect human hand dragging across a line
+    end_y = start_y + random.randint(-10, 10) 
+    
+    await tab.mouse.drag(start_x, start_y, start_x + drag_length, end_y, humanize=True)
+    
+    # Pause as if finishing reading the highlighted block
+    await asyncio.sleep(random.uniform(2.0, 4.0))
+    
+    # "Clear" the highlight by clicking nearby in a neutral space
+    clear_x = start_x + drag_length + random.randint(20, 80)
+    clear_y = end_y + random.randint(20, 80)
+    await tab.mouse.move(clear_x, clear_y, humanize=True)
+    
+    # Assuming your tab object has a click method to clear the selection
+    # await tab.mouse.click()
+
+async def action_tab_switch_hesitation(tab: Tab):
+    """Simulates moving toward the browser tabs/URL bar, then changing mind."""
+    print("Executing: Tab Switch Hesitation")
+    
+    # Start somewhere in the middle of the screen
+    await tab.mouse.move(random.randint(300, 800), random.randint(300, 600), humanize=True)
+    await asyncio.sleep(random.uniform(0.2, 0.5))
+    
+    # Move rapidly to the very top edge of the screen (tab/menu bar area)
+    target_x = random.randint(100, 900)
+    target_y = random.randint(5, 40) 
+    
+    await tab.mouse.move(target_x, target_y, humanize=True)
+    
+    # Hesitate at the top as if reading a notification or thinking
+    await asyncio.sleep(random.uniform(0.8, 2.0))
+    
+    # "Nevermind" - move back down into the main content area
+    return_x = target_x + random.randint(-150, 150)
+    return_y = random.randint(250, 600)
+    await tab.mouse.move(return_x, return_y, humanize=True)
+
 async def navigate_to_opportunities(tab: Tab):
     """
     Attempts to find the Opportunities link using XPath via the FindElementsMixin.
@@ -164,7 +216,8 @@ async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
     """Loops through human actions until the selector is found."""
     actions = [
         action_scroll_and_hover, action_random_drag, action_reading_pause,
-        action_hesitant_scroll, action_wide_mouse_sweep, action_micro_clicks
+        action_hesitant_scroll, action_wide_mouse_sweep, action_micro_clicks,
+        action_read_and_highlight, action_tab_switch_hesitation
     ]
     random.shuffle(actions)
     
