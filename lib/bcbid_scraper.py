@@ -20,7 +20,7 @@ def get_browser_options(headless=False):
     """
     options = ChromiumOptions()
     current_time = int(time.time())
-    number_last = random.randint(1, 3)
+    number_last = random.randint(3, 10)
     options.browser_preferences = {
         'profile': {
             'last_engagement_time': str(current_time - (number_last * 60 * 60)),  # 3 hours ago
