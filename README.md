@@ -82,4 +82,4 @@ By default, GCP blocks port `3128`. You must open it:
 
 ### **Phase 4: Connect with Chrome with pydoll**
 
-use the following format user:pass@external_ip_address:port in pydoll and save as a variable
+use the following format user:pass@external_ip_address:port in pydoll and save as a variable PROXY_URL_WITH_PASS
