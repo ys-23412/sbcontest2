@@ -32,7 +32,10 @@ def get_browser_options(headless=False):
 
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    
+    # url encode password
+    proxy_url = os.environ.get("PROXY_URL")
+    if proxy_url:
+        options.add_argument(f'--proxy-server={proxy_url}')
     # if headless or env_headless:
     #     options.add_argument("--headless=new")
 
@@ -212,7 +215,7 @@ async def navigate_to_opportunities(tab: Tab):
     else:
         print("Error: Could not locate Opportunities link using text or href XPaths.")
 
-async def perform_human_loop(tab: Tab, selector: str, max_attempts=4):
+async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
     """Loops through human actions until the selector is found."""
     actions = [
         action_scroll_and_hover, action_random_drag, action_reading_pause,

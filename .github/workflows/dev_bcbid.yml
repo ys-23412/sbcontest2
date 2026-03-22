@@ -12,7 +12,7 @@ on:
     # - cron: '34 15,19 * * 1-5'
     # - cron: '53 23 * * 1-5'
     # - cron: '34 19 * * 6'
-    - cron: '53 0 * * 0'
+    - cron: '53 0 * * 2'
 
 env:
   IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
