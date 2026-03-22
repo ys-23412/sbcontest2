@@ -416,8 +416,10 @@ if __name__ == "__main__":
     if not os.path.exists(f"{MAIN_DIR}/bid_recent.csv"):
         print(f"Error: The file {MAIN_DIR}/bid_recent.csv was not found.")
         # if saturday, ignore the errors else raise
-        if datetime.now().weekday() == 5:
-            print("Ignoring error on Saturday.")
+        weekday = datetime.now().weekday()
+        print("Weekday:", weekday)
+        if datetime.now().weekday() == 5 or datetime.now().weekday() == 6:
+            print("Ignoring error on Saturday or Sunday.")
             exit(0)
         raise ValueError("No File Found")
     else:
