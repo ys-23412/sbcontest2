@@ -27,6 +27,8 @@ unrelated_phrases = [
     "Yard Parking Lot Paving",
     "Engineered Structure Assessment Services",
     "HEARTH Operator Services",
+    "Parking Lot",
+    "Pavement Rehabilitation"
 ]
 
 # these are the bc commodities
@@ -83,6 +85,7 @@ unrelated_commodities = [
     "Architectural engineering",
     "Roof systems",
     "Roofing materials",
+    "Roofing service",
     "Golf equipment",
     "Parking lot or road maintenance or repairs or services",
     "Automation control devices and components and accessories",
@@ -104,6 +107,10 @@ unrelated_commodities = [
     "Building cleaning services",
     "Information Technology Service Delivery",
     "HVAC mechanical construction service",
+    "Chemical fertilizers and plant nutrients",
+    "Environmental monitoring",
+    "Forest monitoring or evaluation",
+    "Landscaping services",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
