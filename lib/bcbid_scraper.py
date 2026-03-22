@@ -302,7 +302,7 @@ async def main():
             # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
             # If you meant "past 2 days":
             min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            # max_date = datetime.now().strftime('%Y-%m-%d')
+            max_date = datetime.now().strftime('%Y-%m-%d')
             
             # OR if you literally meant "2 days in the future" for min_date, use:
             # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
