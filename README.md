@@ -3,7 +3,9 @@ Scrapping sites and downloads information to upload to the apis, bcbid under pro
 
 For the proxy used, we setup a free google cloud platform and the following instructions
 
-To set up a simple authenticated proxy on Google Cloud Platform (GCP) for use with Chrome, the most reliable and "lightweight" method is deploying a **Squid Proxy** on a small Compute Engine instance. My plan is turn off the instance if it gets blocked and then turn it back on (getting a new ip address in the process), also swap between linux, windows and mac osx.
+To set up a simple authenticated proxy on Google Cloud Platform (GCP) for use with Chrome, the most reliable and "lightweight" method is deploying a **Squid Proxy** on a small Compute Engine instance. My plan is turn off the instance if it gets blocked and then turn it back on (getting a new ip address in the process), also swap between linux, windows and mac osx. 
+
+Alternative to google cloud platform is oracle always free tier, use a new micro, signup.
 
 ### **Phase 1: Create the GCP Instance**
 
