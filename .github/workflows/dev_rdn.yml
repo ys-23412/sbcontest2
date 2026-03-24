@@ -2,10 +2,7 @@ name: Regional District Nanaimo Dev
 
 on:
   workflow_dispatch: # Allows manual trigger
-  # Prevent overlapping runs on the same branch
-  push:
-    branches:
-      - 'main'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -32,7 +29,7 @@ env:
 # just manually reset proxies
 jobs:
   scraper_job:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -51,10 +48,10 @@ jobs:
       # - name: Install Google Chrome (Windows)
       #   run: choco install googlechrome || true
 
-      # - name: Install Google Chrome (macOS)
-      #   run: |
-      #     brew update
-      #     brew install --cask google-chrome || true
+      - name: Install Google Chrome (macOS)
+        run: |
+          brew update
+          brew install --cask google-chrome || true
 
       - name: Install Python Dependencies
         run: |
