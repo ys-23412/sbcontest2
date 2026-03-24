@@ -14,7 +14,7 @@ import unidecode
 import re
 from lib.discord import send_discord_embed, send_discord_message
 from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities
-from lib.timing import get_execution_window
+from lib.timing import filter_tenders_by_last_run
 from mappers import _map_tender_type_to_stage
 from process_project_data import get_project_type_id
 
@@ -57,47 +57,7 @@ def find_bcbid_city_match(tender_record: dict, city_mapping: dict) -> str:
                 
     return "victoria" # Default if no match is found
 
-def _filter_bcbid_tenders_by_last_run(tender_records: List[Dict]) -> List[Dict]:
-    """
-    Filters BC Bid records based on the calculated execution window.
-    Looks specifically at 'Issue Date and Time (Pacific Time)'.
-    """
-    pst_timezone = ZoneInfo("America/Vancouver")
-    now_pst = datetime.now(pst_timezone)
-    
-    start_dt, end_dt = get_execution_window(now_pst)
 
-    print(f"--- BC Bid Run Configuration ({now_pst.strftime('%H:%M')}) ---")
-    print(f"Target Window: {start_dt.strftime('%m-%d %H:%M')} TO {end_dt.strftime('%m-%d %H:%M')}")
-    
-    filtered_records = []
-
-    for record in tender_records:
-        date_str = record.get('Issue Date and Time (Pacific Time)')
-        if not date_str:
-            continue
-
-        try:
-            parsed_datetime = dateparser.parse(
-                date_str, 
-                settings={'TIMEZONE': 'America/Vancouver', 'TO_TIMEZONE': 'America/Vancouver', 'RETURN_AS_TIMEZONE_AWARE': True}
-            )
-            
-            if not parsed_datetime:
-                continue
-            
-            if start_dt < parsed_datetime <= end_dt:
-                filtered_records.append(record)
-            elif (parsed_datetime.hour == 0 and parsed_datetime.minute == 0):
-                is_morning_run = (end_dt.hour == 8)
-                if parsed_datetime.date() == end_dt.date() and is_morning_run:
-                     filtered_records.append(record)
-
-        except Exception as e:
-            print(f"Date parse error on record {record.get('Opportunity ID')}: {e}")
-
-    print(f"BC Bid Filter complete. Kept {len(filtered_records)} records.")
-    return filtered_records
 
 def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dict) -> dict:
     """
@@ -228,7 +188,7 @@ def process_and_send_bcbid_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} BC Bid tender records...")
 
     # Filter by Execution Window
-    tender_records = _filter_bcbid_tenders_by_last_run(tender_records)
+    tender_records = filter_tenders_by_last_run(tender_records)
     
     # we want filter out unrelated records
     # keywords to filter by

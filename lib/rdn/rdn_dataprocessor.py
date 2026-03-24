@@ -1,11 +1,19 @@
+import json
 import os
 import platform
 import re
 from datetime import datetime
+import traceback
 from bs4 import BeautifulSoup
 import dateparser
 from dateutil.relativedelta import relativedelta
+import pandas as pd
+import requests
 from unidecode import unidecode
+from lib.discord import send_discord_embed, send_discord_message
+from lib.timing import filter_tenders_by_last_run
+from process_project_data import get_project_type_id
+FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_rdn"
 
 # Assuming dash_pattern, _map_tender_type_to_stage, etc., are imported from your lib
 
@@ -133,3 +141,200 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
         'entry': entry,
         'ys_body': ys_body
     }
+
+def process_and_send_rdn_tenders(params: dict):
+    """
+    Maps, packages, and sends the extracted Regional District of Nanaimo (RDN)
+    tender data to the APIs for a single targeted region, and tracks success/failure via Discord.
+    """
+    tender_records = params.get('data', [])
+    discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+    api_url = os.getenv('YS_APIURL', 'http://localhost')
+    user_id = os.getenv('YS_USERID', '2025060339')
+    agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
+    
+    # Hardcoded values since this is scoped specifically to ONE region
+    region_name = "Regional District of Nanaimo"
+    city_name = "Nanaimo RD"
+    file_prefix = "rdn_tender"
+
+    # 1. Early Exit if No Data
+    if not tender_records:
+        print(f"No tender records to process for {region_name}.")
+        send_discord_embed(
+            webhook_url=discord_webhook_url,
+            title=f"🤖 {region_name} Harvester: Zero Tenders",
+            description=f"Run completed successfully, but no new tenders were found.",
+            fields={"💤 Status": "No records matched filters or extraction resulted empty."},
+            color=9807270 # Grey
+        )
+        return
+
+    print(f"⚙️ Starting processing for {len(tender_records)} {region_name} tender records...")
+    
+    tender_records = filter_tenders_by_last_run(tender_records, date_field='Closing')
+    # Note: If you have a city_mapping requirement, load it here.
+    # city_mapping = load_city_mapping('data/city.csv')
+    city_mapping = {}
+
+    final_mapped_data = []
+
+    # 2. Map the Extracted Records
+    for record in tender_records:
+        try:
+            mapped_result = _map_rdn_tender_entry(record, params, city_mapping)
+            entry = mapped_result['entry']
+            
+            # Use external function to classify project_type_id if available
+            try:
+                project_type_id = get_project_type_id(record) 
+                entry['ys_project_type'] = project_type_id
+                entry['project_type'] = project_type_id
+            except NameError:
+                pass # get_project_type_id not imported/available in this scope
+            
+            final_mapped_data.append(entry)
+
+        except Exception as e:
+            traceback.print_exc()
+            opp_id = record.get('Opportunity ID', 'Unknown ID')
+            print(f"⚠️ Failed to map RDN tender {opp_id}. Error: {e}")
+
+    total_found = len(final_mapped_data)
+    total_success = 0
+    total_failed = 0
+
+    if total_found == 0:
+        print("All records failed mapping. Exiting.")
+        return
+
+    # 3. Setup Payload & Save Locally (For Debugging)
+    if not os.path.exists("data"):
+        os.makedirs("data")
+
+    current_date_str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    file_name_base = f"{file_prefix}_{agent_id}_{current_date_str}_{city_name.replace(' ', '_')}"
+
+    fill_payload = [{
+        'filename': f"{file_name_base}.json",
+        "pdf_type": "api",
+        "region": region_name,
+        "file_type": "json",
+        "data": final_mapped_data,
+        'user_id': user_id
+    }]
+
+    print(f"\n--- Processing API Submission for: {city_name} ({total_found} records) ---")
+
+    try:
+        # --- Step 4: API Fill Phase ---
+        fill_url = f"{api_url}/api_fill_entries.php"
+        
+        with open(f"data/{file_name_base}_with_mapping_all.json", "w", encoding='utf-8') as f:
+            json.dump(fill_payload, f, indent=4)
+            
+        print(f"🚀 Posting to fill API: {fill_url}...")
+        fill_resp = requests.post(fill_url, json=fill_payload)
+        fill_resp.raise_for_status()
+        filled_entries = fill_resp.json()
+
+        # --- Step 5: API Insert Phase ---
+        insert_url = f"{api_url}/api_insert_into_data.php"
+        
+        with open(f"data/{file_name_base}_with_fill.json", "w", encoding='utf-8') as f:
+            json.dump(filled_entries, f, indent=4)
+            
+        print(f"🚀 Posting filled entries to {insert_url}...")
+        insert_resp = requests.post(insert_url, json=filled_entries)
+        insert_resp.raise_for_status()
+        
+        # --- Step 6: Validate & Track Results ---
+        resp_data = insert_resp.json()
+        
+        if isinstance(resp_data, dict):
+            total_success = len(resp_data.get("inserted_entries", []))
+            total_failed = len(resp_data.get("failed_entries", []))
+            
+            # Handle total API failure with 0 success
+            if resp_data.get("status") == "api_error" and total_success == 0:
+                total_failed = total_found
+        else:
+            # Fallback if API doesn't return dictionaries for tracking
+            total_success = total_found
+            total_failed = 0
+
+        print(f"🎉 {region_name} API submission finished! Success: {total_success}, Failed: {total_failed}")
+
+    except requests.HTTPError as http_err:
+        print(f"❌ HTTP error occurred: {http_err}")
+        print(f"Response Text: {http_err.response.text}")
+        total_failed = total_found
+        
+    except Exception as e:
+        print(f"❌ An unexpected error occurred during API Submission: {e}")
+        total_failed = total_found
+
+    # --- Step 7: Send Discord Embed ---
+    color_code = 3066993 if total_failed == 0 else 15158332 # Green if all good, Red if any failures
+    
+    status_icon = "✅" if total_failed == 0 else "⚠️"
+    status_msg = f"{status_icon} **{city_name}**: {total_success} success, {total_failed} failed"
+
+    embed_fields = {
+        "📊 Run Summary": f"**Total Extracted:** {total_found}\n**Total Success:** {total_success}\n**Total Failed:** {total_failed}",
+        "🚀 Region Status": status_msg
+    }
+
+    try:
+        send_discord_embed(
+            webhook_url=discord_webhook_url,
+            title=f"🤖 {region_name} Harvester: Run Complete",
+            description=f"Automated run finished processing {region_name} tenders.",
+            fields=embed_fields,
+            color=color_code
+        )
+    except Exception as e:
+        print(f"❌ Failed to send Discord webhook: {e}")
+
+        send_discord_message(
+            message=f"🤖 {region_name} Harvester: Run Complete\nAutomated run finished processing {region_name} tenders. exeception",
+            webhook_url=discord_webhook_url
+        )
+
+# main to read and send files
+if __name__ == "__main__":
+    main_csv = f"{FILE_DIR}/rdn_enriched_bids.csv"
+    if not os.path.exists(main_csv):
+        print(f"Error: The file {main_csv} was not found.")
+        # if saturday, ignore the errors else raise
+        weekday = datetime.now().weekday()
+        print("Weekday:", weekday)
+        if datetime.now().weekday() == 5 or datetime.now().weekday() == 6:
+            print("Ignoring error on Saturday or Sunday.")
+            exit(0)
+        raise ValueError("No File Found")
+    else:
+        print(f"Processing {main_csv}")
+        tender_records = pd.read_csv(main_csv)
+        # make into json objects
+        tender_records = tender_records.to_dict('records')
+        params = {
+            'data': tender_records,
+            'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+        }
+        try:
+            # we dont want to reupload the entire file if anything goes wrong
+            process_and_send_rdn_tenders(params)
+        except Exception as e:
+            print(f"❌ An unexpected error occurred: {e}")
+            try:
+                discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+                send_discord_embed(
+                    webhook_url=discord_webhook_url,
+                    title="🤖 BC Bid Harvester: Failure",
+                    description="Csv processing failed, csv should exist.",
+                    fields={"💤 Status": "BAD THINGS HAPPENED"},
+                    color=9807270 # Grey
+                )
+            except Exception as e:
+                print(f"❌ An unexpected error occurred: {e}")

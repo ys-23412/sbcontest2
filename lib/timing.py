@@ -1,6 +1,7 @@
-from typing import Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import dateparser
 import requests
 import os
 
@@ -95,3 +96,45 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
     print("Using start_time", start_time)
     print("Using end_time", end_time)
     return start_time, end_time
+
+def filter_tenders_by_last_run(tender_records: List[Dict], date_field: str = 'Issue Date and Time (Pacific Time)') -> List[Dict]:
+    """
+    Filters BC Bid records based on the calculated execution window.
+    Looks specifically at 'Issue Date and Time (Pacific Time)'.
+    """
+    pst_timezone = ZoneInfo("America/Vancouver")
+    now_pst = datetime.now(pst_timezone)
+    
+    start_dt, end_dt = get_execution_window(now_pst)
+
+    print(f"--- BC Bid Run Configuration ({now_pst.strftime('%H:%M')}) ---")
+    print(f"Target Window: {start_dt.strftime('%m-%d %H:%M')} TO {end_dt.strftime('%m-%d %H:%M')}")
+    
+    filtered_records = []
+
+    for record in tender_records:
+        date_str = record.get(date_field)
+        if not date_str:
+            continue
+
+        try:
+            parsed_datetime = dateparser.parse(
+                date_str, 
+                settings={'TIMEZONE': 'America/Vancouver', 'TO_TIMEZONE': 'America/Vancouver', 'RETURN_AS_TIMEZONE_AWARE': True}
+            )
+            
+            if not parsed_datetime:
+                continue
+            
+            if start_dt < parsed_datetime <= end_dt:
+                filtered_records.append(record)
+            elif (parsed_datetime.hour == 0 and parsed_datetime.minute == 0):
+                is_morning_run = (end_dt.hour == 8)
+                if parsed_datetime.date() == end_dt.date() and is_morning_run:
+                     filtered_records.append(record)
+
+        except Exception as e:
+            print(f"Date parse error on record {record.get('Opportunity ID')}: {e}")
+
+    print(f"BC Bid Filter complete. Kept {len(filtered_records)} records.")
+    return filtered_records
