@@ -2,7 +2,7 @@ import json
 import os
 import platform
 import re
-from datetime import datetime
+from datetime import date, datetime
 import traceback
 from bs4 import BeautifulSoup
 import dateparser
@@ -66,7 +66,8 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     ys_body = {}
 
     ys_component_id = os.getenv('YS_COMPONENTID', 10)
-    opp_id = tender_record.get('Opportunity ID', '')
+    hide_tiny_url_str = params.get('hide_tiny_url', False)
+    hide_tiny_url = str(hide_tiny_url_str).lower() == 'true'
     
     # 1. Map top-level 'entry' fields
     description = tender_record.get('description', '')
@@ -99,7 +100,7 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     
     ys_body['ys_sector'] = 'Public'
     ys_body['ys_reference'] = entry['ys_permit']
-    ys_body['ys_tender_authority'] = tender_record.get('Organization (Issued by)', '')
+    ys_body['ys_tender_authority'] = tender_record.get('Organization (Issued by)', 'Regional District of Nanaimo')
     ys_body['ys_documents_drawings_link'] = tender_record.get('Opportunity Url', '')
     
     # Include the scraped description body as enquiries/extra info
@@ -107,16 +108,17 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     job_title = tender_record.get('job_title', '')
     email = tender_record.get('email', '')
     enquiries = []
-    if job_title:
+    if job_title and job_title != 'nan':
         enquiries.append(f"{job_title} -")
-    if contact_name:
+    # and not nan
+    if contact_name and contact_name != 'nan':
         enquiries.append(f"{contact_name}")
     if email:
         enquiries.append(f"Phone: {email}")
     ys_body['ys_enquiries'] = " ".join(enquiries)
 
-    tender_type = tender_record.get('Type', '')
-    ys_body['ys_stage'] = tender_type # Hardcoded to Request for Proposal in extractor
+    # dont think there is anything to go off of here
+    ys_body['ys_stage'] = 'Request for Proposals'
 
     # 3. Handle Dates
     # For RDN, we only have closing date in the HTML provided, issue date might be inferred by runtime
@@ -137,10 +139,14 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
             review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
             entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
 
-    return {
-        'entry': entry,
-        'ys_body': ys_body
-    }
+    entry['project_step_id'] = 1001
+
+    fmt_date = date.today().strftime("%B %d/%y")
+    ys_body['ys_no_tiny_urls'] = hide_tiny_url
+    ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
+    entry['ys_body'] = ys_body
+
+    return {'entry': entry}
 
 def process_and_send_rdn_tenders(params: dict):
     """
@@ -171,8 +177,8 @@ def process_and_send_rdn_tenders(params: dict):
         return
 
     print(f"⚙️ Starting processing for {len(tender_records)} {region_name} tender records...")
-    
-    tender_records = filter_tenders_by_last_run(tender_records, date_field='Closing')
+    print("records", tender_records)
+    tender_records = filter_tenders_by_last_run(tender_records, date_field='Posted')
     # Note: If you have a city_mapping requirement, load it here.
     # city_mapping = load_city_mapping('data/city.csv')
     city_mapping = {}

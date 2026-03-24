@@ -107,7 +107,7 @@ def filter_tenders_by_last_run(tender_records: List[Dict], date_field: str = 'Is
     
     start_dt, end_dt = get_execution_window(now_pst)
 
-    print(f"--- BC Bid Run Configuration ({now_pst.strftime('%H:%M')}) ---")
+    print(f"--- Run Configuration ({now_pst.strftime('%H:%M')}) for {date_field} ---")
     print(f"Target Window: {start_dt.strftime('%m-%d %H:%M')} TO {end_dt.strftime('%m-%d %H:%M')}")
     
     filtered_records = []
