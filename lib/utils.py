@@ -28,7 +28,9 @@ unrelated_phrases = [
     "Engineered Structure Assessment Services",
     "HEARTH Operator Services",
     "Parking Lot",
-    "Pavement Rehabilitation"
+    "Pavement Rehabilitation",
+    "Debris Removal",
+    "Orphan Site Management"
 ]
 
 # these are the bc commodities

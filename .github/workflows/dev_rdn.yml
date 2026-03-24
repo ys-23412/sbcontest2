@@ -1,9 +1,7 @@
-name: Regional District Nanaimo
+name: Regional District Nanaimo Dev
 
 on:
   workflow_dispatch: # Allows manual trigger
-  schedule:
-    - cron: '12 1 * * 1-6'
 # Prevent overlapping runs on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,7 +16,7 @@ env:
   # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
   BASE_DIR: "screenshots"
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-  YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
+  YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
   YS_COMPONENTID: 10
   HIDE_TINY_URL: False
   GH_WORKFLOW_NAME: ${{ github.workflow }}
