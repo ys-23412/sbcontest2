@@ -2,7 +2,10 @@ name: Regional District Nanaimo Dev
 
 on:
   workflow_dispatch: # Allows manual trigger
-# Prevent overlapping runs on the same branch
+  # Prevent overlapping runs on the same branch
+  push:
+    branches:
+      - 'main'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
