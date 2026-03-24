@@ -33,12 +33,12 @@ env:
 
 jobs:
   scraper_job:
-    runs-on: macos-latest
+    runs-on: windows-latest
     strategy:
       max-parallel: 1
       fail-fast: false
       matrix:
-        python-version: ['3.10']
+        python-version: ['3.13']
     
     steps:
       - name: Checkout Repository
@@ -49,10 +49,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           
-      # - name: Install Google Chrome (macOS)
-      #   run: |
-      #     brew update
-      #     brew install --cask google-chrome
+      - name: Install Google Chrome (Windows)
+        run: choco install googlechrome || true
 
       - name: Install Python Dependencies
         run: |
