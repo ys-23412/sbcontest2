@@ -32,7 +32,7 @@ env:
 # just manually reset proxies
 jobs:
   scraper_job:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       fail-fast: false
