@@ -48,10 +48,10 @@ jobs:
       # - name: Install Google Chrome (Windows)
       #   run: choco install googlechrome || true
 
-      - name: Install Google Chrome (macOS)
-        run: |
-          brew update
-          brew install --cask google-chrome || true
+      # - name: Install Google Chrome (macOS)
+      #   run: |
+      #     brew update
+      #     brew install --cask google-chrome || true
 
       - name: Install Python Dependencies
         run: |
