@@ -28,7 +28,7 @@ env:
 # just manually reset proxies
 jobs:
   scraper_job:
-    runs-on: macos-latest
+    runs-on: windows-latest
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -44,13 +44,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           
-      # - name: Install Google Chrome (Windows)
-      #   run: choco install googlechrome || true
+      - name: Install Google Chrome (Windows)
+        run: choco install googlechrome || true
 
-      - name: Install Google Chrome (macOS)
-        run: |
-          brew update
-          brew install --cask google-chrome || true
+      # - name: Install Google Chrome (macOS)
+      #   run: |
+      #     brew update
+      #     brew install --cask google-chrome || true
 
       - name: Install Python Dependencies
         run: |
