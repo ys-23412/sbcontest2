@@ -71,6 +71,7 @@ jobs:
           name: raw-data-${{ matrix.python-version }}
           path: |
             screenshots_rdn/
+            screenshots/
           retention-days: 1
 
   processor_job:
@@ -97,8 +98,6 @@ jobs:
 
       - name: Handle scrapped data
         run: |
-          ls
-          ls screenshots_rdn
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
           python -m lib.rdn.dataprocessor
