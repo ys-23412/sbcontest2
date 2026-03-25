@@ -36,6 +36,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
+  FILE_DIR: "screenshots"
 
 
 # we need multiple jobs to account for bot throttling
