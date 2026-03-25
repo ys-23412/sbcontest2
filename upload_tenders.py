@@ -14,6 +14,7 @@ from lib.discord import send_discord_embed
 import re
 import json
 import requests  # Ensure requests is imported for the Discord webhook
+from lib.utils import unrelated_phrases, unrelated_commodities
 
 def clean_column_names(df):
     """
@@ -99,6 +100,11 @@ def main():
     if not os.path.exists("data"):
         os.makedirs("data")
 
+    # --- COMPILE EXCLUSION PATTERN ---
+    # Combine the lists and escape characters so regex doesn't break on special symbols (like + or -)
+    all_unrelated = unrelated_phrases
+    exclusion_pattern = '|'.join([re.escape(phrase) for phrase in all_unrelated])
+
     # --- STATS TRACKING ---
     total_found = 0
     total_success = 0
@@ -107,19 +113,42 @@ def main():
     regions_processed = []
     regions_failed = []
     regions_empty = []
+    
     for config in csv_configs:
         csv_file = config["file_name"]
         city_name = config["city"]
         authority = config.get("tender_authority")
         print(f"\n--- Processing {csv_file} for {city_name.capitalize()} ---")
         
-        # 1. Load and filter tenders from the current CSV file
+        # 1. Load and filter tenders by date
         filtered_tenders_df = load_and_filter_tenders(base_dir, csv_file)
         
         if not filtered_tenders_df.empty:
-            # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
+            
+            # 2. Filter out unrelated phrases in 'project' and 'description' columns
+            # (Note: columns are lowercased by your  function)
+            cols_to_check = [col for col in ['project', 'description'] if col in filtered_tenders_df.columns]
+            
+            if cols_to_check:
+                mask = pd.Series(True, index=filtered_tenders_df.index)
+                for col in cols_to_check:
+                    # Keep rows that DO NOT (~) contain the exclusion pattern in the checked column
+                    mask = mask & ~filtered_tenders_df[col].astype(str).str.contains(
+                        exclusion_pattern, case=False, na=False, regex=True
+                    )
+                
+                filtered_tenders_df = filtered_tenders_df[mask]
+
+            # Re-check if empty after applying text filters
+            if filtered_tenders_df.empty:
+                regions_empty.append(authority)
+                print(f"All recent tenders in {csv_file} were filtered out due to unrelated phrases.")
+                continue
+
             num_records = len(filtered_tenders_df)
             total_found += num_records
+            
+            # delete open_date_parsed we dont need this TimeStamp Non json parsable field anymore
             if 'open_date_parsed' in filtered_tenders_df.columns:
                 del filtered_tenders_df['open_date_parsed']
                 print(f"Removed 'open_date_parsed' column from the DataFrame for {csv_file}.")
@@ -131,7 +160,8 @@ def main():
             
             # Convert DataFrame to a list of dictionaries for map_data
             filtered_entries = filtered_tenders_df.to_dict('records')
-            # Call map_data for each CSV file individually
+
+            # Send to map_data
             try:
                 map_result = map_data({
                     "data": filtered_entries,
@@ -172,13 +202,14 @@ def main():
         else:
             regions_empty.append(authority)
             print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
+            
     # --- SEND DISCORD NOTIFICATION ---
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     if total_found > 0 or regions_failed:
         color_code = 3066993 if total_failed == 0 else 15158332 # Green if all good, Red if any failures
         
         embed_fields = {
-            "📊 Run Summary": f"**Total Found:** {total_found}\n**Total Success:** {total_success}\n**Total Failed:** {total_failed}",
+            "📊 Run Summary": f"**Total Valid Found:** {total_found}\n**Total Success:** {total_success}\n**Total Failed:** {total_failed}",
         }
         
         if regions_processed:
@@ -203,8 +234,8 @@ def main():
         send_discord_embed(
             webhook_url=discord_webhook_url,
             title="🤖 Bonfire Harvester: Zero Tenders",
-            description="Run completed successfully, but no new tenders were found in any CSVs.",
-            fields={"💤 Status": "All regions empty"},
+            description="Run completed successfully, but no new or relevant tenders were found in any CSVs.",
+            fields={"💤 Status": "All regions empty or filtered out"},
             color=9807270 # Grey
         )
 if __name__ == "__main__":
