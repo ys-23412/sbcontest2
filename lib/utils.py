@@ -30,7 +30,13 @@ unrelated_phrases = [
     "Parking Lot",
     "Pavement Rehabilitation",
     "Debris Removal",
-    "Orphan Site Management"
+    "Orphan Site Management",
+    "Chiller Replacement RFP",
+    "Overhead Door Maintenance",
+    "Plumbing Maintenance and Repair Services",
+    "Transit Shelter Design",
+    "Consulting Services Sanitary Upgrades",
+    "Tree Removal RFQ"
 ]
 
 # these are the bc commodities
@@ -59,6 +65,7 @@ health_stuff = [
     "Medical Equipment and Accessories and Supplies",
     "Healthcare Services",
     "Health service planning",
+    "Disease prevention textiles"
     # "Mammography x ray units",
 ]
 
@@ -113,6 +120,8 @@ unrelated_commodities = [
     "Environmental monitoring",
     "Forest monitoring or evaluation",
     "Landscaping services",
+    "Garage doors and operators",
+    "Parks and gardens and orchards",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
