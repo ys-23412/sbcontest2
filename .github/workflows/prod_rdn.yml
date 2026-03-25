@@ -3,7 +3,7 @@ name: Regional District Nanaimo
 on:
   workflow_dispatch: # Allows manual trigger
   schedule:
-    - cron: '12 1 * * 1-6'
+    - cron: '54 23 * * 1-5'
 # Prevent overlapping runs on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
