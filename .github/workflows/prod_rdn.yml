@@ -31,7 +31,7 @@ env:
 # just manually reset proxies
 jobs:
   scraper_job:
-    runs-on: macosx-latest
+    runs-on: macos-latest
     strategy:
       max-parallel: 1
       fail-fast: false
