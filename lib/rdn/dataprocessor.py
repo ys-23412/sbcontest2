@@ -4,6 +4,7 @@ import platform
 import re
 from datetime import date, datetime
 import traceback
+from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 import dateparser
 from dateutil.relativedelta import relativedelta
@@ -178,7 +179,35 @@ def process_and_send_rdn_tenders(params: dict):
 
     print(f"⚙️ Starting processing for {len(tender_records)} {region_name} tender records...")
     print("records", tender_records)
-    tender_records = filter_tenders_by_last_run(tender_records, date_field='Posted')
+    # filter records by posted field, make sure date is today pst time
+
+    pst_tz = ZoneInfo("America/Vancouver")
+    today_pst = datetime.now(pst_tz).date()
+    filtered_records = []
+
+    for record in tender_records:
+        parsed_date_str = record.get('Parsed Date')
+        posted_str = record.get('Posted')
+        
+        record_date = None
+        
+        try:
+            # Prefer 'Parsed Date' (e.g., '2026-03-24')
+            if parsed_date_str:
+                record_date = datetime.fromisoformat(parsed_date_str).date()
+            # Fallback to textual 'Posted' date (e.g., 'March 24, 2026')
+            elif posted_str:
+                record_date = datetime.strptime(posted_str, "%B %d, %Y").date()
+            else:
+                continue # Skip if no date info is present
+                
+            if record_date == today_pst:
+                filtered_records.append(record)
+        except ValueError as e:
+            print(f"⚠️ Warning: Date parsing failed for record '{record.get('Bid Opportunity', 'Unknown')}'. Error: {e}")
+            continue
+
+    tender_records = filtered_records
     # Note: If you have a city_mapping requirement, load it here.
     # city_mapping = load_city_mapping('data/city.csv')
     city_mapping = {}
