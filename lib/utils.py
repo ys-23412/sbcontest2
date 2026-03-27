@@ -122,6 +122,7 @@ unrelated_commodities = [
     "Landscaping services",
     "Garage doors and operators",
     "Parks and gardens and orchards",
+    "Forest resources management services",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
