@@ -13,7 +13,7 @@ import requests
 import unidecode
 import re
 from lib.discord import send_discord_embed, send_discord_message
-from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities
+from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities, unrelated_organizations
 from lib.timing import filter_tenders_by_last_run
 from mappers import _map_tender_type_to_stage
 from process_project_data import get_project_type_id
@@ -195,6 +195,7 @@ def process_and_send_bcbid_tenders(params: dict):
 
     unrelated_phrases_lower = [phrase.lower() for phrase in unrelated_phrases]
     unrelated_commodities_lower = [comm.lower() for comm in unrelated_commodities]
+    unrelated_organizations_lower = [org.lower() for org in unrelated_organizations]
     
     # filter out by commodities
     # Filter out unrelated records
@@ -218,6 +219,8 @@ def process_and_send_bcbid_tenders(params: dict):
         # 4. Improved commodity matching: Check if ANY of the individual split commodities 
         # are in the unrelated_commodities_lower list.
         is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
+
+        is_unrelated_org = any(org in org_issued_by for org in unrelated_organizations_lower)
         opp_id = record.get('Opportunity ID', 'Unknown ID')
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
@@ -225,6 +228,9 @@ def process_and_send_bcbid_tenders(params: dict):
         elif is_unrelated_comm:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
             print(f"Commodity: {raw_commodity}\n")
+        elif is_unrelated_org:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
+            print(f"Organization: {record.get('Organization (Issued by)')}\n")
         else:
             filtered_tender_records.append(record)
 
