@@ -131,6 +131,6 @@ unrelated_commodities = [
     *forestry_stuff,
 ]
 
-unrelated_regions = [
+unrelated_organizations = [
     "City of Vancouver"
 ]
