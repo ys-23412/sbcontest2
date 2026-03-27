@@ -203,6 +203,7 @@ def process_and_send_bcbid_tenders(params: dict):
     for record in tender_records:
         # Safely get the description and normalize to lowercase
         description = record.get('Opportunity Description', '').lower()
+        org_issued_by = str(record.get('Organization (Issued by)', '')).lower()
         # 1. Get raw commodity string (DO NOT lowercase it yet, or we lose the split pattern)
         raw_commodity = record.get('Commodities', '') 
         
