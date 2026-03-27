@@ -219,6 +219,8 @@ def process_and_send_bcbid_tenders(params: dict):
         # 4. Improved commodity matching: Check if ANY of the individual split commodities 
         # are in the unrelated_commodities_lower list.
         is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
+
+        is_unrelated_org = any(org in org_issued_by for org in unrelated_organizations_lower)
         opp_id = record.get('Opportunity ID', 'Unknown ID')
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
