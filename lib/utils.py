@@ -36,7 +36,10 @@ unrelated_phrases = [
     "Plumbing Maintenance and Repair Services",
     "Transit Shelter Design",
     "Consulting Services Sanitary Upgrades",
-    "Tree Removal RFQ"
+    "Tree Removal RFQ",
+    "Long Life Coolant",
+    "Fuel Dispenser",
+    "Tennis Court Replacement",
 ]
 
 # these are the bc commodities
@@ -123,6 +126,8 @@ unrelated_commodities = [
     "Garage doors and operators",
     "Parks and gardens and orchards",
     "Forest resources management services",
+    "Tennis court construction service",
+    "Drainage services",
     *economic_stuff,
     *technical_stuff,
     *economic_stuff,
@@ -132,5 +137,7 @@ unrelated_commodities = [
 ]
 
 unrelated_organizations = [
-    "City of Vancouver"
+    "City of Vancouver",
+    "Liquor Distribution Branch",
+    "Interior Health Authority",
 ]
