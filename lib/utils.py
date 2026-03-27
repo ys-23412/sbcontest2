@@ -130,3 +130,7 @@ unrelated_commodities = [
     *cloud_offerings,
     *forestry_stuff,
 ]
+
+unrelated_regions = [
+    "City of Vancouver"
+]
