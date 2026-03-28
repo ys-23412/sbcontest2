@@ -8,8 +8,10 @@ from io import StringIO
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
+from pydoll.constants import Key
 from pydoll.constants import By
 from pydoll.constants import ScrollPosition
+from lib.utils import regional_districts
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -299,6 +301,29 @@ async def main():
             # await navigate_to_opportunities(tab)
         except Exception as e:
             print(f"Error during navigation: {e}")
+
+           # set region filter
+        # try:
+        id = "body_x_selRfpIdAreaLevelAreaNode_search"
+        region_search = await tab.find(id, timeout=10)
+        await region_search.click()
+
+        for district in regional_districts:
+            print(f"Typing: {district}")
+            await region_search.type_text(district, humanize=False)
+            
+            # 2. Wait a fraction of a second for the dropdown animation/JS to filter the results
+            await asyncio.sleep(random.uniform(0.5, 0.7))
+            
+            # 3. Press Enter to select the item from the combobox
+            await tab.keyboard.press(Key.ENTER)
+            
+            # 4. Wait a bit before typing the next item so the UI can render the selected tag
+            await asyncio.sleep(random.uniform(0.5, 1.2))
+        # except Exception as e:
+        #     print(f"Error during region filtering: {e}")
+        # how do I close this
+        await tab.keyboard.press(Key.ESCAPE)
         try:
             print("Setting date filters...")
             
@@ -348,6 +373,8 @@ async def main():
             print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
         except Exception as e:
             print(f"Error during date filtering: {e}")
+        # save a new photo
+        # await tab.take_screenshot(f'{FILE_DIR}/after_filters.png', quality=90, beyond_viewport=True)
         try:
             print("Starting tabular data extraction...")
             all_table_htmls = []
@@ -470,6 +497,9 @@ async def main():
             print(f"Error during tabular data extraction: {e}")
         # save page source
         await tab.save_bundle(f"{FILE_DIR}/bcbid.zip")
+
+
+        # we want to filter using
 
         # logs = await tab.get_network_logs()
 

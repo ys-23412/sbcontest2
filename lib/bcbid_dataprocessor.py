@@ -165,6 +165,60 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
 
     return {'entry': entry}
 
+def filter_bcbid_tenders(tender_records: List[Dict]) -> List[Dict]:
+    """
+    Filters out unrelated BC Bid tender records based on keywords, 
+    commodities, and excluded organizations.
+    """
+    print(f"⚙️ Starting processing for {len(tender_records)} BC Bid tender records...")
+
+    # Filter by Execution Window
+    tender_records = filter_tenders_by_last_run(tender_records)
+    
+    # Pre-process keywords for filtering
+    unrelated_phrases_lower = [phrase.lower() for phrase in unrelated_phrases]
+    unrelated_commodities_lower = [comm.lower() for comm in unrelated_commodities]
+    unrelated_organizations_lower = [org.lower() for org in unrelated_organizations]
+    
+    filtered_tender_records = []
+    
+    for record in tender_records:
+        # Safely get the description and normalize to lowercase
+        description = record.get('Opportunity Description', '').lower()
+        org_issued_by = str(record.get('Organization (Issued by)', '')).lower()
+        
+        # 1. Get raw commodity string
+        raw_commodity = record.get('Commodities', '') 
+        
+        # 2. Split on the boundary between a lowercase letter and an uppercase letter
+        split_commodities = re.split(r'(?<=[a-z])(?=[A-Z])', raw_commodity)
+        
+        # 3. Convert the split list to lowercase for matching
+        split_commodities_lower = [comm.lower() for comm in split_commodities]
+
+        # Check conditions
+        is_unrelated_desc = any(phrase in description for phrase in unrelated_phrases_lower)
+        is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
+        is_unrelated_org = any(org in org_issued_by for org in unrelated_organizations_lower)
+        
+        opp_id = record.get('Opportunity ID', 'Unknown ID')
+        
+        if is_unrelated_desc:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
+            print(f"Description: {description}")
+        elif is_unrelated_comm:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
+            print(f"Commodity: {raw_commodity}\n")
+        elif is_unrelated_org:
+            print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
+            print(f"Organization: {record.get('Organization (Issued by)')}\n")
+        else:
+            filtered_tender_records.append(record)
+
+    print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
+    
+    return filtered_tender_records
+
 def process_and_send_bcbid_tenders(params: dict):
     """
     Orchestrates the mapping, classification, and API submission for BC Bid tender data.

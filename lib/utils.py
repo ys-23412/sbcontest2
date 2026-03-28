@@ -39,9 +39,6 @@ unrelated_phrases = [
     "Tree Removal RFQ",
     "Long Life Coolant",
     "Fuel Dispenser",
-    "Tennis Court Replacement",
-    "Flood Hazard Risk Assessment",
-    "Diesel Generators",
 ]
 
 # these are the bc commodities
@@ -97,8 +94,6 @@ unrelated_commodities = [
     "Notebook computer",
     "Transportation and Storage and Mail Services",
     "Architectural engineering",
-    "Roof systems",
-    "Roofing materials",
     "Roofing service",
     "Golf equipment",
     "Parking lot or road maintenance or repairs or services",
@@ -157,4 +152,25 @@ unrelated_commodities = [
 
 unrelated_organizations = [
     "City of Vancouver",
+    "Greater Vancouver Regional District",
+    "Greater Vancouver Regional District (Metro Vancouver)",
+    "City of Richmond",
+    "City of White Rock",
+    "City of Delta",
+    "City of Pitt Meadows",
+    "City of Abbotsford",
+    "City of Delta",
+    "City of Penticton",
+]
+
+regional_districts = [
+    "Alberni-Clayoquot",
+    "Capital",
+    "Central Coast",
+    "Comox Valley",
+    "Cowichan Valley",
+    "Mount Waddington",
+    "Nanaimo",
+    "qathet",
+    "Strathcona"
 ]
