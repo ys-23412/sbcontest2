@@ -40,6 +40,8 @@ unrelated_phrases = [
     "Long Life Coolant",
     "Fuel Dispenser",
     "Tennis Court Replacement",
+    "Flood Hazard Risk Assessment",
+    "Diesel Generators",
 ]
 
 # these are the bc commodities
@@ -128,9 +130,26 @@ unrelated_commodities = [
     "Forest resources management services",
     "Tennis court construction service",
     "Drainage services",
+    "Investigative Service",
+    "Traveling water screens",
+    "Water treatment and supply equipment",
+    "Asphalt/pavement crack sealing equipment",
+    "Noise pollution",
+    "Mailing or mail pick up or delivery services",
+    "Printed publications",
+    "Fire protection",
+    "Firefighter uniform",
+    "Aids for medical training",
+    "Personal protection equipment, power and water supply",
+    "Personal communication devices",
+    "Hazardous waste disposal",
+    "Workplace safety training aids and materials",
+    "Personal protective equipment",
+    "Electrical Systems and Lighting and Components and Accessories and Supplies",
+    "Road pavers",
+    "Forestry harvesting",
     *economic_stuff,
     *technical_stuff,
-    *economic_stuff,
     *health_stuff,
     *cloud_offerings,
     *forestry_stuff,
@@ -138,6 +157,4 @@ unrelated_commodities = [
 
 unrelated_organizations = [
     "City of Vancouver",
-    "Liquor Distribution Branch",
-    "Interior Health Authority",
 ]
