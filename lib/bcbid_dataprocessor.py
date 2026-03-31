@@ -70,7 +70,7 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     hide_tiny_url_str = params.get('hide_tiny_url', False)
     hide_tiny_url = str(hide_tiny_url_str).lower() == 'true'
 
-    opp_id = tender_record.get('Opportunity ID', '')
+    opp_id = str(tender_record.get('Opportunity ID', ''))
     # 1. Map top-level 'entry' fields
     description: str = tender_record.get('Opportunity Description', '')
     # 1. Remove the ID if it's at the start
