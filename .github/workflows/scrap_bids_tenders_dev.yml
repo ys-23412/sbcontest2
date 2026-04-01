@@ -20,8 +20,8 @@ jobs:
       YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       HIDE_TINY_URL: False
-      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
+      # IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+      # IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     strategy:
       fail-fast: false
