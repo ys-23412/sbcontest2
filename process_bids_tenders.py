@@ -3,15 +3,19 @@ import os
 import pandas as pd
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
-from random_user_agent.user_agent import UserAgent
+from pydoll.browser.tab import Tab
+from pydoll.constants import ScrollPosition
 import time
+import random
 from io import StringIO
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from lib.discord import send_discord_message
-
+from lib.bcbid_scraper import perform_human_loop
 
 from mappers import _filter_bid_tenders_by_last_run, process_and_send_bid_tenders # A more robust way to join URL parts
+
+
 
 def parse_document_date(html_string):
     """
@@ -105,17 +109,34 @@ async def scrap_bids_and_tenders_site(config: dict):
 
     options.add_argument("--enable-webgl")
 
-    # stealth automation
-    fake_timestamp = int(time.time()) - (90 * 24 * 60 * 60)  # 90 days ago
+    current_time = int(time.time())
+    number_last = random.randint(3, 10)
+    options.browser_preferences = {
+        'profile': {
+            'last_engagement_time': str(current_time - (number_last * 60 * 60)),  # 3 hours ago
+            'exited_cleanly': True,
+            'exit_type': 'Normal',
+        },
+        'safebrowsing': {'enabled': True},
+    }
 
-    # options.browser_preferences = {
-    #     # Override new tab page
-    #     'newtab_page_location_override': 'https://www.google.com',
-    #     # Disable telemetry
-    #     'user_experience_metrics': {
-    #         'reporting_enabled': False
-    #     }
-    # }
+    # Handle Headless environment variables
+    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    # url encode password
+    proxy_url = os.environ.get("PROXY_URL")
+    if proxy_url:
+        options.add_argument(f'--proxy-server={proxy_url}')
+
+
+    proxy = 'geo.iproyal.com:12321'
+    proxy_username = os.getenv('IPROYAL_USERNAME')
+    proxy_password = os.getenv('IPROYAL_PASSWORD')
+    proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
+
+    if proxy_username and proxy_password:
+        proxy_url = f'http://{proxy_auth}@{proxy}'
+        print("Using proxy:", proxy_url)
+        options.add_argument(f'--proxy-server={proxy_url}')
 
     async with Chrome(options=options) as browser:
         try:
@@ -126,12 +147,13 @@ async def scrap_bids_and_tenders_site(config: dict):
             tab = await browser.start()
 
         await tab.go_to(base_url)
+        await perform_human_loop(tab, 'body', 1)
         print(f'Page loaded for {region_name}, waiting for captcha to be handled...')
         await asyncio.sleep(5)
 
         page_source = await tab.page_source
         os.makedirs(base_dir, exist_ok=True)
-        with open(f'{base_dir}/page_source.html', 'w', errors='ignore') as f:
+        with open(f'{base_dir}/page_source_{region_name}.html', 'w', errors='ignore') as f:
             f.write(page_source)
         tables = pd.read_html(StringIO(page_source))
 
