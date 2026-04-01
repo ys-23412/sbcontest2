@@ -1,4 +1,4 @@
-name: Prod Bids and Tenders # Name remains as per user's request, but runs on Linux now
+name: Dev Bids and Tenders # Name remains as per user's request, but runs on Linux now
 
 on:
   workflow_dispatch: # Allows manual trigger
@@ -17,7 +17,7 @@ jobs:
       PY_COLORS: "1"
       BASE_DIR: "screenshots"
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      YS_APIURL: ${{ secrets.YS_APIURL }} # Map YS_APIURL_DEV to YS_APIURL
+      YS_APIURL: ${{ secrets.YS_APIURL_DEV }} # Map YS_APIURL_DEV to YS_APIURL
       YS_COMPONENTID: 10
       HIDE_TINY_URL: False
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
