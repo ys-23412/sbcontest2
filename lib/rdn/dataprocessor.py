@@ -347,6 +347,10 @@ if __name__ == "__main__":
         if datetime.now().weekday() == 5 or datetime.now().weekday() == 6:
             print("Ignoring error on Saturday or Sunday.")
             exit(0)
+        # if file rdn_new_bids_raw.csv is available then just assume no new bids
+        if os.path.exists(f"{FILE_DIR}/rdn_new_bids_raw.csv"):
+            print("Ignoring error as likely no new entries were found.")
+            exit(0)
         raise ValueError("No File Found")
     else:
         print(f"Processing {main_csv}")
