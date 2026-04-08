@@ -13,49 +13,12 @@ import requests
 import unidecode
 import re
 from lib.discord import send_discord_embed, send_discord_message
-from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities, unrelated_organizations
+from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities, unrelated_organizations, \
+load_city_mapping, find_bcbid_city_match
 from lib.timing import filter_tenders_by_last_run
 from mappers import _map_tender_type_to_stage
 from process_project_data import get_project_type_id
 
-def load_city_mapping(filepath="city.csv") -> dict:
-    """Loads city.csv into a dictionary mapped by city_name -> city_id."""
-    city_mapping = {}
-    try:
-        with open(filepath, mode='r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                city_mapping[row['city_name'].strip()] = row['city_id'].strip()
-    except Exception as e:
-        print(f"Error loading {filepath}: {e}")
-    return city_mapping
-
-
-def find_bcbid_city_match(tender_record: dict, city_mapping: dict) -> str:
-    """
-    Searches for a valid city name in the 'Organization (Issued for)' or 
-    'Organization (Issued by)' fields. Falls back to 'Opportunity Description'.
-    """
-    check_fields = [
-        tender_record.get('Organization (Issued for)', ''),
-        tender_record.get('Organization (Issued by)', ''),
-        tender_record.get('Opportunity Description', '')
-    ]
-    
-    # Sort cities by length descending so "North Vancouver" matches before "Vancouver"
-    sorted_cities = sorted(city_mapping.keys(), key=len, reverse=True)
-    
-    for field in check_fields:
-        if not field or not isinstance(field, str):
-            continue
-            
-        field_lower = field.lower()
-        for city_name in sorted_cities:
-            # Use regex boundaries \b to ensure we don't match 'Hope' inside 'Hopewell'
-            if re.search(rf'\b{re.escape(city_name.lower())}\b', field_lower):
-                return city_name
-                
-    return "victoria" # Default if no match is found
 
 
 
@@ -94,7 +57,12 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
             entry['ys_date'] = parsed_open_date.strftime('%Y-%m-%d')
 
     # Get City Location using the helper logic
-    matched_city = find_bcbid_city_match(tender_record, city_mapping)
+    scraped_city = tender_record.get('City')
+    if scraped_city and str(scraped_city).lower() != "nan":
+        matched_city = scraped_city
+    else:
+        # Fallback to the original matching function if deep scan column is empty
+        matched_city = find_bcbid_city_match(tender_record, city_mapping)
     entry['city_name'] = matched_city
     entry['ys_address'] = matched_city
 
@@ -128,8 +96,28 @@ def _map_bcbid_tender_entry(tender_record: dict, params: dict, city_mapping: dic
     # if not stage, we can default the bcbid entries to
     # Build Enquiries
     # enquiries_info = []
-    if org_for and org_for != org_by:
-        ys_body['ys_enquiries'] = f"Issued For: {org_for}"
+    # --- Updated Enquiries Logic ---
+    scraped_name = tender_record.get('Name', '')
+    scraped_email = tender_record.get('Email', '')
+    scraped_phone = tender_record.get('Phone', '')
+
+    # Check if we have contact info from the deep scan
+    if scraped_email and str(scraped_email).lower() != "nan":
+        contact_parts = []
+        if scraped_name and str(scraped_name).lower() != "nan":
+            contact_parts.append(scraped_name)
+        contact_parts.append(scraped_email)
+        if scraped_phone and str(scraped_phone).lower() != "nan":
+            contact_parts.append(f"Ph: {scraped_phone}")
+        
+        ys_body['ys_enquiries'] = " ".join(contact_parts)
+    # Fallback to existing Issued For logic if no email found
+    elif org_for and org_for != org_by:
+        # if we have 'nan' or '' we don't want to add it, just use blank string
+        if org_for == "nan" or org_for == "":
+            ys_body['ys_enquiries'] = f"Issued For"
+        else:
+            ys_body['ys_enquiries'] = f"Issued For: {org_for}"
     
     # Extra Info for description
     # ys_body['ys_description_full'] = f"Commodities: {tender_record.get('Commodities', 'N/A')}"

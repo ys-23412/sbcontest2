@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 import lxml
+import re
 import pandas as pd
 import random
 from io import StringIO
@@ -11,7 +12,8 @@ from pydoll.browser.tab import Tab
 from pydoll.constants import Key
 from pydoll.constants import By
 from pydoll.constants import ScrollPosition
-from lib.utils import regional_districts
+from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, scan_text_for_cities, \
+DEFAULT_CITY
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -484,9 +486,11 @@ async def main():
                     
                     print(f"Total rows extracted across all pages: {len(final_df)}")
                     
+                    csv_file = f"{FILE_DIR}/bid_recent_raw.csv"
                     # Save the DataFrame to CSV
+                    final_df.to_csv(f"{FILE_DIR}/bid_recent_raw.csv", index=False, encoding='utf-8')
                     final_df.to_csv(f"{FILE_DIR}/bid_recent.csv", index=False, encoding='utf-8')
-                    print("Successfully saved data to 'bid_recent.csv'")
+                    print("Successfully saved data to 'bid_recent_raw.csv'")
                 except Exception as e:
                     print(f"Failed to concatenate or save CSV: {e}")
             else:
@@ -498,7 +502,7 @@ async def main():
         # save page source
         await tab.save_bundle(f"{FILE_DIR}/bcbid.zip")
 
-
+        print("Scraping task complete.")
         # we want to filter using
 
         # logs = await tab.get_network_logs()
@@ -511,7 +515,91 @@ async def main():
         # except Exception as e:
         #     print(f"Error clicking opportunities button: {e}")
         # await tab.disable_network_events()
-        print("Scraping task complete.")
+        csv_path = f"{FILE_DIR}/bid_recent.csv"
+        # if bid_recent.csv exists
+        if os.path.exists(csv_path):
+            print(f"Found {csv_path}. Processing individual opportunity URLs...")
+            df = pd.read_csv(csv_path)
+            CITY_MAPPING = load_city_mapping('data/city.csv')
+            # Initialize new separate columns if they don't exist
+            for col in ['Name', 'Email', 'Phone', 'City']:
+                if col not in df.columns:
+                    df[col] = ""
+
+            for index, row in df.iterrows():
+                url = row.get('Opportunity Url')
+                if pd.isna(url) or not url:
+                    continue
+
+                print(f"Navigating to {url}")
+                await tab.go_to(url)
+                
+                # Slight delay before initiating human-like loop
+                await asyncio.sleep(random.uniform(1.5, 3.0))
+
+                # Look for the RFx General Information tab to confirm page load
+                selector = "//h2[contains(text(), 'RFx General Information')]"
+                success = await perform_human_loop(tab, selector, max_attempts=1)
+
+                if not success:
+                    print(f"Warning: Could not definitively find general info tab on {url}")
+
+                page_source = await tab.page_source
+                
+                # Strip HTML tags to make regex matching for text/names much more reliable
+                clean_text = re.sub(r'<[^>]+>', ' ', page_source)
+                # Remove excessive whitespaces
+                clean_text = re.sub(r'\s+', ' ', clean_text)
+
+                # 1. Extract Email first to establish our search anchor
+                email_match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', clean_text)
+                email = email_match.group(0) if email_match else ""
+
+                # 2. Extract Name & Phone around the email section
+                name = ""
+                phone = ""
+                
+                if email:
+                    email_idx = clean_text.find(email)
+                    # Define a window around the email to search for context-specific details (200 chars before/after)
+                    start_idx = max(0, email_idx - 200)
+                    end_idx = min(len(clean_text), email_idx + 200)
+                    window = clean_text[start_idx:end_idx]
+
+                    # Extract Name (Look for "Attention: First Last" inside the window)
+                    attention_match = re.search(r'Attention:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', window)
+                    if attention_match:
+                        name = attention_match.group(1).strip()
+                    else:
+                        # Fallback: Look for any two consecutive capitalized words right before the email
+                        pre_email_window = clean_text[max(0, email_idx - 80):email_idx]
+                        name_match = re.search(r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b', pre_email_window)
+                        if name_match:
+                            name = name_match.group(1).strip()
+
+                    # Extract Phone (Standard North American formats: 123-456-7890, (123) 456-7890, 123.456.7890)
+                    phone_match = re.search(r'\(?\b\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', window)
+                    if phone_match:
+                        phone = phone_match.group(0).strip()
+
+                # 3. Determine the City using the provided function
+                row_dict = row.to_dict()
+                city = find_bcbid_city_match(row_dict, CITY_MAPPING)
+
+                if city.lower() == DEFAULT_CITY:
+                    deep_scan_city = scan_text_for_cities(clean_text, CITY_MAPPING)
+                    city = deep_scan_city
+
+                # Update the DataFrame with the separated fields
+                df.at[index, 'Email'] = email
+                df.at[index, 'Name'] = name
+                df.at[index, 'Phone'] = phone
+                df.at[index, 'City'] = city
+
+            # Overwrite the original bid_recent.csv with the updated DataFrame
+            df.to_csv(csv_path, index=False, encoding='utf-8')
+            print(f"Successfully processed URLs and updated {csv_path} with Name, Email, Phone, and City.")
+
         # await asyncio.sleep(155)
 
 if __name__ == "__main__":

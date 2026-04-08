@@ -1,3 +1,6 @@
+import csv
+import re
+
 dash_pattern = r"[\u002d\u2013\u2014\u2012\u2015\u200b]"
 
 unrelated_phrases = [
@@ -174,3 +177,64 @@ regional_districts = [
     "qathet",
     "Strathcona"
 ]
+
+DEFAULT_CITY = "victoria"
+
+
+def load_city_mapping(filepath="data/city.csv") -> dict:
+    """Loads city.csv into a dictionary mapped by city_name -> city_id."""
+    city_mapping = {}
+    try:
+        with open(filepath, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                city_mapping[row['city_name'].strip()] = row['city_id'].strip()
+    except Exception as e:
+        print(f"Error loading {filepath}: {e}")
+    return city_mapping
+
+
+def find_bcbid_city_match(tender_record: dict, city_mapping: dict) -> str:
+    """
+    Searches for a valid city name in the 'Organization (Issued for)' or 
+    'Organization (Issued by)' fields. Falls back to 'Opportunity Description'.
+    """
+    check_fields = [
+        tender_record.get('Organization (Issued for)', ''),
+        tender_record.get('Organization (Issued by)', ''),
+        tender_record.get('Opportunity Description', '')
+    ]
+    
+    # Sort cities by length descending so "North Vancouver" matches before "Vancouver"
+    sorted_cities = sorted(city_mapping.keys(), key=len, reverse=True)
+    
+    for field in check_fields:
+        if not field or not isinstance(field, str):
+            continue
+            
+        field_lower = field.lower()
+        for city_name in sorted_cities:
+            # Use regex boundaries \b to ensure we don't match 'Hope' inside 'Hopewell'
+            if re.search(rf'\b{re.escape(city_name.lower())}\b', field_lower):
+                return city_name
+                
+    return DEFAULT_CITY
+
+def scan_text_for_cities(text: str, city_mapping: dict) -> str:
+    """
+    Scans a raw body of text (like page_source) for any city names 
+    defined in the mapping.
+    """
+    if not text:
+        return "victoria"
+
+    # Sort by length descending to catch "North Vancouver" before "Vancouver"
+    sorted_cities = sorted(city_mapping.keys(), key=len, reverse=True)
+    text_lower = text.lower()
+
+    for city_name in sorted_cities:
+        # \b ensures we match the whole word only
+        if re.search(rf'\b{re.escape(city_name.lower())}\b', text_lower):
+            return city_name
+            
+    return DEFAULT_CITY
