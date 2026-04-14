@@ -74,9 +74,9 @@ jobs:
 
   processor_job_rdn:
     runs-on: macos-latest
-    needs: scraper_job
+    needs: scraper_job_rdn
     # This ensures it runs if ANY of the matrix jobs succeeded
-    if: always() && contains(needs.scraper_job.result, 'success')
+    if: always() && contains(needs.scraper_job_rdn.result, 'success')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

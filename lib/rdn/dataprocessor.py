@@ -354,7 +354,10 @@ if __name__ == "__main__":
         raise ValueError("No File Found")
     else:
         print(f"Processing {main_csv}")
-        tender_records = pd.read_csv(main_csv)
+        try:
+            tender_records = pd.read_csv(main_csv)
+        except pd.errors.EmptyDataError:
+            exit(0)
         # make into json objects
         tender_records = tender_records.to_dict('records')
         params = {
