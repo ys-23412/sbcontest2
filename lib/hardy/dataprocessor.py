@@ -5,7 +5,6 @@ import re
 from datetime import date, datetime
 import traceback
 from zoneinfo import ZoneInfo
-from bs4 import BeautifulSoup
 import dateparser
 from dateutil.relativedelta import relativedelta
 import pandas as pd
@@ -14,54 +13,12 @@ from unidecode import unidecode
 from lib.discord import send_discord_embed, send_discord_message
 from lib.timing import filter_tenders_by_last_run
 from process_project_data import get_project_type_id
-FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_rdn"
 
-# Assuming dash_pattern, _map_tender_type_to_stage, etc., are imported from your lib
+FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_porthardy"
 
-def extract_rdn_tender_data(html_content: str) -> dict:
+def _map_porthardy_tender_entry(tender_record: dict, params: dict, city_mapping: dict) -> dict:
     """
-    Parses the raw HTML from the RDN procurement page to extract key tender details.
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # 1. Extract Title & Opportunity ID
-    title_elem = soup.find('h1', class_='title')
-    title = title_elem.text.strip() if title_elem else ""
-    
-    # Assuming ID is the first token (e.g., "26-019")
-    opp_id = title.split(' ')[0] if title else ""
-    
-    # 2. Extract Closing Date (using the ISO datetime attribute for accuracy)
-    closing_elem = soup.find('time', class_='datetime')
-    closing_date_str = closing_elem['datetime'] if closing_elem else ""
-    
-    # 3. Extract Description
-    body_elem = soup.find('div', class_='field--name-body')
-    description_text = body_elem.text.strip() if body_elem else ""
-    
-    # 4. Extract Document Link
-    doc_elem = soup.find('div', class_='views-field-field-documents')
-    doc_link = ""
-    if doc_elem:
-        a_tag = doc_elem.find('a')
-        if a_tag and 'href' in a_tag.attrs:
-            # Append base URL if it's a relative path
-            href = a_tag['href']
-            doc_link = href if href.startswith('http') else f"https://www.rdn.bc.ca{href}"
-            
-    return {
-        'Opportunity ID': opp_id,
-        'Opportunity Description': title,
-        'Description Body': description_text,
-        'Closing Date and Time (Pacific Time)': closing_date_str,
-        'Opportunity Url': doc_link,
-        'Organization (Issued by)': 'Regional District of Nanaimo',
-        'Type': 'Request for Proposal' # Explicitly stated in the description
-    }
-
-def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict) -> dict:
-    """
-    Maps the parsed RDN tender data into the required system payload structure.
+    Maps the parsed Port Hardy tender data into the required system payload structure.
     """
     entry = {}
     ys_body = {}
@@ -71,26 +28,33 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     hide_tiny_url = str(hide_tiny_url_str).lower() == 'true'
     
     # 1. Map top-level 'entry' fields
-    description = tender_record.get('description', '')
-    bid_opportunity = ''
+    # Prefer full description from the detail page, fallback to the brief list description
+    description = tender_record.get('full_description', '')
+    if not description or str(description).lower() == 'nan':
+        description = tender_record.get('Brief Description', '')
+        
     try:
-        description = unidecode(description)
+        description = unidecode(str(description))
     except Exception:
         pass
 
     entry['ys_description'] = description[:97].replace("'", "''")
-    # bid opportunity , split by first space
+    
+    # Extract bid opportunity reference (e.g. "RFP 1220-20-621-2026")
     try:
         bid_opportunity = tender_record.get('Bid Opportunity', '')
-        bid_opportunity = bid_opportunity.split(' ', 1)[0]
-        entry['ys_permit'] = bid_opportunity
+        parts = bid_opportunity.split(' ')
+        if len(parts) >= 2 and parts[0] in ['RFP', 'RFQ', 'RFI', 'ITQ', 'ITT']:
+             entry['ys_permit'] = f"{parts[0]} {parts[1]}"
+        else:
+             entry['ys_permit'] = bid_opportunity.split(' ', 1)[0]
     except Exception:
-        entry['ys_permit'] = description
-        pass
+        entry['ys_permit'] = description[:20]
+        
     entry['ys_component'] = int(ys_component_id)
 
-    # Set City Location (Defaulting to Nanaimo for RDN if not found via city_mapping)
-    matched_city = "Nanaimo RD" # Or run through find_bcbid_city_match(tender_record, city_mapping)
+    # Set City Location
+    matched_city = "Port Hardy"
     entry['city_name'] = matched_city
     entry['ys_address'] = matched_city
 
@@ -101,41 +65,44 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     
     ys_body['ys_sector'] = 'Public'
     ys_body['ys_reference'] = entry['ys_permit']
-    ys_body['ys_tender_authority'] = tender_record.get('Organization (Issued by)', 'Regional District of Nanaimo')
+    ys_body['ys_tender_authority'] = 'District of Port Hardy'
     ys_body['ys_documents_drawings_link'] = tender_record.get('Opportunity Url', '')
     
-    # Include the scraped description body as enquiries/extra info
+    # Include the scraped contact info
     contact_name = tender_record.get('contact_name', '')
-    job_title = tender_record.get('job_title', '')
     email = tender_record.get('email', '')
     enquiries = []
-    if job_title and job_title != 'nan':
-        enquiries.append(f"{job_title} -")
-    # and not nan
-    if contact_name and contact_name != 'nan':
+    if contact_name and str(contact_name).lower() != 'nan':
         enquiries.append(f"{contact_name}")
-    if email:
-        enquiries.append(f"Phone: {email}")
-    ys_body['ys_enquiries'] = " ".join(enquiries)
+    if email and str(email).lower() != 'nan':
+        enquiries.append(f"Email: {email}")
+    ys_body['ys_enquiries'] = " | ".join(enquiries)
 
-    # dont think there is anything to go off of here
-    ys_body['ys_stage'] = 'Request for Proposals'
+    # Determine stage based on title
+    if 'RFQ' in bid_opportunity:
+        ys_body['ys_stage'] = 'Request for Qualifications'
+    else:
+        ys_body['ys_stage'] = 'Request for Proposals'
 
     # 3. Handle Dates
-    # For RDN, we only have closing date in the HTML provided, issue date might be inferred by runtime
-    entry['ys_date'] = datetime.now().strftime('%Y-%m-%d') # Fallback to today if issue date isn't on page
+    # Map the posted date
+    parsed_date = tender_record.get('Parsed Date')
+    if parsed_date and str(parsed_date) != 'NaT':
+        try:
+            entry['ys_date'] = datetime.fromisoformat(str(parsed_date).split(' ')[0]).strftime('%Y-%m-%d')
+        except:
+            entry['ys_date'] = datetime.now().strftime('%Y-%m-%d')
+    else:
+        entry['ys_date'] = datetime.now().strftime('%Y-%m-%d')
     
+    # Map the closing date
     is_windows = platform.system() == "Windows"
-    closing_date_str = tender_record.get('Parsed Date')
+    closing_date_str = tender_record.get('closing_date')
     
-    if closing_date_str:
-        parsed_date_close = dateparser.parse(closing_date_str)
+    if closing_date_str and str(closing_date_str).lower() not in ['nan', 'nat', '']:
+        parsed_date_close = dateparser.parse(str(closing_date_str))
         if parsed_date_close:
-            if is_windows:
-                fmt = "%#m/%#d/%Y - %#I %p"
-            else:
-                fmt = "%-m/%-d/%Y - %-I %p"
-            
+            fmt = "%#m/%#d/%Y - %#I %p" if is_windows else "%-m/%-d/%Y - %-I %p"
             ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
             review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
             entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
@@ -149,10 +116,11 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
 
     return {'entry': entry}
 
-def process_and_send_rdn_tenders(params: dict):
+
+def process_and_send_porthardy_tenders(params: dict):
     """
-    Maps, packages, and sends the extracted Regional District of Nanaimo (RDN)
-    tender data to the APIs for a single targeted region, and tracks success/failure via Discord.
+    Maps, packages, and sends the extracted District of Port Hardy 
+    tender data to the APIs, and tracks success/failure via Discord.
     """
     tender_records = params.get('data', [])
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
@@ -160,10 +128,10 @@ def process_and_send_rdn_tenders(params: dict):
     user_id = os.getenv('YS_USERID', '2025060339')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     
-    # Hardcoded values since this is scoped specifically to ONE region
-    region_name = "Regional District of Nanaimo"
-    city_name = "Nanaimo RD"
-    file_prefix = "rdn_tender"
+    # Hardcoded values for Port Hardy
+    region_name = "District of Port Hardy"
+    city_name = "Port Hardy"
+    file_prefix = "porthardy_tender"
 
     # 1. Early Exit if No Data
     if not tender_records:
@@ -178,9 +146,8 @@ def process_and_send_rdn_tenders(params: dict):
         return
 
     print(f"⚙️ Starting processing for {len(tender_records)} {region_name} tender records...")
-    print("records", tender_records)
-    # filter records by posted field, make sure date is today pst time
-
+    
+    # Filter records by posted field, make sure date is today pst time
     pst_tz = ZoneInfo("America/Vancouver")
     today_pst = datetime.now(pst_tz).date()
     filtered_records = []
@@ -193,11 +160,15 @@ def process_and_send_rdn_tenders(params: dict):
         
         try:
             # Prefer 'Parsed Date' (e.g., '2026-03-24')
-            if parsed_date_str:
-                record_date = datetime.fromisoformat(parsed_date_str).date()
+            if parsed_date_str and str(parsed_date_str) != 'NaT':
+                # Strip off time component if present
+                date_only_str = str(parsed_date_str).split(' ')[0]
+                record_date = datetime.fromisoformat(date_only_str).date()
+
+                print("what is record_date", record_date)
             # Fallback to textual 'Posted' date (e.g., 'March 24, 2026')
             elif posted_str:
-                record_date = datetime.strptime(posted_str, "%B %d, %Y").date()
+                record_date = datetime.strptime(posted_str, "%b %d, %Y").date()
             else:
                 continue # Skip if no date info is present
                 
@@ -208,16 +179,12 @@ def process_and_send_rdn_tenders(params: dict):
             continue
 
     tender_records = filtered_records
-    # Note: If you have a city_mapping requirement, load it here.
-    # city_mapping = load_city_mapping('data/city.csv')
     city_mapping = {}
-
     final_mapped_data = []
-
     # 2. Map the Extracted Records
     for record in tender_records:
         try:
-            mapped_result = _map_rdn_tender_entry(record, params, city_mapping)
+            mapped_result = _map_porthardy_tender_entry(record, params, city_mapping)
             entry = mapped_result['entry']
             
             # Use external function to classify project_type_id if available
@@ -232,15 +199,15 @@ def process_and_send_rdn_tenders(params: dict):
 
         except Exception as e:
             traceback.print_exc()
-            opp_id = record.get('Opportunity ID', 'Unknown ID')
-            print(f"⚠️ Failed to map RDN tender {opp_id}. Error: {e}")
+            opp_id = record.get('Bid Opportunity', 'Unknown ID')
+            print(f"⚠️ Failed to map Port Hardy tender {opp_id}. Error: {e}")
 
     total_found = len(final_mapped_data)
     total_success = 0
     total_failed = 0
 
     if total_found == 0:
-        print("All records failed mapping. Exiting.")
+        print("No new tenders found for today, or all records failed mapping. Exiting.")
         return
 
     # 3. Setup Payload & Save Locally (For Debugging)
@@ -336,9 +303,10 @@ def process_and_send_rdn_tenders(params: dict):
             webhook_url=discord_webhook_url
         )
 
+
 # main to read and send files
 if __name__ == "__main__":
-    main_csv = f"{FILE_DIR}/rdn_enriched_bids.csv"
+    main_csv = f"{FILE_DIR}/porthardy_enriched_bids.csv"
     if not os.path.exists(main_csv):
         print(f"Error: The file {main_csv} was not found.")
         # if saturday, ignore the errors else raise
@@ -347,14 +315,15 @@ if __name__ == "__main__":
         if datetime.now().weekday() == 5 or datetime.now().weekday() == 6:
             print("Ignoring error on Saturday or Sunday.")
             exit(0)
-        # if file rdn_new_bids_raw.csv is available then just assume no new bids
-        if os.path.exists(f"{FILE_DIR}/rdn_new_bids_raw.csv"):
+        # if file porthardy_new_bids_raw.csv is available then just assume no new bids
+        if os.path.exists(f"{FILE_DIR}/porthardy_new_bids_raw.csv"):
             print("Ignoring error as likely no new entries were found.")
             exit(0)
         raise ValueError("No File Found")
     else:
         print(f"Processing {main_csv}")
         tender_records = pd.read_csv(main_csv)
+        print(tender_records.head(5))
         # make into json objects
         tender_records = tender_records.to_dict('records')
         params = {
@@ -363,14 +332,14 @@ if __name__ == "__main__":
         }
         try:
             # we dont want to reupload the entire file if anything goes wrong
-            process_and_send_rdn_tenders(params)
+            process_and_send_porthardy_tenders(params)
         except Exception as e:
             print(f"❌ An unexpected error occurred: {e}")
             try:
                 discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
                 send_discord_embed(
                     webhook_url=discord_webhook_url,
-                    title="🤖 RDN Harvester: Failure",
+                    title="🤖 Port Hardy Harvester: Failure",
                     description="Csv processing failed, csv should exist.",
                     fields={"💤 Status": "BAD THINGS HAPPENED"},
                     color=9807270 # Grey
