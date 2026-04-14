@@ -1,4 +1,4 @@
-name: Regional District Nanaimo
+name: Single Day Schedule Jobs
 
 on:
   workflow_dispatch: # Allows manual trigger
@@ -25,12 +25,13 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
+  NEW_BID_DAYS_THRESHOLD: 5
 
 
 # we need multiple jobs to account for bot throttling
 # just manually reset proxies
 jobs:
-  scraper_job:
+  scraper_job_rdn:
     runs-on: windows-latest
     strategy:
       max-parallel: 1
@@ -74,11 +75,11 @@ jobs:
             screenshots/
           retention-days: 1
 
-  processor_job:
+  processor_job_rdn:
     runs-on: macos-latest
-    needs: scraper_job
+    needs: scraper_job_rdn
     # This ensures it runs if ANY of the matrix jobs succeeded
-    if: always() && contains(needs.scraper_job.result, 'success')
+    if: always() && contains(needs.scraper_job_rdn.result, 'success')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -114,4 +115,86 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: upload_data
+          path: data/
+
+  # ==========================================
+  # DISTRICT OF PORT HARDY JOBS
+  # ==========================================
+  scraper_job_porthardy:
+    runs-on: windows-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        python-version: ['3.13']
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install Google Chrome (Windows)
+        run: choco install googlechrome || true
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
+            
+      - name: Run Port Hardy Pydoll script
+        run: python -m lib.hardy.scraper
+
+      - name: Upload Port Hardy Raw Data for Processing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-data-porthardy-${{ matrix.python-version }}
+          path: |
+            screenshots_porthardy
+            screenshots
+          retention-days: 1
+
+  processor_job_porthardy:
+    runs-on: macos-latest
+    needs: scraper_job_porthardy
+    if: always() && contains(needs.scraper_job_porthardy.result, 'success')
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Download Scraped Data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: raw-data-porthardy-*
+          merge-multiple: true
+
+      - name: Handle Port Hardy scrapped data
+        run: |
+          ls
+          ls screenshots || true
+          pip install -r requirements.txt
+          pip install -r requirements_tenders.txt
+          python -m lib.hardy.dataprocessor
+          rm -rf data/city.csv
+
+      - name: Upload Processed CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots_porthardy
+          path: screenshots_porthardy
+
+      - name: Upload Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload_data_porthardy
           path: data/
