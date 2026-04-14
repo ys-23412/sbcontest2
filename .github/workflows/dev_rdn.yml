@@ -1,4 +1,4 @@
-name: Regional District Nanaimo Dev
+name: Single Day Schedule Jobs Dev
 
 on:
   workflow_dispatch: # Allows manual trigger
