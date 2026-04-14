@@ -145,7 +145,7 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Port Hardy Pydoll script
-        run: python -m lib.porthardy.scraper
+        run: python -m lib.hardy.scraper
 
       - name: Upload Port Hardy Raw Data for Processing
         if: success()
@@ -182,7 +182,7 @@ jobs:
           ls screenshots || true
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
-          python -m lib.porthardy.dataprocessor
+          python -m lib.hardy.dataprocessor
           rm -rf data/city.csv
 
       - name: Upload Processed CSV
