@@ -105,7 +105,7 @@ async def main():
         print(f"Found {len(target_df)} total bids.")
         
         # Define "newly" posted as within the last 5 days
-        days_threshold = os.getenv('NEW_BID_DAYS_THRESHOLD', 5)
+        days_threshold = int(os.getenv('NEW_BID_DAYS_THRESHOLD', 5))
         cutoff_date = pd.to_datetime(datetime.now() - timedelta(days=days_threshold))
         
         # Filter dataframe for recent dates
