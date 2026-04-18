@@ -12,6 +12,7 @@ from pydoll.browser.tab import Tab
 from pydoll.constants import Key
 from pydoll.constants import By
 from pydoll.constants import ScrollPosition
+from pydoll.exceptions import FailedToStartBrowser
 from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, scan_text_for_cities, \
 DEFAULT_CITY
 from datetime import datetime, timedelta
@@ -607,4 +608,11 @@ async def main():
         # await asyncio.sleep(155)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except FailedToStartBrowser as e:
+        from lib.discord import send_discord_message
+        discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+        send_discord_message(f"BC Bid Scraper Failed to start the browser @grandfleet: {e}", discord_webhook_url)
+        raise FailedToStartBrowser(f"Failed to start the browser: {e}")
+
