@@ -73,7 +73,18 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Pydoll script
-        run: python -m lib.bcbid_scraper
+        run: |
+          for i in {1..3}; do
+            echo "Attempt $i..."
+            python -m lib.bcbid_scraper && break || {
+              if [ $i -eq 3 ]; then
+                echo "Script failed after 3 attempts."
+                exit 1
+              fi
+              echo "Attempt $i failed. Retrying in 5 seconds..."
+              sleep 5
+            }
+          done
 
       - name: Upload Raw Data for Processing
         if: success()
