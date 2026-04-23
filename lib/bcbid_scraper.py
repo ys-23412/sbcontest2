@@ -418,7 +418,9 @@ async def main():
                 await tab.take_screenshot(f'{FILE_DIR}/{scan["name"].replace(" ", "_")}_last_page.png', quality=90, beyond_viewport=True)
             except Exception as e:
                 print(f"Error during tabular data extraction for {scan['name']}: {e}")
-                
+            # make FILE_DIR if it doesnt exist
+            if not os.path.exists(FILE_DIR):
+                os.mkdir(FILE_DIR)
             # Optional network events bundle save per scan
             await tab.save_bundle(f"{FILE_DIR}/bcbid_{scan['name'].replace(' ', '_')}.zip")
 
