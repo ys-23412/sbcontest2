@@ -159,6 +159,27 @@ regional_districts = [
     "Strathcona"
 ]
 
+target_organizations = [
+    "City of Langford",
+    "City of Nanaimo",
+    "City of Parksville",
+    "City of Port Alberni",
+    "City of Victoria",
+    "District of Central Saanich",
+    "District of North Saanich",
+    "District of Sooke",
+    "Town of Comox",
+    "Town of Ladysmith",
+    "Town of Qualicum Beach",
+    "Town of Sidney",
+    "Town of View Royal",
+    "Village of Cumberland",
+    "School District 61 Greater Victoria",
+    "School District 62 Sooke",
+    "School District 63 Saanich",
+    'Corporation of the District of Saanich'
+]
+
 DEFAULT_CITY = "victoria"
 
 

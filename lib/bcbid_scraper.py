@@ -13,8 +13,8 @@ from pydoll.constants import Key
 from pydoll.constants import By
 from pydoll.constants import ScrollPosition
 from pydoll.exceptions import FailedToStartBrowser
-from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, scan_text_for_cities, \
-DEFAULT_CITY
+from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, target_organizations, \
+scan_text_for_cities, DEFAULT_CITY
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -252,277 +252,235 @@ async def main():
     async with Chrome(options=opts) as browser:
         print("Starting browser...")
         tab = await browser.start()
-        # 1. Navigate to BC Bid
+        
         url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
-        print(f"Navigating to {url}...")
+        
+        # Calculate consistent dates for both passes
+        min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        max_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Create our scan sequences for the dual extraction
+        scans = [
+            {
+                "name": "Region Scan",
+                "input_id": "body_x_selRfpIdAreaLevelAreaNode_search",
+                "values": regional_districts
+            },
+            {
+                "name": "Organization Scan",
+                "input_id": "body_x_selBpmIdOrgaLevelOrgaNode_search", 
+                "values": target_organizations
+            }
+        ]
+        
+        global_all_table_htmls = []
+        global_all_dfs = []
+        print(f"Navigating to {url} to state...")
         await tab.go_to(url)
-        if not os.path.exists(FILE_DIR):
-            # remove directory
-            os.mkdir(FILE_DIR)
-        # 2. Dummy Login (Commented out as requested)
-        # await dummy_login(tab, "YOUR_USERNAME", "YOUR_PASSWORD")
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-        # for _ in range(random.randint(2, 4)):
-        #     scroll_amount = random.randint(200, 500)
-        #     await tab.scroll.by(ScrollPosition.DOWN, scroll_amount, smooth=True)
-        #     await asyncio.sleep(random.uniform(0.8, 2.0))
-        # await tab.mouse.drag(100, 200, 500, 400, humanize=True)
-        # await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
-        # await tab.mouse.move(500, 300, humanize=True)
-        # wait for page to load
-        selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
+        for scan, scan_index in enumerate(scans):
+            print(f"\n========== Starting {scan['name']} ==========")
 
-        success = await perform_human_loop(tab, selector)
+            await asyncio.sleep(random.uniform(2.0, 4.0))
 
-        if not success:
-            print("Target not found after actions. Forcing navigation/wait...")
+            # Wait for page to load via header
+            selector = "//h1[contains(@class, 'maintitle') and contains(text(), 'Opportunities')]"
+            success = await perform_human_loop(tab, selector)
+
+            if not success:
+                print("Target not found after actions. Forcing navigation/wait...")
+                try:
+                    await tab.go_to(url)
+                    await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
+                    await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_recovery_success.png')
+                except Exception as e:
+                    print(f"Final recovery failed: {e}")
+                    await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_final_timeout.png')
+
+            # 1. Set specific scan entity filters (Region or Organizations)
             try:
-                await tab.go_to(url)
-                await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
-                await tab.take_screenshot(f'{FILE_DIR}/recovery_success.png')
+                print(f"Setting text filters for {scan['name']}...")
+                filter_search = await tab.find(scan['input_id'], timeout=10)
+                await filter_search.click()
+
+                for value_tag in scan['values']:
+                    print(f"Typing: {value_tag}")
+                    await filter_search.type_text(value_tag, humanize=False)
+                    await asyncio.sleep(random.uniform(0.5, 0.7))
+                    await tab.keyboard.press(Key.ENTER)
+                    await asyncio.sleep(random.uniform(0.5, 1.2))
+
+                await tab.keyboard.press(Key.ESCAPE)
             except Exception as e:
-                print(f"Final recovery failed: {e}")
-                await tab.take_screenshot(f'{FILE_DIR}/final_timeout.png')
-        
-        # try:
-        #     await tab.find_or_wait_element(By.XPATH, selector, timeout=5)
-        #     print("Found the Opportunities header!")
-        # except Exception as e:
-        #     print(f"Timed out waiting for text: {e}")
-        #     url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
-        #     print(f"Navigating to {url}...")
-        #     await tab.go_to(url)
-        #     await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
-        #     await tab.take_screenshot(f'{FILE_DIR}/trying_to_login2.png', quality=90, beyond_viewport=True)
-        # take a screenshot
-        # await tab.take_screenshot(f'{FILE_DIR}/after_login.png', quality=90, beyond_viewport=True)
-        # 3. Click on "Browse Opportunities"
-        # Based on the uploaded HTML, the ID is 'body_x_btnPublicOpportunities'
-        # print("Clicking on 'Browse Opportunities'...")
-        try:
-            pass
-            # await navigate_to_opportunities(tab)
-        except Exception as e:
-            print(f"Error during navigation: {e}")
+                print(f"Error during {scan['name']} filtering: {e}")
 
-           # set region filter
-        # try:
-        id = "body_x_selRfpIdAreaLevelAreaNode_search"
-        region_search = await tab.find(id, timeout=10)
-        await region_search.click()
-
-        for district in regional_districts:
-            print(f"Typing: {district}")
-            await region_search.type_text(district, humanize=False)
-            
-            # 2. Wait a fraction of a second for the dropdown animation/JS to filter the results
-            await asyncio.sleep(random.uniform(0.5, 0.7))
-            
-            # 3. Press Enter to select the item from the combobox
-            await tab.keyboard.press(Key.ENTER)
-            
-            # 4. Wait a bit before typing the next item so the UI can render the selected tag
-            await asyncio.sleep(random.uniform(0.5, 1.2))
-        # except Exception as e:
-        #     print(f"Error during region filtering: {e}")
-        # how do I close this
-        await tab.keyboard.press(Key.ESCAPE)
-        try:
-            print("Setting date filters...")
-            
-            # Calculate dates. Adjust format based on what BC Bid expects (usually YYYY-MM-DD)
-            # If you meant "past 2 days":
-            min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            max_date = datetime.now().strftime('%Y-%m-%d')
-            
-            # OR if you literally meant "2 days in the future" for min_date, use:
-            # min_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
-
-            # Inject the values directly into the input fields and trigger the 'change' event
-                                
-            # // 2. Set Max Date
-            # const maxInput = document.getElementById('body_x_txtRfpBeginDatemax');
-            # if (maxInput) {{
-            #     maxInput.value = '{max_date}';
-            #     maxInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            # }}
-            
-            await tab.execute_script(f"""
-                (() => {{
-                    // 1. Set Min Date
-                    const minInput = document.getElementById('body_x_txtRfpBeginDate');
-                    if (minInput) {{
-                        minInput.value = '{min_date}';
-                        minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    }}
-
-                    // 3. Hide the calendar popup if it accidentally opened
-                    const datePickerDiv = document.getElementById('ui-datepicker-div');
-                    if (datePickerDiv) {{
-                        datePickerDiv.style.display = 'none';
-                    }}
-                }})()
-            """)
-
-            await asyncio.sleep(10)
-
-            # click on search button
+            # 2. Set Dates filters (applied on top of current scan limits)
             try:
-                search_button = await tab.find(id='body_x_prxFilterBar_x_cmdSearchBtn')
-                await search_button.click()
-            except Exception as e:
-                print(f"Error clicking search button: {e}")
-            
-            print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
-        except Exception as e:
-            print(f"Error during date filtering: {e}")
-        # save a new photo
-        # await tab.take_screenshot(f'{FILE_DIR}/after_filters.png', quality=90, beyond_viewport=True)
-        try:
-            print("Starting tabular data extraction...")
-            all_table_htmls = []
-            all_dfs =[] # List to hold DataFrames for each page
-            page = 1
-            # we apply filtering to grab recent entries so the number of pages should be quite low, 20
-            # is probably overkill
-            max_pages = 20 # Safety limit to prevent infinite loops
-            
-            while page <= max_pages:
-                print(f"Extracting data from page {page}...")
+                print("Setting date filters...")
+                await tab.execute_script(f"""
+                    (() => {{
+                        const minInput = document.getElementById('body_x_txtRfpBeginDate');
+                        if (minInput) {{
+                            minInput.value = '{min_date}';
+                            minInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        }}
+
+                        const datePickerDiv = document.getElementById('ui-datepicker-div');
+                        if (datePickerDiv) {{
+                            datePickerDiv.style.display = 'none';
+                        }}
+                    }})()
+                """)
+
+                await asyncio.sleep(5)
+
+                try:
+                    search_button = await tab.find(id='body_x_prxFilterBar_x_cmdSearchBtn')
+                    await search_button.click()
+                except Exception as e:
+                    print(f"Error clicking search button: {e}")
                 
-                try:
-                    # Wait for AJAX table to fully load
-                    await asyncio.sleep(8)
-                    page_source = await tab.page_source
-                    # 1. Grab the table HTML directly using JavaScript
-                    # save the page source to a html page
-                    with open(f'{FILE_DIR}/page_{page}.html', 'w', encoding='utf-8') as f:
-                        f.write(page_source)
-                    dfs = pd.read_html(
-                            StringIO(page_source), 
-                            attrs={'id': 'body_x_grid_grd'}
-                        )
-                    df = dfs[0]
-
-                    # --- NEW URL EXTRACTION LOGIC ---
-                    # Parse the HTML with lxml to extract the hidden hrefs
-                    tree = lxml.html.fromstring(page_source)
-                    
-                    # Find all table rows inside the grid that contain data cells (<td>)
-                    # This perfectly matches the rows that Pandas extracted.
-                    rows = tree.xpath("//table[@id='body_x_grid_grd']//tr[td]")
-                    
-                    urls =[]
-                    for row in rows:
-                        # Grab the 'href' from the <a> tag inside the 2nd <td>
-                        # Note: XPath indexing is 1-based, so td[2] is the second column
-                        hrefs = row.xpath("./td[2]//a/@href")
-                        if hrefs:
-                            urls.append(f"https://bcbid.gov.bc.ca{hrefs[0]}")
-                        else:
-                            urls.append("")
-                    
-                    # Attach the URLs as a new column to the DataFrame
-                    df['Opportunity Url'] = pd.Series(urls)
-                    table_html = df.to_html(index=False)
-        
-                    all_table_htmls.append(table_html)
-                    all_dfs.append(df)
-                        
-                    # 2. Check if the 'Next' button is disabled or missing
-                    scriptReturnResult = await tab.execute_script("""
-                        (() => {
-                            const nextBtn = document.getElementById("body_x_grid_gridPagerBtnNextPage");
-                            if (!nextBtn) return true; // Treat as disabled if element doesn't exist
-                            
-                            // Check if the class contains 'disabled' (standard for BC Bid pagination)
-                            const isClassDisabled = nextBtn.className.toLowerCase().includes('disabled');
-                            return isClassDisabled || nextBtn.disabled;
-                        })()
-                    """, return_by_value=True, await_promise=True)
-                    print(f"Next button is disabled: {scriptReturnResult}")
-                    # check if element exists
-
-                    try:
-                        is_disabled = scriptReturnResult.get('result', {}).get('result', {}).get('value')
-                    except Exception as e:
-                        print(f"Error checking if next button is disabled: {e}")
-                        is_disabled = True
-                    
-                    if is_disabled:
-                        print("Next button is disabled. Reached the last page.")
-                        break
-                        
-                    # 3. Click the 'Next' button via JS to trigger the site's AJAX pagination
-                    print(f"Clicking 'Next' button to navigate to page {page + 1}...")
-                    await tab.execute_script('document.getElementById("body_x_grid_gridPagerBtnNextPage").click()')
-                    
-                    page += 1
-                    
-                except Exception as e:
-                    print(f"Error encountered during pagination on page {page}: {e}")
-                    break
-                    
-            # Save all gathered HTML to a file so the Github Action can upload it
-            print(f"Finished scraping. Saving {len(all_table_htmls)} pages of tables to bcbid.html...")
-            try:
-                with open(f"{FILE_DIR}/bcbid.html", "w", encoding="utf-8") as f:
-                    f.write("<html><head><meta charset='utf-8'></head><body>\n")
-                    for idx, html_content in enumerate(all_table_htmls):
-                        f.write(f"<h2>Page {idx + 1}</h2>\n")
-                        f.write(html_content)
-                        f.write("\n<hr>\n")
-                    f.write("</body></html>\n")
-                print("Successfully saved 'bcbid.html'")
+                print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
             except Exception as e:
-                print(f"Failed to write HTML file: {e}")
+                print(f"Error during date filtering: {e}")
 
-            if all_dfs:
+            # 3. Scrape current Tabular Data
+            try:
+                print(f"Starting tabular data extraction for {scan['name']}...")
+                page = 1
+                max_pages = 10
+                
+                while page <= max_pages:
+                    print(f"[{scan['name']}] Extracting data from page {page}...")
+                    
+                    try:
+                        # Wait for AJAX table to fully load
+                        await asyncio.sleep(8)
+                        page_source = await tab.page_source
+                        
+                        # Save the page source to an html page
+                        with open(f'{FILE_DIR}/{scan["name"].replace(" ", "_")}_page_{page}.html', 'w', encoding='utf-8') as f:
+                            f.write(page_source)
+                            
+                        dfs = pd.read_html(
+                                StringIO(page_source), 
+                                attrs={'id': 'body_x_grid_grd'}
+                            )
+                        df = dfs[0]
+
+                        # Extract URLs
+                        tree = lxml.html.fromstring(page_source)
+                        rows = tree.xpath("//table[@id='body_x_grid_grd']//tr[td]")
+                        
+                        urls = []
+                        for row in rows:
+                            hrefs = row.xpath("./td[2]//a/@href")
+                            if hrefs:
+                                urls.append(f"https://bcbid.gov.bc.ca{hrefs[0]}")
+                            else:
+                                urls.append("")
+                        
+                        df['Opportunity Url'] = pd.Series(urls)
+                        table_html = df.to_html(index=False)
+            
+                        global_all_table_htmls.append(table_html)
+                        global_all_dfs.append(df)
+                            
+                        # Check pagination
+                        scriptReturnResult = await tab.execute_script("""
+                            (() => {
+                                const nextBtn = document.getElementById("body_x_grid_gridPagerBtnNextPage");
+                                if (!nextBtn) return true;
+                                const isClassDisabled = nextBtn.className.toLowerCase().includes('disabled');
+                                return isClassDisabled || nextBtn.disabled;
+                            })()
+                        """, return_by_value=True, await_promise=True)
+                        print(f"Next button is disabled: {scriptReturnResult}")
+
+                        try:
+                            is_disabled = scriptReturnResult.get('result', {}).get('result', {}).get('value')
+                        except Exception as e:
+                            print(f"Error checking if next button is disabled: {e}")
+                            is_disabled = True
+                        
+                        if is_disabled:
+                            print(f"Reached the last page for {scan['name']}.")
+                            break
+                            
+                        print(f"Clicking 'Next' button to navigate to page {page + 1}...")
+                        await tab.execute_script('document.getElementById("body_x_grid_gridPagerBtnNextPage").click()')
+                        
+                        page += 1
+                        
+                    except Exception as e:
+                        print(f"Error encountered during pagination on page {page}: {e}")
+                        break
+
+                await tab.take_screenshot(f'{FILE_DIR}/{scan["name"].replace(" ", "_")}_last_page.png', quality=90, beyond_viewport=True)
+            except Exception as e:
+                print(f"Error during tabular data extraction for {scan['name']}: {e}")
+                
+            # Optional network events bundle save per scan
+            await tab.save_bundle(f"{FILE_DIR}/bcbid_{scan['name'].replace(' ', '_')}.zip")
+
+            # click the reset button to start the next scan
+            # body_x_prxFilterBar_x_cmdRazBtn
+            
+            print(f"Clicking 'Reset' button...")
+
+            if scan_index < len(scans) - 1:
                 try:
-                    # Concatenate all individual page DataFrames into one massive DataFrame
-                    final_df = pd.concat(all_dfs, ignore_index=True)
-                    
-                    # Optional: Clean up empty columns or rows that Pandas might have picked up
-                    final_df.dropna(how='all', inplace=True) 
-                    
-                    print(f"Total rows extracted across all pages: {len(final_df)}")
-                    
-                    csv_file = f"{FILE_DIR}/bid_recent_raw.csv"
-                    # Save the DataFrame to CSV
-                    final_df.to_csv(f"{FILE_DIR}/bid_recent_raw.csv", index=False, encoding='utf-8')
-                    final_df.to_csv(f"{FILE_DIR}/bid_recent.csv", index=False, encoding='utf-8')
-                    print("Successfully saved data to 'bid_recent_raw.csv'")
+                    await tab.execute_script('document.getElementById("body_x_prxFilterBar_x_cmdRazBtn").click()')
+                    # let reset happen
+                    await asyncio.sleep(10)
                 except Exception as e:
-                    print(f"Failed to concatenate or save CSV: {e}")
-            else:
-                print("No DataFrames were created. Skipping CSV generation.")
+                    print(f"Error clicking 'Reset' button: {e}")
 
-            await tab.take_screenshot(f'{FILE_DIR}/last_page.png', quality=90, beyond_viewport=True)
+
+        # --- END OF SCANS: Combine, Deduplicate and Save Phase ---
+        print(f"\n========== Scans complete. Processing output... ==========")
+        
+        try:
+            with open(f"{FILE_DIR}/bcbid.html", "w", encoding="utf-8") as f:
+                f.write("<html><head><meta charset='utf-8'></head><body>\n")
+                for idx, html_content in enumerate(global_all_table_htmls):
+                    f.write(f"<h2>Table Page Extraction {idx + 1}</h2>\n")
+                    f.write(html_content)
+                    f.write("\n<hr>\n")
+                f.write("</body></html>\n")
+            print(f"Successfully compiled all tables to 'bcbid.html'")
         except Exception as e:
-            print(f"Error during tabular data extraction: {e}")
-        # save page source
-        await tab.save_bundle(f"{FILE_DIR}/bcbid.zip")
+            print(f"Failed to write combined HTML file: {e}")
 
-        print("Scraping task complete.")
-        # we want to filter using
+        if global_all_dfs:
+            try:
+                # Concatenate all DataFrames
+                final_df = pd.concat(global_all_dfs, ignore_index=True)
+                final_df.dropna(how='all', inplace=True) 
+                
+                original_count = len(final_df)
+                # Drop duplicate URLs gathered from combining scans
+                final_df.drop_duplicates(subset=['Opportunity Url'], inplace=True, keep='first')
+                
+                print(f"Total rows extracted: {original_count}. Distinct unique rows after merge: {len(final_df)}")
+                
+                # Save DataFrames
+                final_df.to_csv(f"{FILE_DIR}/bid_recent_raw.csv", index=False, encoding='utf-8')
+                final_df.to_csv(f"{FILE_DIR}/bid_recent.csv", index=False, encoding='utf-8')
+                print("Successfully combined and saved merged data to CSVs.")
+            except Exception as e:
+                print(f"Failed to concatenate or save CSV: {e}")
+        else:
+            print("No DataFrames were created across any scans. Skipping CSV generation.")
 
-        # logs = await tab.get_network_logs()
 
-        # print(f"Total requests captured: {len(logs)}")
-
-        # for log in logs:
-        #     print(log)
-            # print(f"→ {request['method']} {request['url']}")
-        # except Exception as e:
-        #     print(f"Error clicking opportunities button: {e}")
-        # await tab.disable_network_events()
+        # --- Deep Dive Link Extraction Phase ---
         csv_path = f"{FILE_DIR}/bid_recent.csv"
-        # if bid_recent.csv exists
+        
         if os.path.exists(csv_path):
-            print(f"Found {csv_path}. Processing individual opportunity URLs...")
+            print(f"Found {csv_path}. Processing individual distinct opportunity URLs...")
             df = pd.read_csv(csv_path)
             CITY_MAPPING = load_city_mapping('data/city.csv')
-            # Initialize new separate columns if they don't exist
+            
             for col in ['Name', 'Email', 'Phone', 'City']:
                 if col not in df.columns:
                     df[col] = ""
@@ -536,10 +494,8 @@ async def main():
                     print(f"Navigating to {url}")
                     await tab.go_to(url)
                     
-                    # Slight delay before initiating human-like loop
                     await asyncio.sleep(random.uniform(1.5, 3.0))
 
-                    # Look for the RFx General Information tab to confirm page load
                     selector = "//h2[contains(text(), 'RFx General Information')]"
                     success = await perform_human_loop(tab, selector, max_attempts=1)
 
@@ -547,44 +503,34 @@ async def main():
                         print(f"Warning: Could not definitively find general info tab on {url}")
 
                     page_source = await tab.page_source
-                    
-                    # Strip HTML tags to make regex matching for text/names much more reliable
                     clean_text = re.sub(r'<[^>]+>', ' ', page_source)
-                    # Remove excessive whitespaces
                     clean_text = re.sub(r'\s+', ' ', clean_text)
 
-                    # 1. Extract Email first to establish our search anchor
                     email_match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', clean_text)
                     email = email_match.group(0) if email_match else ""
 
-                    # 2. Extract Name & Phone around the email section
                     name = ""
                     phone = ""
                     
                     if email:
                         email_idx = clean_text.find(email)
-                        # Define a window around the email to search for context-specific details (200 chars before/after)
                         start_idx = max(0, email_idx - 200)
                         end_idx = min(len(clean_text), email_idx + 200)
                         window = clean_text[start_idx:end_idx]
 
-                        # Extract Name (Look for "Attention: First Last" inside the window)
                         attention_match = re.search(r'Attention:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', window)
                         if attention_match:
                             name = attention_match.group(1).strip()
                         else:
-                            # Fallback: Look for any two consecutive capitalized words right before the email
                             pre_email_window = clean_text[max(0, email_idx - 80):email_idx]
                             name_match = re.search(r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b', pre_email_window)
                             if name_match:
                                 name = name_match.group(1).strip()
 
-                        # Extract Phone (Standard North American formats: 123-456-7890, (123) 456-7890, 123.456.7890)
                         phone_match = re.search(r'\(?\b\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', window)
                         if phone_match:
                             phone = phone_match.group(0).strip()
 
-                    # 3. Determine the City using the provided function
                     row_dict = row.to_dict()
                     city = find_bcbid_city_match(row_dict, CITY_MAPPING)
 
@@ -592,7 +538,6 @@ async def main():
                         deep_scan_city = scan_text_for_cities(clean_text, CITY_MAPPING)
                         city = deep_scan_city
 
-                    # Update the DataFrame with the separated fields
                     df.at[index, 'Email'] = email
                     df.at[index, 'Name'] = name
                     df.at[index, 'Phone'] = phone
@@ -601,11 +546,8 @@ async def main():
                 except Exception as e:
                     print(f"Error processing {url}: {e}")
 
-            # Overwrite the original bid_recent.csv with the updated DataFrame
             df.to_csv(csv_path, index=False, encoding='utf-8')
-            print(f"Successfully processed URLs and updated {csv_path} with Name, Email, Phone, and City.")
-
-        # await asyncio.sleep(155)
+            print(f"Successfully processed URLs and updated {csv_path} with Contact fields.")
 
 if __name__ == "__main__":
     try:
