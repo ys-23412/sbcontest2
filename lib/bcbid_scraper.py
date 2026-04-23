@@ -277,7 +277,7 @@ async def main():
         global_all_dfs = []
         print(f"Navigating to {url} to state...")
         await tab.go_to(url)
-        for scan, scan_index in enumerate(scans):
+        for scan_index, scan in enumerate(scans):
             print(f"\n========== Starting {scan['name']} ==========")
 
             await asyncio.sleep(random.uniform(2.0, 4.0))
