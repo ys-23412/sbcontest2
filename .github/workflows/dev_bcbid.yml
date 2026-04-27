@@ -61,7 +61,7 @@ jobs:
       - name: Run Pydoll script
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 30
+          timeout_minutes: 40
           max_attempts: 2
           retry_on: error
           command: python -m lib.bcbid_scraper
