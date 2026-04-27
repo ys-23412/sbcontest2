@@ -276,7 +276,9 @@ def process_and_send_bcbid_tenders(params: dict):
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
         else:
             filtered_tender_records.append(record)
-
+    # save filtered tender records to file
+    with open(f'data/{file_prefix}_filtered.json', 'w') as f:
+        json.dump(filtered_tender_records, f, indent=4)
     print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
     final_mapped_data = []
 

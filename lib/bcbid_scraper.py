@@ -436,7 +436,10 @@ async def main():
                     await asyncio.sleep(10)
                 except Exception as e:
                     print(f"Error clicking 'Reset' button: {e}")
-
+            print(f"Scan {scan['name']} complete.")
+            # save csv as temp with scan name combine global dfs
+            df_temp = pd.concat(global_all_dfs, ignore_index=True)
+            df_temp.to_csv(f"{FILE_DIR}/{scan['name'].replace(' ', '_')}.csv", index=False)
 
         # --- END OF SCANS: Combine, Deduplicate and Save Phase ---
         print(f"\n========== Scans complete. Processing output... ==========")
@@ -457,7 +460,7 @@ async def main():
             try:
                 # Concatenate all DataFrames
                 final_df = pd.concat(global_all_dfs, ignore_index=True)
-                final_df.dropna(how='all', inplace=True) 
+                # final_df.dropna(how='all', inplace=True) 
                 
                 original_count = len(final_df)
                 # Drop duplicate URLs gathered from combining scans
