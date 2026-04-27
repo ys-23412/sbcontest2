@@ -124,7 +124,11 @@ def filter_tenders_by_last_run(tender_records: List[Dict], date_field: str = 'Is
             )
             
             if not parsed_datetime:
+                # just include it if it can't be parsed
+                filtered_records.append(record)
                 continue
+            else:
+                print(f"Date: {parsed_datetime}")
             
             if start_dt < parsed_datetime <= end_dt:
                 filtered_records.append(record)
