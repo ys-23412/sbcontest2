@@ -30,6 +30,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
+  DAYS_TO_CHECK: 5
 
 jobs:
   scraper_job:

@@ -254,9 +254,9 @@ async def main():
         tab = await browser.start()
         
         url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
-        
+        days_to_check = int(os.getenv('DAYS_TO_CHECK', 1))
         # Calculate consistent dates for both passes
-        min_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        min_date = (datetime.now() - timedelta(days=days_to_check)).strftime('%Y-%m-%d')
         max_date = datetime.now().strftime('%Y-%m-%d')
 
         # Create our scan sequences for the dual extraction
