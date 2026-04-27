@@ -83,7 +83,6 @@ unrelated_commodities = [
     "Snow Removal Services",
     "Security Guard Services",
     "Security and protection software",
-    "Passenger motor vehicles",
     "Live animals",
     "Notebook computer",
     "Transportation and Storage and Mail Services",
@@ -94,7 +93,6 @@ unrelated_commodities = [
     "Environmental Services",
     "Culvert",
     "Refuse collection and disposal",
-    "Electronic Components and Supplies",
     "Employee assistance programs",
     "Cleaning and janitorial services",
     "Archaeological services",
@@ -128,15 +126,6 @@ unrelated_commodities = [
 
 unrelated_organizations = [
     "City of Vancouver",
-    "Greater Vancouver Regional District",
-    "Greater Vancouver Regional District (Metro Vancouver)",
-    "City of Richmond",
-    "City of White Rock",
-    "City of Delta",
-    "City of Pitt Meadows",
-    "City of Abbotsford",
-    "City of Delta",
-    "City of Penticton",
 ]
 
 regional_districts = [
