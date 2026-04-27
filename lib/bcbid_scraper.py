@@ -272,7 +272,10 @@ async def main():
                 "values": target_organizations
             }
         ]
-        
+        # if directory exists
+        if not os.path.exists(FILE_DIR):
+            # remove directory
+            os.mkdir(FILE_DIR)
         global_all_table_htmls = []
         global_all_dfs = []
         print(f"Navigating to {url} to state...")
