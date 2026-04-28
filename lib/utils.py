@@ -158,7 +158,8 @@ target_organizations = [
     "School District 61 Greater Victoria",
     "School District 62 Sooke",
     "School District 63 Saanich",
-    'Corporation of the District of Saanich'
+    'Corporation of the District of Saanich',
+    'School District 63 Saanich',
 ]
 
 DEFAULT_CITY = "victoria"
