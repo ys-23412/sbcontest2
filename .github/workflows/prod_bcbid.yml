@@ -73,12 +73,8 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Pydoll script
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 15
-          max_attempts: 2
-          retry_on: error
-          command: python -m lib.bcbid_scraper
+        run: |
+          python -m lib.bcbid_scraper
 
       - name: Upload Raw Data for Processing
         if: success()
