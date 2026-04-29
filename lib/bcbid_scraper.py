@@ -391,6 +391,9 @@ async def main():
                 # break 
                 # If you want to just log it and continue as requested:
                 print("Continuing despite missing filter tags...")
+                from lib.discord import send_discord_message
+                discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+                send_discord_message(f"BC Bid Scraper Failed to start the scan for {scan['name']} @grandfleet:", discord_webhook_url)
                 break
             else:
                 print(f"✅ Validation passed: {scan['name']} tags are visible in the summary.")
