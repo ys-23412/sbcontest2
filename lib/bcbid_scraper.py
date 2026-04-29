@@ -396,7 +396,7 @@ async def main():
                 send_discord_message(f"BC Bid Scraper Failed to start the scan for {scan['name']} @grandfleet:", discord_webhook_url)
                 break
             else:
-                print(f"✅ Validation passed: {scan['name']} tags are visible in the summary.")
+                print(f"[SUCCESS] Validation passed: {scan['name']} tags are visible in the summary.")
             # ==========================================
             # 3. Scrape current Tabular Data
             try:
