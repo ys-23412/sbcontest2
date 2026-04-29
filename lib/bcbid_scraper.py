@@ -302,8 +302,10 @@ async def main():
             # 1. Set specific scan entity filters (Region or Organizations)
             try:
                 print(f"Setting text filters for {scan['name']}...")
-                filter_search = await tab.find(scan['input_id'], timeout=10)
+                filter_search = await tab.find(scan['input_id'], timeout=15)
                 await filter_search.click()
+                # also click on the parent element
+                # await filter_search.parent().click()
 
                 for value_tag in scan['values']:
                     print(f"Typing: {value_tag}")
@@ -315,6 +317,7 @@ async def main():
                 await tab.keyboard.press(Key.ESCAPE)
             except Exception as e:
                 print(f"Error during {scan['name']} filtering: {e}")
+                break
 
             # 2. Set Dates filters (applied on top of current scan limits)
             try:
@@ -345,7 +348,53 @@ async def main():
                 print(f"Set Issue Date filters: Min = {min_date}, Max = {max_date}")
             except Exception as e:
                 print(f"Error during date filtering: {e}")
+            # ==========================================
+            # FILTER VALIDATION CHECK
+            # ==========================================
+            print(f"Validating if {scan['name']} filters were successfully applied...")
+            
+            # Give the AJAX/DOM a moment to render the filter summary tags
+            await asyncio.sleep(3) 
 
+            # The summary data-id matches the input_id but without '_search'
+            # e.g., 'body_x_selBpmIdOrgaLevelOrgaNode_search' -> 'body_x_selBpmIdOrgaLevelOrgaNode'
+            summary_data_id = scan['input_id'].replace('_search', '')
+
+            validation_script = f"""
+                (() => {{
+                    const summaryUl = document.querySelector('ul.tag-summary[data-id="{summary_data_id}"]');
+                    if (!summaryUl) return false;
+                    
+                    // If it has the 'hidden' class, it means no filters were applied for this category
+                    if (summaryUl.classList.contains('hidden')) return false;
+                    
+                    // Ensure there is at least one active tag value rendered
+                    return summaryUl.querySelectorAll('li.tag-value').length > 0;
+                }})()
+            """
+            
+            validation_result = await tab.execute_script(validation_script, return_by_value=True, await_promise=True)
+            
+            try:
+                filters_applied = validation_result.get('result', {}).get('result', {}).get('value')
+            except Exception as e:
+                print(f"Error parsing validation script result: {e}")
+                filters_applied = False
+
+            if not filters_applied:
+                print(f"⚠️ ERROR: Validation failed for {scan['name']}. The filter labels did not appear.")
+                # Take an error screenshot for debugging later
+                await tab.take_screenshot(f'{FILE_DIR}/{scan["name"].replace(" ", "_")}_validation_error.png', quality=90)
+                
+                # You can choose to skip to the next scan here, or continue anyway. 
+                # If you want to skip:
+                # break 
+                # If you want to just log it and continue as requested:
+                print("Continuing despite missing filter tags...")
+                break
+            else:
+                print(f"✅ Validation passed: {scan['name']} tags are visible in the summary.")
+            # ==========================================
             # 3. Scrape current Tabular Data
             try:
                 print(f"Starting tabular data extraction for {scan['name']}...")
