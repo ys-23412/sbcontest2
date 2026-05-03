@@ -27,6 +27,7 @@ filters = {
     "location[1594]": "1594",
     "location[1618]": "1618",
     "location[1580]": "1580",
+    "location[1593]": "1593",
     "Apply_filters": "Apply filters",
     "record_per_page": "50",       # Number of records to display
     "current_tab": "t",            # Target active tab format
