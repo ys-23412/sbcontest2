@@ -230,12 +230,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v2
-        id: setup-chrome
-        with:
-          chrome-version: 'latest' # Options: latest, stable, beta, canary, or specific version
-          install-chromedriver: false # Optional: installs matching ChromeDriver
+      - name: Install Chrome via Homebrew
+        run: brew install --cask google-chrome
+
 
 
       - name: Install Python Dependencies

@@ -8,6 +8,9 @@ import pandas as pd
 from pydoll.browser import Chrome
 
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_canadabuys"
+
+if not os.path.exists(FILE_DIR):
+    os.makedirs(FILE_DIR)
 RAW_CSV = os.path.join(FILE_DIR, "canadabuys_enriched_bids.csv")
 OUTPUT_CSV = os.path.join(FILE_DIR, "canadabuys_final_details.csv")
 # 1. Editable Filters
