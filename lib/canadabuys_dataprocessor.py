@@ -170,7 +170,8 @@ def _map_canadabuys_tender_entry(tender_record: dict, params: dict, city_mapping
         ys_body['ys_enquiries'] = f"Buying Org: {org_buying}"
     else:
         ys_body['ys_enquiries'] = "Issued For"
-    
+    # cap the size of the enquiries field to 100 characters
+    ys_body['ys_enquiries'] = ys_body['ys_enquiries'][:90]
     is_windows = platform.system() == "Windows"
     
     # Parse Closing date
