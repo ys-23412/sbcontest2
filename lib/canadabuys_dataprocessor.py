@@ -418,7 +418,14 @@ def process_and_send_canadabuys_tenders(params: dict):
 
 if __name__ == "__main__":
     FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_canadabuys"
-    OUTPUT_CSV = os.path.join(FILE_DIR, "canadabuys_final_details.csv")
+    FILE_NAME = "canadabuys_final_details.csv"
+    potential_paths = [
+        os.path.join(FILE_DIR, FILE_NAME),    # Check in specific folder
+        os.path.join(os.getcwd(), FILE_NAME)  # Check in root directory
+    ]
+
+    # Find the first path that actually exists
+    OUTPUT_CSV = next((path for path in potential_paths if os.path.exists(path)), None)
     
     # check if csv exists
     if not os.path.exists(OUTPUT_CSV):
