@@ -271,16 +271,19 @@ jobs:
 
       - name: Handle CanadaBuys scrapped data
         run: |
+          ls screenshots
+          ls
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
           python -m lib.canadabuys_dataprocessor
+
           rm -rf data/city.csv
 
       - name: Upload Processed CSV folder
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots_canadabuys
-          path: screenshots_canadabuys/
+          name: screenshots
+          path: screenshots/
 
       - name: Upload Data
         if: always()
