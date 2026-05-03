@@ -233,8 +233,6 @@ jobs:
       - name: Install Chrome via Homebrew
         run: brew install --cask google-chrome
 
-
-
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -249,7 +247,7 @@ jobs:
         with:
           name: raw-data-canadabuys-${{ matrix.python-version }}
           path: |
-            screenshots_canadabuys/
+            screenshots/
           retention-days: 3
 
   processor_job_canadabuys:
