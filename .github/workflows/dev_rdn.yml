@@ -1,12 +1,17 @@
 name: Single Day Schedule Jobs Dev
 
 on:
-  workflow_dispatch: # Allows manual trigger
-    inputs:
+  workflow_dispatch:
+      inputs:
         target_job:
           description: 'Which job to run'
           required: true
-          default: 'build'
+          default: 'rdn'
+          type: choice
+          options:
+            - rdn
+            - porthardy
+            - canadabuys
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
