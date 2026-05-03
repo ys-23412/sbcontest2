@@ -214,7 +214,7 @@ jobs:
   # ==========================================
   scraper_job_canadabuys:
     if: ${{ github.event.inputs.target_job == 'canadabuys' }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -230,12 +230,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           
-      - name: Install Chrome manually
-        run: |
-          sudo apt update
-          sudo apt install -y wget
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v2
+        id: setup-chrome
+        with:
+          chrome-version: 'latest' # Options: latest, stable, beta, canary, or specific version
+          install-chromedriver: false # Optional: installs matching ChromeDriver
+
 
       - name: Install Python Dependencies
         run: |
