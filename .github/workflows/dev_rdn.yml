@@ -2,7 +2,11 @@ name: Single Day Schedule Jobs Dev
 
 on:
   workflow_dispatch: # Allows manual trigger
-
+    inputs:
+        target_job:
+          description: 'Which job to run'
+          required: true
+          default: 'build'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -29,6 +33,7 @@ env:
 # just manually reset proxies
 jobs:
   scraper_job_rdn:
+    if: ${{ github.event.inputs.target_job == 'rdn' }}
     runs-on: windows-latest
     strategy:
       max-parallel: 1
@@ -120,6 +125,7 @@ jobs:
   # DISTRICT OF PORT HARDY JOBS
   # ==========================================
   scraper_job_porthardy:
+    if: ${{ github.event.inputs.target_job == 'porthardy' }}
     runs-on: windows-latest
     strategy:
       max-parallel: 1
@@ -196,4 +202,88 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: upload_data_porthardy
+          path: data/
+
+  # ==========================================
+  # CANADABUYS JOBS
+  # ==========================================
+  scraper_job_canadabuys:
+    if: ${{ github.event.inputs.target_job == 'canadabuys' }}
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        python-version: ['3.13']
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install Chrome manually
+        run: |
+          sudo apt update
+          sudo apt install -y wget
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
+            
+      - name: Run CanadaBuys Pydoll script
+        run: python -m lib.canadabuys_scraper
+
+      - name: Upload CanadaBuys Raw Data for Processing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-data-canadabuys-${{ matrix.python-version }}
+          path: |
+            screenshots_canadabuys/
+          retention-days: 3
+
+  processor_job_canadabuys:
+    runs-on: macos-latest
+    needs: scraper_job_canadabuys
+    if: always() && contains(needs.scraper_job_canadabuys.result, 'success')
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Download Scraped Data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: raw-data-canadabuys-*
+          merge-multiple: true
+
+      - name: Handle CanadaBuys scrapped data
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements_tenders.txt
+          python -m lib.canadabuys_dataprocessor
+          rm -rf data/city.csv
+
+      - name: Upload Processed CSV folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots_canadabuys
+          path: screenshots_canadabuys/
+
+      - name: Upload Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload_data_canadabuys
           path: data/

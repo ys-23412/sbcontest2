@@ -206,7 +206,7 @@ def process_and_send_canadabuys_tenders(params: dict):
     print(f"⚙️ Starting processing for {len(tender_records)} CanadaBuys tender records...")
 
     # Filter by Execution Window
-    tender_records = filter_tenders_by_last_run(tender_records)
+    tender_records = filter_tenders_by_last_run(tender_records, date_field='Open/amendment date')
     
     # Pre-process keywords for filtering
     unrelated_phrases_lower = [phrase.lower() for phrase in unrelated_phrases]

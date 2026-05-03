@@ -2,6 +2,8 @@ import io
 import os
 import urllib.parse
 import asyncio
+import traceback
+from bs4 import BeautifulSoup
 import pandas as pd
 from pydoll.browser import Chrome
 
@@ -66,6 +68,12 @@ async def extract_tables():
     async with Chrome() as browser:
         # Start the browser session
         tab = await browser.start()
+
+        # timezone = await tab.evaluate("Intl.DateTimeFormat().resolvedOptions().timeZone")
+        # print(f"Browser Timezone: {timezone}")
+        # return
+        validation_result = await tab.execute_script("Intl.DateTimeFormat().resolvedOptions().timeZone", return_by_value=True, await_promise=True)
+        validated_timezone = validation_result.get('result', {}).get('result', {}).get('value')
         
         print("Navigating to the target URL...")
         await tab.go_to(target_url)
@@ -99,6 +107,8 @@ async def extract_tables():
                 # 2. CREATE 'link' COLUMN: Extract the URL from the first column (usually 'Title')
                 title_col = df.columns[0]
                 df['link'] = df[title_col].apply(lambda x: x[1] if isinstance(x, tuple) else None)
+
+                df['browser_timezone'] = validated_timezone
                 
                 # 3. CLEAN BODY CELLS: Convert all tuple cells back to normal strings (keep text only)
                 for col in df.columns:
@@ -128,19 +138,19 @@ async def extract_tables():
             print(f"\n❌ No tables were found on the page. Error details: {e}")
         # save to csv
         # we expect two tables on that page
-        df[1].to_csv(RAW_CSV, index=False)
+        df.to_csv(RAW_CSV, index=False)
 
-        if not os.path.exists(INPUT_CSV):
-            print(f"❌ Input file not found: {INPUT_CSV}")
+        if not os.path.exists(RAW_CSV):
+            print(f"❌ Input file not found: {RAW_CSV}")
             return
 
         # Read the dataset
-        df = pd.read_csv(INPUT_CSV)
+        df = pd.read_csv(RAW_CSV)
 
         for col in tender_detail_columns:
             if col not in df.columns:
                 df[col] = None
-         for index, row in df.iterrows():
+        for index, row in df.iterrows():
             url = row['link']
             if pd.isna(url):
                 continue
@@ -165,9 +175,31 @@ async def extract_tables():
                 # The ID of the <a> tag based on the provided HTML is 'edit-group-contact-information-id'
                 print("Clicking 'Contact information' tab...")
                 try:
-                    await tab.click('#edit-group-contact-information-id')
-                    await asyncio.sleep(1.5) # Wait for tab content transition to finish
+                    # 1. Locate the tab element
+                    contact_tab = await tab.find(id='edit-group-contact-information-id', timeout=5)
+                    
+                    # 2. Check its state via the 'aria-selected' attribute
+                    is_selected = contact_tab.get_attribute('aria-selected')
+                    
+                    # 3. Only click if it is NOT already selected
+                    if is_selected == 'true':
+                        print("✅ Contact tab is already open. Skipping click.")
+                    else:
+                        print("🖱️ Contact tab is closed. Clicking to open...")
+                        await contact_tab.click()
+                    await asyncio.sleep(2)
+                    # 4. Wait for the target content to be ready
+                    # (Even if the tab was already open, this safely ensures the content exists)
+                    content_element = await tab.find(id='edit-group-contact-information-id', timeout=5)
+                    # check for aria-selected="true" to ensure content is ready
+                    is_selected = content_element.get_attribute('aria-selected')
+                    if is_selected != 'true':
+                        print("❌ Content is not ready. Skipping click.")
+                        continue
+                    # 5. Grab your data!
+                    # text_data = await content_element.get_text()
                 except Exception as e:
+                    traceback.print_exc()
                     print(f"⚠️ Could not click Contact tab (it may already be open or missing): {e}")
 
                 # 3. Get updated page source after click and parse Contact Information
@@ -201,6 +233,7 @@ async def extract_tables():
                 print(f"✅ Extracted info for {url.split('/')[-1]}")
 
             except Exception as e:
+                traceback.print_exc()
                 print(f"❌ Failed to process {url}. Error: {e}")
 
     # Save the updated DataFrame
