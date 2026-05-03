@@ -102,6 +102,25 @@ def _map_canadabuys_tender_entry(tender_record: dict, params: dict, city_mapping
     entry['city_name'] = matched_city
     entry['ys_address'] = address_str if address_str and address_str.lower() != "nan" else matched_city
 
+    try:
+        address = unidecode(entry.get('ys_address', ''))
+    except Exception:
+        address = entry.get('ys_address', '')
+
+    # 2. Logic to cap at 75, ensuring we don't break a word
+    if len(address) > 75:
+        # Find the last space within the first 76 characters
+        # (Using 76 ensures that if index 75 is a space, we keep the full 75 chars)
+        last_space = address[:76].rfind(' ')
+        
+        if last_space != -1:
+            address = address[:last_space].rstrip()
+        else:
+            # Fallback: If no space exists at all, force a hard cut at 75
+            address = address[:75]
+
+    entry['ys_address'] = address
+
     # 2. Map 'ys_body' fields
     project_title = str(tender_record.get('Title', ''))
     ys_body['ys_project'] = re.sub(dash_pattern, '-', project_title).replace('–', '-')
