@@ -271,8 +271,8 @@ jobs:
 
       - name: Handle CanadaBuys scrapped data
         run: |
-          ls screenshots
           ls
+          ls screenshots || true
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
           python -m lib.canadabuys_dataprocessor
