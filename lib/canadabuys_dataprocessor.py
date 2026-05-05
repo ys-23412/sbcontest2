@@ -440,7 +440,15 @@ if __name__ == "__main__":
         if weekday in [5, 6]:
             print("Ignoring error on Saturday or Sunday.")
             exit(0)
-        raise ValueError("No File Found")
+        # raise ValueError("No File Found")
+        discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+        send_discord_embed(
+            webhook_url=discord_webhook_url,
+            title="🤖 CanadaBuys Harvester: Failure",
+            description=f"CSV processing failed for {OUTPUT_CSV}.",
+            fields={"Error": "File not found"},
+            color=15158332 # Red
+        )
     else:
         print(f"Processing {OUTPUT_CSV}...")
         tender_records = pd.read_csv(OUTPUT_CSV)
