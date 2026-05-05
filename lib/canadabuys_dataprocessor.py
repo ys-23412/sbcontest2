@@ -428,6 +428,9 @@ if __name__ == "__main__":
     # Find the first path that actually exists
     OUTPUT_CSV = next((path for path in potential_paths if os.path.exists(path)), None)
     
+    # force to empty string if NONE
+    if OUTPUT_CSV is None:
+        OUTPUT_CSV = ""
     # check if csv exists
     if not os.path.exists(OUTPUT_CSV):
         print(f"Error: The file {OUTPUT_CSV} was not found.")
