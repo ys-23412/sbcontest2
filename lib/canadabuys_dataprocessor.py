@@ -423,7 +423,7 @@ if __name__ == "__main__":
     potential_paths = [
         os.path.join(FILE_DIR, FILE_NAME),    # Check in specific folder
         os.path.join(os.getcwd(), FILE_NAME),  # Check in root directory
-        os.path.join('screenshots_canadabuys', "..", FILE_NAME)
+        os.path.join('screenshots_canadabuys', FILE_NAME)
     ]
 
     # Find the first path that actually exists
