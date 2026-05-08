@@ -238,6 +238,7 @@ jobs:
           name: raw-data-canadabuys-${{ matrix.python-version }}
           path: |
             screenshots/
+            screenshots_canadabuys/
           retention-days: 3
 
   processor_job_canadabuys:
