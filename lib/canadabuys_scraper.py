@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from pydoll.browser import Chrome
 
+from lib.discord import send_discord_message
+
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_canadabuys"
 
 if not os.path.exists(FILE_DIR):
@@ -140,6 +142,10 @@ async def extract_tables():
                 
         except ValueError as e:
             print(f"\n❌ No tables were found on the page. Error details: {e}")
+            discord_message = f"❌ No tables were found on the page. Error details: {e}"
+            webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+            send_discord_message(discord_message, webhook_url)
+            return
         # save to csv
         # we expect two tables on that page
         df.to_csv(RAW_CSV, index=False)
