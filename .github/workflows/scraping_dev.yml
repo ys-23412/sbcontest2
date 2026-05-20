@@ -88,7 +88,7 @@ jobs:
           kill -s SIGINT $FFMPEG_PID || true
           wait $FFMPEG_PID || true
 
-          echo "Video recording completed: video_recordings/session_pydoll.mp4"
+          echo "Video recording completed: video_recordings/session.mp4"
 
       - name: Upload Screenshots
         if: always()
@@ -118,8 +118,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xvfb-session-video
-          path: video_recordings/session_pydoll.mp4
+          name: xvfb-session-video-bonfire
+          path: video_recordings/session.mp4
   # JOB 2: Dev Bids and Tenders
   bids-and-tenders-dev:
     runs-on: ubuntu-latest
