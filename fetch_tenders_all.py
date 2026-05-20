@@ -290,7 +290,42 @@ async def main():
 
     options = ChromiumOptions()
     # Pydoll humanization and stealth
-    options.add_argument("--disable-blink-features=AutomationControlled")
+   if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
+        display_var = os.environ.get("DISPLAY")
+        print("display", display_var)
+        options.add_argument(f'--display=:99')
+
+    options.add_argument("--enable-webgl")
+
+    current_time = int(time.time())
+    number_last = random.randint(3, 10)
+    options.browser_preferences = {
+        'profile': {
+            'last_engagement_time': str(current_time - (number_last * 60 * 60)),  # 3 hours ago
+            'exited_cleanly': True,
+            'exit_type': 'Normal',
+        },
+        'safebrowsing': {'enabled': True},
+    }
+
+    # Handle Headless environment variables
+    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    # url encode password
+    # proxy_url = os.environ.get("PROXY_URL")
+    # if proxy_url:
+    #     options.add_argument(f'--proxy-server={proxy_url}')
+
+
+    # proxy = 'geo.iproyal.com:12321'
+    # proxy_username = os.getenv('IPROYAL_USERNAME')
+    # proxy_password = os.getenv('IPROYAL_PASSWORD')
+    # proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
+
+    # if proxy_username and proxy_password:
+    #     proxy_url = f'http://{proxy_auth}@{proxy}'
+    #     print("Using proxy:", proxy_url)
+    #     options.add_argument(f'--proxy-server={proxy_url}')
+
 
     print("--- Initializing Pydoll Browser ---")
     has_errors = False
