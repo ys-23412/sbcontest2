@@ -242,14 +242,13 @@ async def fetch_single_tender(tab: Tab, config: dict):
             await tab.go_to(initial_url)
         login_flag = False
         try:
-            login_element = await tab.query('//*[text()="Log In"]', raise_exc=False)
-            register_element = await tab.query('//*[text()="Register"]', raise_exc=False)
-            euna_supplier_network = await tab.query('//*[contains(text(), "My Euna Supplier Network")]', raise_exc=False)
+            login_element = await tab.query('//*[text()="Log In"]', raise_exc=False, timeout=5)
+            register_element = await tab.query('//*[text()="Register"]', raise_exc=False, timeout=5)
         except Exception as e:
             login_element = None 
             register_element = None
         try:
-            euna_supplier_network = await tab.query('//*[text()="My Euna Supplier Network]"', timeout=5000)
+            euna_supplier_network = await tab.query('//*[text()="My Euna Supplier Network]"', timeout=5, raise_exc=False)
         except Exception as e:
             euna_supplier_network = None
 
