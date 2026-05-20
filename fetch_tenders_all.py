@@ -15,9 +15,102 @@ from pydoll.constants import Key, By, ScrollPosition
 # Assuming you have a captcha solving utility like the one in your example
 # If not, you may need to find or create one. For this example, we will
 # assume a placeholder function exists.
-# from camoufox_captcha import solve_captcha
+# copied from bc bid logic
+async def action_scroll_and_hover(tab: Tab):
+    """Simulates a user scrolling and moving the mouse naturally."""
+    print("Executing: Scroll and Hover")
+    for _ in range(random.randint(2, 4)):
+        scroll_amount = random.randint(200, 500)
+        await tab.scroll.by(ScrollPosition.DOWN, scroll_amount, smooth=True)
+        await asyncio.sleep(random.uniform(0.8, 1.5))
+    await tab.mouse.move(random.randint(100, 700), random.randint(100, 500), humanize=True)
 
+async def action_random_drag(tab: Tab):
+    """Simulates accidental or incidental mouse drags/selection."""
+    print("Executing: Random Drag")
+    await tab.mouse.drag(100, 200, 400, 300, humanize=True)
+    await asyncio.sleep(random.uniform(1.0, 2.0))
+
+async def action_reading_pause(tab: Tab):
+    """Simulates a user stopping to read content."""
+    print("Executing: Reading Pause")
+    await tab.mouse.move(500, 300, humanize=True)
+    await asyncio.sleep(random.uniform(3.0, 5.0))
+
+async def action_hesitant_scroll(tab: Tab):
+    """Simulates scrolling down then back up slightly."""
+    print("Executing: Hesitant Scroll")
+    await tab.scroll.by(ScrollPosition.DOWN, 600, smooth=True)
+    await asyncio.sleep(1)
+    await tab.scroll.by(ScrollPosition.UP, 200, smooth=True)
+
+async def action_wide_mouse_sweep(tab):
+    """Simulates a user moving the mouse across the screen arbitrarily."""
+    print("Executing: Wide Mouse Sweep")
+    # Determine sweeping from left-to-right or right-to-left
+    if random.choice([True, False]):
+        start_x, end_x = random.randint(10, 200), random.randint(700, 1100)
+    else:
+        start_x, end_x = random.randint(700, 1100), random.randint(10, 200)
+        
+    start_y = random.randint(50, 800)
+    end_y = random.randint(50, 800)
+
+    await tab.mouse.move(start_x, start_y, humanize=True)
+    await asyncio.sleep(random.uniform(0.1, 0.5))
+    await tab.mouse.move(end_x, end_y, humanize=True)
+    await asyncio.sleep(random.uniform(0.5, 1.5))
+
+async def action_micro_clicks(tab):
+    """Simulates distracted clicking in neutral 'dead' areas with heavy cursor jitter."""
+    print("Executing: Micro Clicks")
+    
+    # Target "dead" margin areas (far left/right or extreme top/bottom)
+    x = random.choice([random.randint(10, 150), random.randint(850, 1100)])
+    y = random.choice([random.randint(10, 150), random.randint(600, 900)])
+    
+    await tab.mouse.move(x, y, humanize=True)
+    await asyncio.sleep(random.uniform(0.3, 1.0))
+
+    # Perform 1 to 4 random, jittery clicks
+    for _ in range(random.randint(1, 4)):
+        # Apply a tiny bit of jitter between clicks (like a shaky hand)
+        x += random.randint(-4, 4)
+        y += random.randint(-4, 4)
+        await tab.mouse.move(x, y, humanize=False) # Skip humanize for micro pixel shifts
+        
+        # await tab.mouse.click() # Actually execute the click!
+        
+        # Sometime double click fast, sometimes pause
+        await asyncio.sleep(random.uniform(0.05, 0.4))
 # --- Helper Function (Unchanged) ---
+
+async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
+    """Loops through human actions until the selector is found."""
+    actions = [
+        action_scroll_and_hover, action_random_drag, action_reading_pause,
+        action_hesitant_scroll, action_wide_mouse_sweep, action_micro_clicks,
+        action_read_and_highlight, action_tab_switch_hesitation
+    ]
+    random.shuffle(actions)
+    
+    for i in range(min(max_attempts, len(actions))):
+        try:
+            # Execute a random unique action
+            await actions[i](tab)
+            
+            # Check if element exists
+            print(f"Check {i+1}: Looking for selector...")
+            found = await tab.query(selector, timeout=3, raise_exc=False)
+            if found:
+                print("Element found during human-like actions!")
+                return True
+        except Exception as e:
+            print(f"Action {i} failed: {e}")
+            await tab.take_screenshot(f'{FILE_DIR}/action_error_{i}.png')
+            
+    return False
+
 # This function works on the parsed HTML (soup) and does not need modification.
 def get_tag_on_details_page(soup, labelText="Project Description:"):
     """
@@ -210,9 +303,13 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     print(f"({index + 1}/{len(content_df)}) Navigating to detail page for {CITY_NAME}: {full_link}")
                     
                     try:
-                        await tab.enable_auto_solve_cloudflare_captcha()
-                        await tab.go_to(full_link)
-                        await tab.disable_auto_solve_cloudflare_captcha()
+                        time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 5
+                        
+                        # The context manager automatically handles the bypass during navigation
+                        async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
+                            await tab.go_to(full_link)
+                        selector = "//body"
+                        await perform_human_loop(tab, selector, 1)
                         # print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
                         new_page_source = await tab.page_source
                         with open(f"{base_dir}/{CITY_NAME}_tender_scrap_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
