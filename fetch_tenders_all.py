@@ -94,7 +94,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
         print(f"Navigating to {BASE_URL} page...")
         initial_url = f'{BASE_URL}'
         await tab.enable_auto_solve_cloudflare_captcha()
-        await tab.goto(initial_url)
+        await tab.go_to(initial_url)
         login_flag = False
         try:
             login_element = await tab.query('//*[text()="Log In"]', raise_exc=False)
