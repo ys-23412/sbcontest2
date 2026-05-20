@@ -156,9 +156,8 @@ async def fetch_single_tender(tab: Tab, config: dict):
 
             # --- 2. Scrape the Main Table ---
             print(f"Parsing opportunities table for {CITY_NAME}...")
-            soup = BeautifulSoup(page_source, 'html.parser')
-            dataTables_scroll_soup = soup.find('div', {'class': 'dataTables_scroll'})
-            
+            dataTables_scroll_soup = BeautifulSoup(page_source, 'html.parser')
+            table_wrapper = dataTables_scroll_soup.find('div', class_='dataTables_scroll')
             if not table_wrapper:
                 # Fallback: Sometimes if scrolling isn't triggered, DataTables just uses a wrapper ID
                 table_wrapper = dataTables_scroll_soup.find('div', id=lambda x: x and x.endswith('_wrapper'))
