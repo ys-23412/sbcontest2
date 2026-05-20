@@ -238,8 +238,8 @@ async def fetch_single_tender(tab: Tab, config: dict):
         # Create a new page for each tender within the existing browser instance
         print(f"Navigating to {BASE_URL} page...")
         initial_url = f'{BASE_URL}'
-        await tab.enable_auto_solve_cloudflare_captcha()
-        await tab.go_to(initial_url)
+        async with tab.expect_and_bypass_cloudflare_captcha():
+            await tab.go_to(initial_url)
         login_flag = False
         try:
             login_element = await tab.query('//*[text()="Log In"]', raise_exc=False)
@@ -290,8 +290,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 traceback.print_exc()
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
             # Log In look to element Log In, if so, set login flag to true
-            await tab.disable_auto_solve_cloudflare_captcha()
-            await asyncio.sleep(random.uniform(5, 10))
+            await asyncio.sleep(random.uniform(5, 7))
             # await page.wait_for_timeout(10000)
             # await page.wait_for_load_state('networkidle', timeout=10000)
             page_source = await tab.page_source
