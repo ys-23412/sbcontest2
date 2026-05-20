@@ -6,6 +6,7 @@ from io import StringIO
 from bs4 import BeautifulSoup, NavigableString
 import time
 import random
+# pydoll integration frozen, doesnt work with cloudflare turnsile, ehhh
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
