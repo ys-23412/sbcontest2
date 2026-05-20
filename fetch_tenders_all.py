@@ -1,14 +1,15 @@
 import asyncio
-from camoufox.async_api import AsyncCamoufox # Import AsyncCamoufox
-from camoufox_captcha import solve_captcha
-
-
-import asyncio
 import os
 import pandas as pd
 from dotenv import load_dotenv
 from io import StringIO
 from bs4 import BeautifulSoup, NavigableString
+
+# Pydoll Imports
+from pydoll.browser.chromium import Chrome
+from pydoll.browser.options import ChromiumOptions
+from pydoll.browser.tab import Tab
+from pydoll.constants import Key, By, ScrollPosition
 # Assuming you have a captcha solving utility like the one in your example
 # If not, you may need to find or create one. For this example, we will
 # assume a placeholder function exists.
@@ -65,7 +66,7 @@ def get_tag_on_details_page(soup, labelText="Project Description:"):
         return "" # Return empty if the label itself is not found
 
 
-async def fetch_single_tender(page: AsyncCamoufox, config: dict):
+async def fetch_single_tender(tab: Tab, config: dict):
     """
     Asynchronously navigates to a URL using a given Camoufox browser instance, 
     retrieves the inner HTML, and scrapes tender data.
@@ -91,17 +92,18 @@ async def fetch_single_tender(page: AsyncCamoufox, config: dict):
         # Create a new page for each tender within the existing browser instance
         print(f"Navigating to {BASE_URL} page...")
         initial_url = f'{BASE_URL}'
-        await page.goto(initial_url)
-        # Log In look to element Log In, if so, set login flag to true
+        await tab.enable_auto_solve_cloudflare_captcha()
+        await tab.goto(initial_url)
         login_flag = False
         try:
-            login_element = await page.wait_for_selector('text="Log In"', timeout=5000)
-            register_element = await page.wait_for_selector('text="Register"', timeout=5000)
+            login_element = await tab.query('//*[text()="Log In"]', raise_exc=False)
+            register_element = await tab.query('//*[text()="Register"]', raise_exc=False)
+            euna_supplier_network = await tab.query('//*[contains(text(), "My Euna Supplier Network")]', raise_exc=False)
         except Exception as e:
             login_element = None 
             register_element = None
         try:
-            euna_supplier_network = await page.wait_for_selector('text="My Euna Supplier Network"', timeout=5000)
+            euna_supplier_network = await tab.query('//*[text()="My Euna Supplier Network]"', timeout=5000)
         except Exception as e:
             euna_supplier_network = None
 
@@ -112,30 +114,27 @@ async def fetch_single_tender(page: AsyncCamoufox, config: dict):
             print("user is already logged in...")
             login_flag = False
         try:
-            print("Solving captcha challenge...")
-            success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
-            if not success:
-                print(f"Failed to solve captcha challenge for {CITY_NAME}. Skipping.")
-                return # Skip this tender if captcha fails
-    
-            href = await page.evaluate('() => document.location.href')
+            url_result = await tab.execute_script('window.location.href', return_by_value=True)
+            href = url_result.get('result', {}).get('value', '')
             try:
                 if "login" in href or login_flag:
                     # go to login page
-                    await page.goto(f"{initial_url}/login")
-                    await page.wait_for_load_state('networkidle', timeout=3000)
-                    await page.wait_for_timeout(3000)
+                    await tab.go_to(f"{initial_url}/login")
+                    await asyncio.sleep(4)
                     print(f"Current page is login for {CITY_NAME}, proceeding with login...")
                     print("Entering email...")
-                    await page.locator("input[type='email']").fill(EMAIL)
-                    await page.locator('button[type="submit"]').click()
+                    email_input = await tab.find("input[type='email']", timeout=10)
+                    await email_input.type_text(EMAIL, humanize=True)
+                    submit_btn = await tab.find('button[type="submit"]', timeout=5)
+                    await submit_btn.click()
         
-                    await page.wait_for_timeout(6000) # Wait for password field to appear
+                    await asyncio.sleep(6) # Wait for password field to appear
 
                     print("Entering password...")
-                    await page.locator("input[type='password']").fill(PASSWORD)
-                    # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_input_password.png")
-                    await page.locator('button[type="submit"]').click()
+                    pass_input = await tab.find("input[type='password']", timeout=10)
+                    await pass_input.type_text(PASSWORD, humanize=True)
+                    submit_btn_pass = await tab.find('button[type="submit"]', timeout=5)
+                    await submit_btn_pass.click()
 
                     print("Login submitted. Waiting for opportunities page...")
                 else:
@@ -143,10 +142,11 @@ async def fetch_single_tender(page: AsyncCamoufox, config: dict):
                     print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
             except Exception as e:
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
-
-            await page.wait_for_timeout(10000)
-            await page.wait_for_load_state('networkidle', timeout=10000)
-            page_source = await page.content()
+            # Log In look to element Log In, if so, set login flag to true
+            await tab.disable_auto_solve_cloudflare_captcha()
+            # await page.wait_for_timeout(10000)
+            # await page.wait_for_load_state('networkidle', timeout=10000)
+            page_source = await tab.page_source
             with open(f"{base_dir}/{CITY_NAME}_bonfire.html", "w", encoding='utf-8', errors='ignore') as f:
                 f.write(page_source)
 
@@ -205,19 +205,17 @@ async def fetch_single_tender(page: AsyncCamoufox, config: dict):
                     print(f"({index + 1}/{len(content_df)}) Navigating to detail page for {CITY_NAME}: {full_link}")
                     
                     try:
-                        await page.goto(full_link)
-                        success = await solve_captcha(page, captcha_type='cloudflare', challenge_type='interstitial')
-                        if not success:
-                            print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
-                            new_page_source = await page.inner_html('html')
-                            with open(f"{base_dir}/{CITY_NAME}_tender_fail_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
-                                f.write(new_page_source)
-                            continue
-                        await page.wait_for_load_state('domcontentloaded')
-                        await page.wait_for_timeout(1000)
+                        await tab.enable_auto_solve_cloudflare_captcha()
+                        await tab.go_to(full_link)
+                        await tab.disable_auto_solve_cloudflare_captcha()
+                        print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
+                        new_page_source = await tab.page_source
+                        with open(f"{base_dir}/{CITY_NAME}_tender_scrap_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
+                            f.write(new_page_source)
+
                         # Take screenshot and get page source
                         screenshot_path = f"{base_dir}/{CITY_NAME}_tender_{index}.png"
-                        await page.screenshot(path=screenshot_path)
+                        await tab.take_screenshot(path=screenshot_path)
                         new_page_source = await page.inner_html('html')
 
                         with open(f"{base_dir}/{CITY_NAME}_tender_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
@@ -290,36 +288,57 @@ async def main():
         {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
     ]
 
-    print("--- Initializing AsyncCamoufox Browser ---")
+    options = ChromiumOptions()
+    # Pydoll humanization and stealth
+    options.add_argument("--disable-blink-features=AutomationControlled")
+
+    print("--- Initializing Pydoll Browser ---")
     has_errors = False
     try:
         # Initialize AsyncCamoufox once
-        async with AsyncCamoufox(
-            headless=True,
-            geoip=True,
-            humanize=False,
-            i_know_what_im_doing=True,
-            config={'forceScopeAccess': True},
-            disable_coop=True,
-        ) as browser:
-            print("--- Browser initialized. Starting tender fetches ---")
+        # async with AsyncCamoufox(
+        #     headless=True,
+        #     geoip=True,
+        #     humanize=False,
+        #     i_know_what_im_doing=True,
+        #     config={'forceScopeAccess': True},
+        #     disable_coop=True,
+        # ) as browser:
+        #     print("--- Browser initialized. Starting tender fetches ---")
             
-            page = await browser.new_page() 
+        #     page = await browser.new_page() 
+        #     for config_item in tender_configs:
+        #         # Retrieve the actual BASE_URL from environment variables using the key
+        #         base_url = os.getenv(config_item['base_url_env_key'])
+        #         if not base_url:
+        #             print(f"Warning: {config_item['base_url_env_key']} not found in environment variables. Skipping {config_item['city_name']}.")
+        #             continue
+                
+        #         # Create a complete config dictionary to pass to fetch_single_tender
+        #         current_tender_config = {
+        #             "base_url": base_url,
+        #             "csv_file_name": config_item['csv_file_name'],
+        #             "city_name": config_item['city_name']
+        #         }
+        #         await fetch_single_tender(page, current_tender_config) # Pass the browser instance
+        #     print("--- All tender fetches completed. ---")
+        async with Chrome(options=options) as browser:
+            tab = await browser.start()
             for config_item in tender_configs:
-                # Retrieve the actual BASE_URL from environment variables using the key
                 base_url = os.getenv(config_item['base_url_env_key'])
                 if not base_url:
-                    print(f"Warning: {config_item['base_url_env_key']} not found in environment variables. Skipping {config_item['city_name']}.")
+                    print(f"Skipping {config_item['city_name']} - No URL found.")
                     continue
                 
-                # Create a complete config dictionary to pass to fetch_single_tender
-                current_tender_config = {
+                current_config = {
                     "base_url": base_url,
                     "csv_file_name": config_item['csv_file_name'],
                     "city_name": config_item['city_name']
                 }
-                await fetch_single_tender(page, current_tender_config) # Pass the browser instance
-            print("--- All tender fetches completed. ---")
+                
+                await fetch_single_tender(tab, current_config)
+                # Short rest between different portals
+                await asyncio.sleep(random.uniform(5, 10))
 
     except Exception as e:
         has_errors = True
