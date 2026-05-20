@@ -147,6 +147,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
             # Log In look to element Log In, if so, set login flag to true
             await tab.disable_auto_solve_cloudflare_captcha()
+            await asyncio.sleep(random.uniform(5, 10))
             # await page.wait_for_timeout(10000)
             # await page.wait_for_load_state('networkidle', timeout=10000)
             page_source = await tab.page_source
@@ -158,10 +159,12 @@ async def fetch_single_tender(tab: Tab, config: dict):
             soup = BeautifulSoup(page_source, 'html.parser')
             dataTables_scroll_soup = soup.find('div', {'class': 'dataTables_scroll'})
             
-            if not dataTables_scroll_soup:
-                print(f"Could not find the main data table for {CITY_NAME}. Exiting this fetch.")
-                return pd.DataFrame()
+            if not table_wrapper:
+                # Fallback: Sometimes if scrolling isn't triggered, DataTables just uses a wrapper ID
+                table_wrapper = dataTables_scroll_soup.find('div', id=lambda x: x and x.endswith('_wrapper'))
 
+            if not table_wrapper:
+                print("this doesnt matter if it fails it fails")
             # Extract Headers
             header_list = []
             header_table_soup = dataTables_scroll_soup.find('div', class_='dataTables_scrollHead')
