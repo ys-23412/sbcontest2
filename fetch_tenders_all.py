@@ -4,7 +4,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from io import StringIO
 from bs4 import BeautifulSoup, NavigableString
-
+import time
+import random
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
