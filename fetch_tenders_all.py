@@ -213,7 +213,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         await tab.enable_auto_solve_cloudflare_captcha()
                         await tab.go_to(full_link)
                         await tab.disable_auto_solve_cloudflare_captcha()
-                        print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
+                        # print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
                         new_page_source = await tab.page_source
                         with open(f"{base_dir}/{CITY_NAME}_tender_scrap_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
                             f.write(new_page_source)
