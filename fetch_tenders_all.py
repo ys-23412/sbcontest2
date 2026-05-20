@@ -221,10 +221,6 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         # Take screenshot and get page source
                         screenshot_path = f"{base_dir}/{CITY_NAME}_tender_{index}.png"
                         await tab.take_screenshot(path=screenshot_path)
-                        new_page_source = await page.inner_html('html')
-
-                        with open(f"{base_dir}/{CITY_NAME}_tender_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
-                            f.write(new_page_source)
 
                         # Parse details from the new page
                         detail_soup = BeautifulSoup(new_page_source, 'html.parser')
@@ -244,6 +240,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         project_data.append(page_data)
 
                     except Exception as e:
+                        traceback.print_exc()
                         print(f"Error processing link {full_link} for {CITY_NAME}: {e}")
                 else:
                     print(f"No Action Link found for row {index} in {CITY_NAME}.")
