@@ -6,6 +6,7 @@ from io import StringIO
 from bs4 import BeautifulSoup, NavigableString
 import time
 import random
+import traceback
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
@@ -124,17 +125,17 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     await asyncio.sleep(4)
                     print(f"Current page is login for {CITY_NAME}, proceeding with login...")
                     print("Entering email...")
-                    email_input = await tab.find("input[type='email']", timeout=10)
+                    email_input = await tab.find(tag_name="input", type="email", timeout=10)
                     await email_input.type_text(EMAIL, humanize=True)
-                    submit_btn = await tab.find('button[type="submit"]', timeout=5)
+                    submit_btn = await tab.find(tag_name="button", type="submit", timeout=5)
                     await submit_btn.click()
         
                     await asyncio.sleep(6) # Wait for password field to appear
 
                     print("Entering password...")
-                    pass_input = await tab.find("input[type='password']", timeout=10)
+                    pass_input = await tab.find(tag_name="input", type="password", timeout=10)
                     await pass_input.type_text(PASSWORD, humanize=True)
-                    submit_btn_pass = await tab.find('button[type="submit"]', timeout=5)
+                    submit_btn_pass = await tab.find(tag_name="button", type="submit", timeout=5)
                     await submit_btn_pass.click()
 
                     print("Login submitted. Waiting for opportunities page...")
@@ -142,6 +143,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
                     print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
             except Exception as e:
+                traceback.print_exc()
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
             # Log In look to element Log In, if so, set login flag to true
             await tab.disable_auto_solve_cloudflare_captcha()
