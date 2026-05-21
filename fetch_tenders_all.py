@@ -265,7 +265,6 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 if "login" in href or login_flag:
                     # go to login page
                     await tab.go_to(f"{initial_url}/login")
-                    await asyncio.sleep(4)
                     print(f"Current page is login for {CITY_NAME}, proceeding with login...")
                     print("Entering email...")
                     email_input = await tab.find(tag_name="input", type="email", timeout=10)
@@ -289,9 +288,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 traceback.print_exc()
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
             # Log In look to element Log In, if so, set login flag to true
-            await asyncio.sleep(random.uniform(5, 7))
-            # await page.wait_for_timeout(10000)
-            # await page.wait_for_load_state('networkidle', timeout=10000)
+            await asyncio.sleep(random.uniform(4, 5))
             page_source = await tab.page_source
             with open(f"{base_dir}/{CITY_NAME}_bonfire.html", "w", encoding='utf-8', errors='ignore') as f:
                 f.write(page_source)
@@ -352,13 +349,17 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     print(f"({index + 1}/{len(content_df)}) Navigating to detail page for {CITY_NAME}: {full_link}")
                     
                     try:
-                        time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 5
-                        
-                        # The context manager automatically handles the bypass during navigation
-                        async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
+                        if index < 2:
+                            time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 5
+                            
+                            async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
+                                await tab.go_to(full_link)
+                        else:
+                            # Direct navigation for everything else
                             await tab.go_to(full_link)
-                        selector = "//body"
-                        await perform_human_loop(tab, selector, 1)
+                        # dont need the human loop
+                        # selector = "//body"
+                        # await perform_human_loop(tab, selector, 1)
                         # print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
                         new_page_source = await tab.page_source
                         with open(f"{base_dir}/{CITY_NAME}_tender_scrap_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
