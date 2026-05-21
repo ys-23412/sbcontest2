@@ -34,7 +34,7 @@ env:
 jobs:
   # JOB 1: Camofox Dev Tenders
   bonfire-tenders:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     # Job-specific Environment Variables
     env:
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
@@ -74,8 +74,6 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
-          pip install playwright
-          playwright install chromium
 
       - name: Run Browser Automation and Record Xvfb Session
         run: |
