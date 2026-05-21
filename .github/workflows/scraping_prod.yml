@@ -138,14 +138,14 @@ jobs:
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install system dependencies (Chrome/Xvfb)
         run: |
           curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt update
-          sudo apt install -y google-chrome-stable xvfb ffmpeg
+          sudo apt install -y google-chrome-stable xvfb
 
       - name: Install Python dependencies
         run: |
@@ -159,21 +159,9 @@ jobs:
           mkdir -p video_recordings
           # Start Xvfb
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          sleep 2
-          
-          # Start FFmpeg recording
-          ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "video_recordings/session.mp4" &
-          FFMPEG_PID=$!
-          
-          # Run Script
-          echo "Running process_bids_tenders.py..."
           python process_bids_tenders.py
           
-          # Stop Recording
-          kill -s SIGINT $FFMPEG_PID || true
-          wait $FFMPEG_PID || true
 
-          echo "Video recording completed: video_recordings/session.mp4"
 
       - name: Upload Screenshots
         if: always()
