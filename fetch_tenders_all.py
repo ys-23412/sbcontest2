@@ -157,8 +157,9 @@ async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
                 print("Element found during human-like actions!")
                 return True
         except Exception as e:
+            base_dir = os.getenv('BASE_DIR', "screenshots")
             print(f"Action {i} failed: {e}")
-            await tab.take_screenshot(f'{FILE_DIR}/action_error_{i}.png')
+            await tab.take_screenshot(f'{base_dir}/action_error_{i}.png')
             
     return False
 
@@ -355,6 +356,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                             async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
                                 await tab.go_to(full_link)
                         else:
+                            await asyncio.sleep(1)
                             # Direct navigation for everything else
                             await tab.go_to(full_link)
                         # dont need the human loop
@@ -522,7 +524,7 @@ async def main():
                 
                 await fetch_single_tender(tab, current_config)
                 # Short rest between different portals
-                await asyncio.sleep(random.uniform(5, 10))
+                await asyncio.sleep(random.uniform(2, 5))
 
     except Exception as e:
         has_errors = True
