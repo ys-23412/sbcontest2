@@ -454,7 +454,7 @@ if __name__ == "__main__":
                     title="🤖 BC Bid Harvester: Failure",
                     description="Csv processing failed, csv should exist.",
                     fields={"💤 Status": "BAD THINGS HAPPENED"},
-                    color=9807270 # Grey
+                    color="#FF0000" # Grey
                 )
             except Exception as e:
                 print(f"❌ An unexpected error occurred: {e}")
