@@ -358,7 +358,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         else:
                             # Direct navigation for everything else
                             await tab.go_to(full_link)
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(random.uniform(6, 8))
                         # dont need the human loop
                         # selector = "//body"
                         # await perform_human_loop(tab, selector, 1)
@@ -439,6 +439,9 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         ]
                         project_data.append(page_data)
                         print(page_data)
+                        if "fraserhealth" in full_link or "icbc" in full_link:
+                            await asyncio.sleep(random.uniform(5, 8))
+                            
 
                     except Exception as e:
                         traceback.print_exc()
