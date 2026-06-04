@@ -443,8 +443,12 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     
                                 try:
                                     # Use dateutil parser to cleanly format the date string
-                                    open_date = first_raw_date
-                                    print(f"Successfully parsed fallback date: {open_date}")
+                                    # make sure length is greater than 5 characters
+                                    if len(first_raw_date) > 5:
+                                        open_date = first_raw_date
+                                        print(f"Successfully parsed fallback date: {open_date}")
+                                    else:
+                                        print("failed to parse date)
                     
                                 except (ValueError, TypeError) as e:
                                     print(f"Could not parse the found date string: {e}")
