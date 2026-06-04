@@ -351,14 +351,14 @@ async def fetch_single_tender(tab: Tab, config: dict):
                     
                     try:
                         if index < 2:
-                            time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 5
+                            time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 15
                             
                             async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
                                 await tab.go_to(full_link)
                         else:
-                            await asyncio.sleep(1)
                             # Direct navigation for everything else
                             await tab.go_to(full_link)
+                            await asyncio.sleep(5)
                         # dont need the human loop
                         # selector = "//body"
                         # await perform_human_loop(tab, selector, 1)
