@@ -381,12 +381,51 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         days_left = get_tag_on_details_page(detail_soup, labelText = "Days Left:")
                         contact_information = get_tag_on_details_page(detail_soup, labelText = "Contact Information:")
 
+                        status_val = row.get('Status')
+                        ref_val = row.get('Ref. #')
+                        project_val = row.get('Project')
+
+                        # Mechanism 2: Fallback to checking the new div-based layout inside the details page
+                        project_container = detail_soup.find('div', class_='projectDetailContainer')
+                        if project_container:
+                            # Build a dictionary of all available fields from the container
+                            div_data = {}
+                            sections = project_container.find_all('div', class_='modalSection projectDetailSection')
+                            
+                            for section in sections:
+                                b_tag = section.find('b')
+                                if b_tag:
+                                    # Extract Key (e.g., "Open Date") and remove trailing colon
+                                    key = b_tag.get_text(strip=True).rstrip(':')
+                                    
+                                    # Extract Value by stripping the <b> tag's text out of the full section text
+                                    full_text = section.get_text(separator=' ', strip=True)
+                                    b_text = b_tag.get_text(separator=' ', strip=True)
+                                    value = full_text.replace(b_text, '', 1).strip()
+                                    
+                                    div_data[key] = value
+
+                            # Fill in any missing details from Mechanism 1 using the extracted div_data
+                            if not type_text: type_text = div_data.get('Type')
+                            if not project_description: project_description = div_data.get('Project Description')
+                            if not open_date: open_date = div_data.get('Open Date')
+                            if not close_date: close_date = div_data.get('Close Date')
+                            if not days_left: days_left = div_data.get('Days Left')
+                            if not contact_information: contact_information = div_data.get('Contact Information')
+                            
+                            # Fill in row values if they were missing from the initial main table scrape
+                            if not status_val: status_val = div_data.get('Status')
+                            if not ref_val: ref_val = div_data.get('Ref. #')
+                            if not project_val: project_val = div_data.get('Project')
+
+                        # Construct the final page_data array
                         page_data = [
-                            row['Status'], row['Ref. #'], row['Project'],
+                            status_val, ref_val, project_val,
                             type_text, full_link, project_description,
                             open_date, close_date, days_left, contact_information
                         ]
                         project_data.append(page_data)
+                        print(page_data)
 
                     except Exception as e:
                         traceback.print_exc()
