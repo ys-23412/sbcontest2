@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup, NavigableString
 import time
 import random
 import traceback
+import re
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
