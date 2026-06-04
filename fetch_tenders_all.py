@@ -417,7 +417,16 @@ async def fetch_single_tender(tab: Tab, config: dict):
                             if not status_val: status_val = div_data.get('Status')
                             if not ref_val: ref_val = div_data.get('Ref. #')
                             if not project_val: project_val = div_data.get('Project')
-
+                        # Mechanism 3: Final emergency fallback for open_date
+                        if not open_date:
+                            # Search the entire soup for an element containing "Open Date:"
+                            open_date_element = detail_soup.find(string=lambda text: text and "Open Date:" in text)
+                            print("scanned for open_date_element", open_date_element)
+                            if open_date_element:
+                                # Get the parent container's full text
+                                parent_text = open_date_element.parent.get_text(strip=True)
+                                # Strip out the "Open Date:" label to isolate just the date value
+                                open_date = parent_text.replace("Open Date:", "").strip()
                         # Construct the final page_data array
                         page_data = [
                             status_val, ref_val, project_val,
