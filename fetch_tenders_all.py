@@ -431,7 +431,22 @@ async def fetch_single_tender(tab: Tab, config: dict):
                                 parent_text = open_date_element.parent.get_text(strip=True)
                                 # Strip out the "Open Date:" label to isolate just the date value
                                 open_date = parent_text.replace("Open Date:", "").strip()
-                        # Construct the final page_data array
+
+                        if not open_date:
+                            date_pattern = r"(\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?,? \d{4}(?:,?\s+\d{1,2}:\d{2}(?::\d{2})?\s*[AP]M\s*[A-Z]{1,5})?\b)"
+                            all_matches = re.findall(date_pattern, page_text, re.IGNORECASE)
+
+                            if all_matches:
+                                first_raw_date = all_matches[0]
+                                print(f"Found raw text date match: {first_raw_date}")
+                    
+                                try:
+                                    # Use dateutil parser to cleanly format the date string
+                                    open_date = first_raw_date
+                                    print(f"Successfully parsed fallback date: {open_date}")
+                    
+                                except (ValueError, TypeError) as e:
+                                    print(f"Could not parse the found date string: {e}")
                         page_data = [
                             status_val, ref_val, project_val,
                             type_text, full_link, project_description,
