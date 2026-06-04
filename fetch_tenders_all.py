@@ -435,7 +435,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
 
                         if not open_date:
                             date_pattern = r"(\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?,? \d{4}(?:,?\s+\d{1,2}:\d{2}(?::\d{2})?\s*[AP]M\s*[A-Z]{1,5})?\b)"
-                            all_matches = re.findall(date_pattern, page_text, re.IGNORECASE)
+                            all_matches = re.findall(date_pattern, new_page_source, re.IGNORECASE)
 
                             if all_matches:
                                 first_raw_date = all_matches[0]
