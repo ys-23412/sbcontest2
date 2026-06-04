@@ -358,7 +358,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         else:
                             # Direct navigation for everything else
                             await tab.go_to(full_link)
-                            await asyncio.sleep(5)
+                            await asyncio.sleep(1)
                         # dont need the human loop
                         # selector = "//body"
                         # await perform_human_loop(tab, selector, 1)
@@ -384,6 +384,8 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         status_val = row.get('Status')
                         ref_val = row.get('Ref. #')
                         project_val = row.get('Project')
+                        new_page_source = await tab.page_source
+                        detail_soup = BeautifulSoup(new_page_source, 'html.parser')
 
                         # Mechanism 2: Fallback to checking the new div-based layout inside the details page
                         project_container = detail_soup.find('div', class_='projectDetailContainer')
@@ -418,9 +420,11 @@ async def fetch_single_tender(tab: Tab, config: dict):
                             if not ref_val: ref_val = div_data.get('Ref. #')
                             if not project_val: project_val = div_data.get('Project')
                         # Mechanism 3: Final emergency fallback for open_date
+                        new_page_source = await tab.page_source
+                        detail_soup = BeautifulSoup(new_page_source, 'html.parser')
                         if not open_date:
                             # Search the entire soup for an element containing "Open Date:"
-                            open_date_element = detail_soup.find(string=lambda text: text and "Open Date:" in text)
+                            open_date_element = detail_soup.find(string=lambda text: text and "Open Date" in text)
                             print("scanned for open_date_element", open_date_element)
                             if open_date_element:
                                 # Get the parent container's full text
