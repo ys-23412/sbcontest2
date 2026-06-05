@@ -226,6 +226,8 @@ async def fetch_single_tender(tab: Tab, config: dict):
         browser (AsyncCamoufox): The persistent AsyncCamoufox browser instance.
         config (dict): A dictionary containing 'base_url', 'csv_file_name', and 'city_name'.
     """
+
+    global LOGIN_DISABLED
     BASE_URL = config['base_url']
     CSV_FILE_NAME = config['csv_file_name']
     CITY_NAME = config['city_name']
