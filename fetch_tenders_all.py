@@ -352,6 +352,18 @@ async def fetch_single_tender(tab: Tab, config: dict):
             else:
                 content_df = pd.DataFrame(all_rows_data, columns=header_list)
                 print(f"Successfully scraped {len(content_df)} opportunities from the main table for {CITY_NAME}.")
+                # filter out all entries that have closed, cancelled and awarded in the status under the status column
+                # --- FILTERING LOGIC START ---
+                # Combine statuses into a regex pattern separated by '|' (OR)
+                exclude_pattern = 'closed|cancelled|awarded'
+                
+                # Filter out rows where 'Status' matches the pattern (case-insensitive)
+                # The ~ operator inverts the boolean mask (keeps what DOES NOT match)
+                # we have past opportunities table, completely pointless to parse it
+                content_df = content_df[~content_df['Status'].str.contains(exclude_pattern, case=False, na=False)]
+                
+                print(f"Filtered DataFrame: {len(content_df)} active opportunities remaining.")
+
 
             # --- 3. Scrape Detail Pages ---
             project_data = []
