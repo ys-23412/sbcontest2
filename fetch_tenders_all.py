@@ -456,7 +456,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                                         open_date = first_raw_date
                                         print(f"Successfully parsed fallback date: {open_date}")
                                     else:
-                                        print("failed to parse date)
+                                        print("failed to parse date")
                     
                                 except (ValueError, TypeError) as e:
                                     print(f"Could not parse the found date string: {e}")
