@@ -619,7 +619,7 @@ async def main():
             # 2. Visit the first random site
             print(f"🎲 Random choice selected! First up: {first_url}")
             print(f"🚀 Navigating to {first_url}...")
-            await tab.get(first_url)
+            await tab.go_to(first_url)
             
             # 3. Wait for 10 seconds
             print("⏳ Waiting for 10 seconds...")
