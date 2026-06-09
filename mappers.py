@@ -427,6 +427,7 @@ def process_and_send_bid_tenders(params: dict):
     }]
     if not os.path.exists("data"):
         os.makedirs("data")
+    filled_entries = {}
     try:
         # First API call to fill entries
         fill_url = f"{api_url}/api_fill_entries.php"
@@ -453,6 +454,7 @@ def process_and_send_bid_tenders(params: dict):
     except requests.HTTPError as http_err:
         print(f"❌ HTTP error occurred: {http_err}")
         print(f"Response Text: {http_err.response.text}")
+        print("filled_entries", filled_entries)
         raise e
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
