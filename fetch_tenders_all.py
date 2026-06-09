@@ -522,13 +522,13 @@ async def main():
 
     # Define the list of tender configurations
     tender_configs = [
-        {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
-        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
+        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
+        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bctransit"},
         {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
         {"base_url_env_key": "TENDER_BASE_SAANICH_URL", "csv_file_name": "bonfire_saanich_with_links.csv", "city_name": "saanich"},
         {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north cowichan"},
-        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
-        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bctransit"},
+        {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
+        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
         {"base_url_env_key": "TENDER_BASE_COURTENAY_URL", "csv_file_name": "bonfire_courtenay_with_links.csv", "city_name": "courtenay"},
         {"base_url_env_key": "TENDER_BASE_CENTRALSAANICH_URL", "csv_file_name": "bonfire_central_saanich_with_links.csv", "city_name": "central saanich"},
         {"base_url_env_key": "TENDER_BASE_FRASERHEALTH_URL", "csv_file_name": "bonfire_fraserhealth_with_links.csv", "city_name": "fraser health"},
@@ -611,6 +611,20 @@ async def main():
         #     print("--- All tender fetches completed. ---")
         async with Chrome(options=options) as browser:
             tab = await browser.start()
+            urls = ["https://www.facebook.com", "https://www.youtube.com"]
+            random.shuffle(urls)
+            
+            first_url = urls[0]
+            
+            # 2. Visit the first random site
+            print(f"🎲 Random choice selected! First up: {first_url}")
+            print(f"🚀 Navigating to {first_url}...")
+            await tab.go_to(first_url)
+            
+            # 3. Wait for 10 seconds
+            print("⏳ Waiting for 10 seconds...")
+            await asyncio.sleep(5)
+            # visit google.com and then youtube.com after 10 seconds
             for config_item in tender_configs:
                 base_url = os.getenv(config_item['base_url_env_key'])
                 if not base_url:

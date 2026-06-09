@@ -528,32 +528,59 @@ def process_and_send_tenders(params: dict):
     }]
     if not os.path.exists("data"):
         os.makedirs("data")
+    # Configuration
+    MAX_RETRIES = 2  # Attempt 1, then Attempt 2 after 30 seconds
+    RETRY_DELAY = 30  # seconds
+    
     try:
-        # First API call to fill entries
+        # --- FIRST API CALL (WITH RETRY LOGIC) ---
         fill_url = f"{api_url}/api_fill_entries.php"
-        print(f"🚀 Posting data to {fill_url}...")
-        # save the output
-        with open(f"data/{file_name_base}_with_mapping_all.json", "w") as f:
-            json.dump(fill_payload, f, indent=4)
-        fill_resp = requests.post(fill_url, json=fill_payload)
-        fill_resp.raise_for_status()
-        filled_entries = fill_resp.json()
-
-        # Second API call to insert data
+        filled_entries = None
+    
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                print(f"🚀 [Attempt {attempt}/{MAX_RETRIES}] Posting data to {fill_url}...")
+                
+                # Save the payload locally
+                with open(f"data/{file_name_base}_with_mapping_all.json", "w") as f:
+                    json.dump(fill_payload, f, indent=4)
+                
+                fill_resp = requests.post(fill_url, json=fill_payload)
+                fill_resp.raise_for_status()
+                filled_entries = fill_resp.json()
+                
+                # If successful, break out of the retry loop
+                print("✅ First API call succeeded.")
+                break 
+                
+            except requests.RequestException as err:
+                print(f"⚠️ Attempt {attempt} failed: {err}")
+                if attempt < MAX_RETRIES:
+                    print(f"⏳ Waiting {RETRY_DELAY} seconds before retrying...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    print("❌ All retry attempts for the first API call failed.")
+                    raise  # Re-raise the exception to be caught by the outer block
+    
+        # --- SECOND API CALL ---
         insert_url = f"{api_url}/api_insert_into_data.php"
         with open(f"data/{file_name_base}_with_fill.json", "w") as f:
             json.dump(filled_entries, f, indent=4)
+            
         print(f"🚀 Posting filled entries to {insert_url}...")
         insert_resp = requests.post(insert_url, json=filled_entries)
         insert_resp.raise_for_status()
         
         print("🎉 API submission successful!")
         send_discord_message(f"API submission successful for {region_name}", discord_webhook_url)
-
+    
     except requests.HTTPError as http_err:
         print(f"❌ HTTP error occurred: {http_err}")
-        print(f"Response Text: {http_err.response.text}")
-        raise e
+        # Safeguard in case the error object doesn't have a response body
+        if hasattr(http_err, 'response') and http_err.response is not None:
+            print(f"Response Text: {http_err.response.text}")
+        raise http_err
+    
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
         raise e
