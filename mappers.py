@@ -415,6 +415,16 @@ def process_and_send_bid_tenders(params: dict):
     # --- Step 3: Package and send the data to APIs ---
     current_date_str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     file_name_base = f"{file_prefix}_{agent_id}_{current_date_str}_{region_name}"
+    try:
+        import unicodedata
+        def clean_text(text):
+            if isinstance(text, str):
+                # Normalize unicode characters (like converting \xa0 to a standard space)
+                return unicodedata.normalize("NFKD", text)
+            return text
+        final_mapped_data = [{k: clean_text(v) for k, v in record.items()} for record in final_mapped_data]
+    except Exception as e:
+        print(e)
 
     # Prepare payload for the 'api_fill_entries.php' endpoint
     fill_payload = [{
@@ -555,6 +565,7 @@ def process_and_send_tenders(params: dict):
                 
             except requests.RequestException as err:
                 print(f"⚠️ Attempt {attempt} failed: {err}")
+                import time
                 if attempt < MAX_RETRIES:
                     print(f"⏳ Waiting {RETRY_DELAY} seconds before retrying...")
                     time.sleep(RETRY_DELAY)
