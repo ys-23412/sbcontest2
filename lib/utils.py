@@ -159,8 +159,8 @@ target_organizations = [
     "School District 62 Sooke",
     "School District 63 Saanich",
     'Corporation of the District of Saanich',
-    'School District 63 Saanich',
     "British Columbia Ferry Services Inc",
+    "School District 79 Cowichan Valley",
 ]
 
 DEFAULT_CITY = "victoria"
