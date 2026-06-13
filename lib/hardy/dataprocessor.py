@@ -12,7 +12,7 @@ import requests
 from unidecode import unidecode
 from lib.discord import send_discord_embed, send_discord_message
 from lib.timing import filter_tenders_by_last_run
-from process_project_data import get_project_type_id
+from process_project_data import get_latest_issue, get_project_type_id, set_entry_issue_id
 
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_porthardy"
 
@@ -112,6 +112,7 @@ def _map_porthardy_tender_entry(tender_record: dict, params: dict, city_mapping:
     fmt_date = date.today().strftime("%B %d/%y")
     ys_body['ys_no_tiny_urls'] = hide_tiny_url
     ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
+    
     entry['ys_body'] = ys_body
 
     return {'entry': entry}
@@ -182,11 +183,16 @@ def process_and_send_porthardy_tenders(params: dict):
     city_mapping = {}
     final_mapped_data = []
     # 2. Map the Extracted Records
+    try:
+        issue_results = get_latest_issue()
+    except Exception as e:
+        issue_results = {}
+        pass
     for record in tender_records:
         try:
             mapped_result = _map_porthardy_tender_entry(record, params, city_mapping)
             entry = mapped_result['entry']
-            
+            entry = set_entry_issue_id(entry, issue_results)
             # Use external function to classify project_type_id if available
             try:
                 project_type_id = get_project_type_id(record) 

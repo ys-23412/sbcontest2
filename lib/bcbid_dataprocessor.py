@@ -17,7 +17,7 @@ from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities, un
 load_city_mapping, find_bcbid_city_match
 from lib.timing import filter_tenders_by_last_run
 from mappers import _map_tender_type_to_stage
-from process_project_data import get_project_type_id
+from process_project_data import get_latest_issue, get_project_type_id, set_entry_issue_id
 
 
 
@@ -282,11 +282,17 @@ def process_and_send_bcbid_tenders(params: dict):
     print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
     final_mapped_data = []
 
+    try:
+        issue_results = get_latest_issue()
+    except Exception as e:
+        issue_results = {}
+        pass
     for record in filtered_tender_records:
         try:
             # Map the record using BC Bid logic and inject city_mapping
             mapped_result = _map_bcbid_tender_entry(record, params, city_mapping)
-            
+
+            mapped_result['entry'] = set_entry_issue_id(mapped_result['entry'], issue_results)
             # Note: Ensure get_project_type_id can handle BC Bid dict structure!
             project_type_id = get_project_type_id(record) 
             mapped_result['entry']['ys_project_type'] = project_type_id

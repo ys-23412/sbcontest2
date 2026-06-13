@@ -13,7 +13,7 @@ import requests
 from unidecode import unidecode
 from lib.discord import send_discord_embed, send_discord_message
 from lib.timing import filter_tenders_by_last_run
-from process_project_data import get_project_type_id
+from process_project_data import get_latest_issue, get_project_type_id, set_entry_issue_id
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_rdn"
 
 # Assuming dash_pattern, _map_tender_type_to_stage, etc., are imported from your lib
@@ -146,7 +146,7 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     ys_body['ys_no_tiny_urls'] = hide_tiny_url
     ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
     entry['ys_body'] = ys_body
-
+    
     return {'entry': entry}
 
 def process_and_send_rdn_tenders(params: dict):
@@ -214,12 +214,17 @@ def process_and_send_rdn_tenders(params: dict):
 
     final_mapped_data = []
 
+    try:
+        issue_results = get_latest_issue()
+    except Exception as e:
+        issue_results = {}
+        pass
     # 2. Map the Extracted Records
     for record in tender_records:
         try:
             mapped_result = _map_rdn_tender_entry(record, params, city_mapping)
             entry = mapped_result['entry']
-            
+            entry = set_entry_issue_id(entry, issue_results)
             # Use external function to classify project_type_id if available
             try:
                 project_type_id = get_project_type_id(record) 

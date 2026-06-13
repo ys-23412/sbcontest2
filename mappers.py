@@ -6,7 +6,7 @@ import traceback
 import re
 import json
 from lib.timing import get_execution_window
-from process_project_data import get_project_type_id
+from process_project_data import get_latest_issue, get_project_type_id, set_entry_issue_id
 from datetime import date, timedelta, datetime
 from typing import List, Dict
 from dateutil.relativedelta import relativedelta # Import this
@@ -390,6 +390,11 @@ def process_and_send_bid_tenders(params: dict):
     tender_records = _filter_bid_tenders_by_last_run(tender_records)
     print("records", tender_records)
     # --- Step 1 & 2: Map each record, then classify and insert ys_project_type ---
+
+    try:
+        issue_results = get_latest_issue()
+    except Exception as e:
+        pass
     for record in tender_records:
         try:
             # Step 1: Map the tender using the existing function
@@ -397,6 +402,7 @@ def process_and_send_bid_tenders(params: dict):
             
             # Step 2: Classify the original record and insert the project type ID
             project_type_id = get_project_type_id(record)
+            mapped_result['entry'] = set_entry_issue_id(mapped_result['entry'], issue_results)
             mapped_result['entry']['ys_project_type'] = project_type_id
             mapped_result['entry']['project_type'] = project_type_id
             final_mapped_data.append(mapped_result['entry'])

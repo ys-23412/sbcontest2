@@ -1,8 +1,5 @@
 from web_requests import get_filtered_permits_with_contacts, NewProjectSiteTypes, get_site_params
-from process_project_data import map_data, get_latest_issue, find_correct_issue_date
-import time
-import requests
-import dateparser
+from process_project_data import map_data
 import os 
 import json
 

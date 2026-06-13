@@ -207,6 +207,32 @@ def get_latest_issue():
        "is_new_tender_period": is_new_tender_period
     }
 
+def set_entry_issue_id(entry, issue_results, ys_component_id = DataTypes.TENDERS.value):
+    """
+    Takes an entry dict and component ID. If the component ID is 10,
+    it fetches the latest issue, sets the issue_id on the entry, 
+    and returns the updated entry.
+    """
+    try:
+        if int(ys_component_id) == DataTypes.TENDERS.value:
+ 
+            found_issue = issue_results.get('found_issue')
+
+            try:
+                # Attempt to set the issue_id on the entry
+                entry['issue_id'] = found_issue['id']
+            except (TypeError, KeyError) as e:
+                print("Didn't find found issue ID")
+                # Uncomment the line below if you want the entry to default to 1 on failure
+                # entry['issue_id'] = 1 
+                
+    except Exception as e:
+        # It's usually good practice to at least log the exception 
+        # rather than a silent 'pass', so you know if the API failed.
+        print(f"Error fetching/setting issue: {e}")
+        
+    return entry
+
 def detect_company(text):
     """
     Detects if a given text likely contains a company name by searching for common

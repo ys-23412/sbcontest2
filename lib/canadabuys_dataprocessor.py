@@ -15,7 +15,7 @@ from lib.utils import dash_pattern, unrelated_phrases, unrelated_commodities, un
     load_city_mapping, find_bcbid_city_match, DEFAULT_CITY
 from lib.timing import filter_tenders_by_last_run
 from mappers import _map_tender_type_to_stage
-from process_project_data import get_project_type_id
+from process_project_data import get_latest_issue, get_project_type_id, set_entry_issue_id
 
 def canada_buys_city_match(tender_record: dict, city_mapping: dict) -> str:
     """
@@ -198,6 +198,7 @@ def _map_canadabuys_tender_entry(tender_record: dict, params: dict, city_mapping
     ys_body['ys_no_tiny_urls'] = hide_tiny_url
     ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
     
+
     entry['ys_body'] = ys_body
 
     return {'entry': entry}
@@ -279,12 +280,15 @@ def process_and_send_canadabuys_tenders(params: dict):
         
     print(f"✅ Filtered down to {len(filtered_tender_records)} relevant records from {len(tender_records)}.")
     final_mapped_data =[]
-
+    try:
+        issue_results = get_latest_issue()
+    except Exception as e:
+        pass
     for record in filtered_tender_records:
         try:
             # Map the record using CanadaBuys logic and inject city_mapping
             mapped_result = _map_canadabuys_tender_entry(record, params, city_mapping)
-            
+            mapped_result['entry'] = set_entry_issue_id(mapped_result['entry'], issue_results)
             # Use original project_type mapping helper
             project_type_id = get_project_type_id(record) 
             mapped_result['entry']['ys_project_type'] = project_type_id

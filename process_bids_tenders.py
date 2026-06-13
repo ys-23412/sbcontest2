@@ -3,8 +3,6 @@ import os
 import pandas as pd
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
-from pydoll.browser.tab import Tab
-from pydoll.constants import ScrollPosition
 import time
 import random
 from io import StringIO

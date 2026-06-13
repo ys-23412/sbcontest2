@@ -75,6 +75,7 @@ jobs:
           path: |
             bcbid.html
             screenshots/
+            data/
           retention-days: 1
 
   processor_job:

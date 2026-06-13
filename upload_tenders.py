@@ -1,5 +1,5 @@
 import pandas as pd
-from web_requests import get_filtered_permits_with_contacts, NewProjectSiteTypes, get_site_params
+from web_requests import  NewProjectSiteTypes, get_site_params
 from process_project_data import map_data
 from datetime import datetime, timedelta, timezone
 import dateparser
@@ -12,8 +12,6 @@ from lib.timing import get_execution_window
 from dotenv import load_dotenv
 from lib.discord import send_discord_embed
 import re
-import json
-import requests  # Ensure requests is imported for the Discord webhook
 from lib.utils import unrelated_phrases, unrelated_commodities
 
 def clean_column_names(df):
