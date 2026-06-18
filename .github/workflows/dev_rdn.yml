@@ -333,7 +333,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # Use a unique name per python version
-          name: raw-data-scr${{ matrix.python-version }}
+          name: raw-data-scr-${{ matrix.python-version }}
           path: |
             screenshots_scr
             screenshots
