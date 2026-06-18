@@ -12,6 +12,7 @@ on:
             - rdn
             - porthardy
             - canadabuys
+            - scr
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -291,4 +292,91 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: upload_data_canadabuys
+          path: data/
+
+  scraper_job_scr:
+    if: ${{ github.event.inputs.target_job == 'scr' }}
+    runs-on: windows-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        python-version: ['3.13']
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install Google Chrome (Windows)
+        run: choco install googlechrome || true
+
+      # - name: Install Google Chrome (macOS)
+      #   run: |
+      #     brew update
+      #     brew install --cask google-chrome || true
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
+            
+      - name: Scrap data 
+        run: python -m lib.scr.scraper
+
+      - name: Upload Raw Data for Processing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          # Use a unique name per python version
+          name: raw-data-scr${{ matrix.python-version }}
+          path: |
+            screenshots_scr
+            screenshots
+          retention-days: 1
+
+  processor_job_scr:
+    runs-on: macos-latest
+    needs: scraper_job_scr
+    if: always() && contains(needs.scraper_job_scr.result, 'success')
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Download Scraped Data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: raw-data-scr-*
+          merge-multiple: true
+
+      - name: Handle SCR scrapped data
+        run: |
+          ls
+          ls screenshots || true
+          pip install -r requirements.txt
+          pip install -r requirements_tenders.txt
+          python -m lib.scr.dataprocessor
+
+          rm -rf data/city.csv
+
+      - name: Upload Processed CSV folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+
+      - name: Upload Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload_data_scr
           path: data/

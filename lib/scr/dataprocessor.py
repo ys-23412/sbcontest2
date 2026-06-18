@@ -39,9 +39,10 @@ def _map_srd_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
 
     entry['ys_description'] = description[:97].replace("'", "''")
 
-    # Clean the Title (remove the "Issue Date: ..." artifact)
-    raw_title = str(tender_record.get('Title', ''))
-    clean_title = raw_title.split('Issue Date:')[0].strip() if 'Issue Date:' in raw_title else raw_title
+    # Clean the Title (remove the "Issue Date: ..." artifact from the raw CSV value)
+    # This leaves us with exactly what is in the <h1 class="page-title">
+    raw_title = str(tender_record.get('description', ''))
+    clean_title = raw_title
 
     # bid opportunity (Permit/Reference), split by first space (e.g. "RFP-07-26")
     try:
@@ -56,7 +57,9 @@ def _map_srd_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     # Set City Location as requested
     matched_city = "Strathcona RD" 
     entry['city_name'] = matched_city
-    # entry['ys_address'] = matched_city
+    
+    # Map project address to the page title
+    entry['ys_address'] = unidecode(clean_title[:97])
 
     # 2. Map 'ys_body' fields
     # Format the project name, clean up dashes, cap length

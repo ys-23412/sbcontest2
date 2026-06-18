@@ -177,13 +177,15 @@ async def main():
                 contact_name = ""
                 job_title = ""
                 
+                # Extract the description directly from the h1.page-title
+                h1_title = soup.find('h1', class_='page-title')
+                if h1_title:
+                    description = h1_title.get_text(strip=True)
+                
                 # Since SRD is a Drupal site, the body will likely be in field--name-body
                 body_div = soup.find('div', class_='field--name-body')
                 if body_div:
-                    paragraphs = body_div.find_all('p')
-                    if paragraphs:
-                        description = paragraphs[0].get_text(strip=True)
-                        
+                    # Contact Extraction Logic
                     mailto_link = body_div.find('a', href=lambda href: href and href.startswith('mailto:'))
                     if mailto_link:
                         email = mailto_link.get_text(strip=True)
@@ -218,7 +220,7 @@ async def main():
                     'description': description
                 })
                 
-                print(f"Extracted -> Name: {contact_name} | Title: {job_title} | Email: {email}")
+                print(f"Extracted -> Name: {contact_name} | Title: {job_title} | Email: {email} | Description: {description}")
                 enriched_results.append(record)
             else:
                 # If no link, still append the original record to maintain index alignment
