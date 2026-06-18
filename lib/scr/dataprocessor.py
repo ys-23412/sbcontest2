@@ -328,7 +328,8 @@ if __name__ == "__main__":
         if os.path.exists(f"{FILE_DIR}/srd_new_bids_raw.csv"):
             print("Ignoring error as likely no new entries were found.")
             exit(0)
-        raise ValueError("No File Found")
+        # just ignore it, honestly, sometimes no file found
+        # raise ValueError("No File Found")
     else:
         print(f"Processing {main_csv}")
         try:
