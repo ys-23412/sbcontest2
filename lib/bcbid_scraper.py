@@ -260,6 +260,7 @@ async def main():
         max_date = datetime.now().strftime('%Y-%m-%d')
 
         # Create our scan sequences for the dual extraction
+        # consider splitting target organizations if it gets better.
         scans = [
             {
                 "name": "Region Scan",
