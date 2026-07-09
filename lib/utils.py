@@ -161,6 +161,10 @@ target_organizations = [
     'Corporation of the District of Saanich',
     "British Columbia Ferry Services Inc",
     "School District 79 Cowichan Valley",
+    "Capital Regional District",
+    "Capital Regional District Parks",
+    "Capital Regional District Water Department",
+    "Capital Regional Hospital District"
 ]
 
 DEFAULT_CITY = "victoria"
