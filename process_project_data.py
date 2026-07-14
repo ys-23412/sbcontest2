@@ -261,7 +261,8 @@ def set_entry_issue_id(entry, issue_results, ys_component_id = DataTypes.TENDERS
                 
     except Exception as e:
         print(f"Error fetching/setting issue: {e}")
-        
+    
+    print("Adding entry with ", entry['issue_id'])
     return entry
 
 def detect_company(text):
