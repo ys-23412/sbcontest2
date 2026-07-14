@@ -207,6 +207,17 @@ def get_latest_issue():
        "is_new_tender_period": is_new_tender_period
     }
 
+def get_sunday_of_week(date_obj):
+    """
+    Returns the Sunday (start of the week) for a given datetime object.
+    For Sunday as start of week: (weekday + 1) % 7
+    """
+    # weekday() is 0 for Monday, 6 for Sunday
+    # (6 + 1) % 7 = 0 days to subtract (it's already Sunday)
+    # (1 + 1) % 7 = 2 days to subtract (Tuesday -> Sunday)
+    days_to_subtract = (date_obj.weekday() + 1) % 7
+    return date_obj - timedelta(days=days_to_subtract)
+
 def set_entry_issue_id(entry, issue_results, ys_component_id = DataTypes.TENDERS.value):
     """
     Takes an entry dict and component ID. If the component ID is 10,
@@ -216,21 +227,42 @@ def set_entry_issue_id(entry, issue_results, ys_component_id = DataTypes.TENDERS
     try:
         if int(ys_component_id) == DataTypes.TENDERS.value:
  
-            found_issue = issue_results.get('found_issue')
-
-            try:
-                # Attempt to set the issue_id on the entry
+           # 1. Determine "today" (or use a date from entry if available)
+            # You can replace datetime.now() with entry['date'] parsing if needed
+            today = datetime.now() 
+            target_sunday = get_sunday_of_week(today).date()
+            
+            # 2. Extract issue list and default fallback issue from issue_results
+            # (Assuming issue_results contains {'issues': [...], 'found_issue': {...}})
+            issues_list = issue_results.get('issues', [])
+            found_issue = issue_results.get('found_issue', {})
+            
+            matched_issue_id = None
+            
+            # 3. Search for the issue belonging to the same week (matching Sunday)
+            for issue in issues_list:
+                issue_date_str = issue.get('date')
+                if issue_date_str:
+                    issue_date = datetime.strptime(issue_date_str, "%Y-%m-%d")
+                    issue_sunday = get_sunday_of_week(issue_date).date()
+                    
+                    if issue_sunday == target_sunday:
+                        matched_issue_id = issue.get('id')
+                        break
+            
+            # 4. Apply found ID or fallback
+            if matched_issue_id:
+                entry['issue_id'] = matched_issue_id
+            elif found_issue and 'id' in found_issue:
                 entry['issue_id'] = found_issue['id']
-            except (TypeError, KeyError) as e:
-                print("Didn't find found issue ID")
-                # Uncomment the line below if you want the entry to default to 1 on failure
-                # entry['issue_id'] = 1 
+                print("No weekly match found; fell back to 'found_issue'.")
+            else:
+                print("No issue found and fallback is unavailable.")
                 
     except Exception as e:
-        # It's usually good practice to at least log the exception 
-        # rather than a silent 'pass', so you know if the API failed.
         print(f"Error fetching/setting issue: {e}")
-        
+    
+    print("Adding entry with ", entry['issue_id'])
     return entry
 
 def detect_company(text):
