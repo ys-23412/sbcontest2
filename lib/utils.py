@@ -164,7 +164,8 @@ target_organizations = [
     "Capital Regional District",
     "Capital Regional District Parks",
     "Capital Regional District Water Department",
-    "Capital Regional Hospital District"
+    "Capital Regional Hospital District",
+    "British Columbia Hydro and Power Authority"
 ]
 
 DEFAULT_CITY = "victoria"
