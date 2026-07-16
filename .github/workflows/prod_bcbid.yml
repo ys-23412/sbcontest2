@@ -73,6 +73,7 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Pydoll script
+        timeout-minutes: 20
         run: |
           python -m lib.bcbid_scraper
 
