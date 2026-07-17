@@ -20,8 +20,6 @@ env:
     GH_WORKFLOW_NAME: ${{ github.workflow }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-    # IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-    # IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
     PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
 
 jobs:
@@ -48,6 +46,8 @@ jobs:
       TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
       TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
       TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
+      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
