@@ -554,7 +554,7 @@ async def main():
     # disable logos
     options.add_argument("--blink-settings=imagesEnabled=false")
     # load data from cache
-    options.add_argument(f"--user-data-dir={CACHE_DIR.resolve().as_posix()}")
+    options.add_argument(f"--user-data-dir={BUNDLE_DIR.resolve().as_posix()}")
 
     current_time = int(time.time())
     number_last = random.randint(3, 10)
