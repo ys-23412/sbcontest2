@@ -54,6 +54,7 @@ jobs:
       TENDER_BASE_COMOX_URL: ${{ secrets.TENDER_BASE_COMOX_URL }}
       TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
       TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
+      TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
     steps:
       - uses: actions/checkout@v4
 
