@@ -8,6 +8,7 @@ import time
 import random
 import traceback
 import re
+import json
 from pathlib import Path
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
