@@ -15,6 +15,8 @@ from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 from pydoll.browser.tab import Tab
 from pydoll.constants import Key, By, ScrollPosition
+from pydoll.protocol.network.types import ErrorReason
+from pydoll.protocol.fetch.events import FetchEvent, RequestPausedEvent
 # Assuming you have a captcha solving utility like the one in your example
 # If not, you may need to find or create one. For this example, we will
 # assume a placeholder function exists.
@@ -584,56 +586,18 @@ async def main():
 
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    proxy_url = os.environ.get("PROXY_URL")
-    if proxy_url:
+    proxy_username = os.getenv('IPROYAL_USERNAME')
+    proxy_password = os.getenv('IPROYAL_PASSWORD')
+    proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
+
+    if proxy_username and proxy_password:
+        proxy_url = f'http://{proxy_auth}@{proxy}'
+        print("Using proxy:", proxy_url)
         options.add_argument(f'--proxy-server={proxy_url}')
-    # url encode password
-    # proxy_url = os.environ.get("PROXY_URL")
-    # if proxy_url:
-    #     options.add_argument(f'--proxy-server={proxy_url}')
-
-
-    # proxy = 'geo.iproyal.com:12321'
-    # proxy_username = os.getenv('IPROYAL_USERNAME')
-    # proxy_password = os.getenv('IPROYAL_PASSWORD')
-    # proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
-
-    # if proxy_username and proxy_password:
-    #     proxy_url = f'http://{proxy_auth}@{proxy}'
-    #     print("Using proxy:", proxy_url)
-    #     options.add_argument(f'--proxy-server={proxy_url}')
-
 
     print("--- Initializing Pydoll Browser ---")
     has_errors = False
     try:
-        # Initialize AsyncCamoufox once
-        # async with AsyncCamoufox(
-        #     headless=True,
-        #     geoip=True,
-        #     humanize=False,
-        #     i_know_what_im_doing=True,
-        #     config={'forceScopeAccess': True},
-        #     disable_coop=True,
-        # ) as browser:
-        #     print("--- Browser initialized. Starting tender fetches ---")
-            
-        #     page = await browser.new_page() 
-        #     for config_item in tender_configs:
-        #         # Retrieve the actual BASE_URL from environment variables using the key
-        #         base_url = os.getenv(config_item['base_url_env_key'])
-        #         if not base_url:
-        #             print(f"Warning: {config_item['base_url_env_key']} not found in environment variables. Skipping {config_item['city_name']}.")
-        #             continue
-                
-        #         # Create a complete config dictionary to pass to fetch_single_tender
-        #         current_tender_config = {
-        #             "base_url": base_url,
-        #             "csv_file_name": config_item['csv_file_name'],
-        #             "city_name": config_item['city_name']
-        #         }
-        #         await fetch_single_tender(page, current_tender_config) # Pass the browser instance
-        #     print("--- All tender fetches completed. ---")
         async with Chrome(options=options) as browser:
             tab = await browser.start()
             # --- START HIGH PERFORMANCE IMAGE BLOCKING ---
