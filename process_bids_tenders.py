@@ -3,8 +3,12 @@ import os
 import pandas as pd
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
+from pydoll.protocol.network.types import ErrorReason
+from pydoll.protocol.fetch.events import FetchEvent, RequestPausedEvent
 import time
 import random
+import json
+from pathlib import Path
 from io import StringIO
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -13,6 +17,23 @@ from lib.bcbid_scraper import perform_human_loop
 
 from mappers import _filter_bid_tenders_by_last_run, process_and_send_bid_tenders # A more robust way to join URL parts
 
+
+BUNDLE_DIR = Path("./tenders_cache")
+
+# 1. Locate the expected Profile directory paths
+default_profile_dir = BUNDLE_DIR / "Default"
+
+# 2. Force create the folder tree if it doesn't exist
+default_profile_dir.mkdir(parents=True, exist_ok=True)
+
+# 3. Create empty placeholder files so nodriver doesn't throw a FileNotFoundError
+pref_file = default_profile_dir / "Preferences"
+pref_backup = default_profile_dir / "Preferences.backup"
+
+if not pref_file.exists():
+    pref_file.write_text(json.dumps({}))
+if not pref_backup.exists():
+    pref_backup.write_text(json.dumps({}))
 
 
 def parse_document_date(html_string):
@@ -106,6 +127,8 @@ async def scrap_bids_and_tenders_site(config: dict):
         options.add_argument(f'--display=:99')
 
     options.add_argument("--enable-webgl")
+    # load data from cache
+    options.add_argument(f"--user-data-dir={BUNDLE_DIR.resolve().as_posix()}")
 
     current_time = int(time.time())
     number_last = random.randint(3, 10)
@@ -143,6 +166,23 @@ async def scrap_bids_and_tenders_site(config: dict):
             print(f"Error starting browser: {e}")
             await asyncio.sleep(5)
             tab = await browser.start()
+
+        # --- START HIGH PERFORMANCE IMAGE BLOCKING ---
+        blocked_count = 0
+        
+        async def block_resource(event: RequestPausedEvent):
+            nonlocal blocked_count
+            request_id = event['params']['requestId']
+            url = event['params']['request']['url']
+            blocked_count += 1
+            print(f"🚫 Blocked Image ({blocked_count}): {url[:60]}")
+            # Instantly drop image requests at client side
+            await tab.fail_request(request_id, ErrorReason.BLOCKED_BY_CLIENT)
+
+        # Only intercept 'Image' resource types to maximize network speed
+        await tab.enable_fetch_events(resource_type='Image')
+        await tab.on(FetchEvent.REQUEST_PAUSED, block_resource)
+        # --- END HIGH PERFORMANCE IMAGE BLOCKING ---
 
         await tab.go_to(base_url)
         await perform_human_loop(tab, 'body', 1)
