@@ -595,6 +595,8 @@ async def main():
         proxy_url = f'http://{proxy_auth}@{proxy}'
         print("Using proxy:", proxy_url)
         options.add_argument(f'--proxy-server={proxy_url}')
+    else:
+        print("No proxy used")
 
     print("--- Initializing Pydoll Browser ---")
     has_errors = False
@@ -602,20 +604,20 @@ async def main():
         async with Chrome(options=options) as browser:
             tab = await browser.start()
             # --- START HIGH PERFORMANCE IMAGE BLOCKING ---
-            blocked_count = 0
+            # blocked_count = 0
             
-            async def block_resource(event: RequestPausedEvent):
-                nonlocal blocked_count
-                request_id = event['params']['requestId']
-                url = event['params']['request']['url']
-                blocked_count += 1
-                print(f"🚫 Blocked Image ({blocked_count}): {url[:60]}")
-                # Instantly drop image requests at client side
-                await tab.fail_request(request_id, ErrorReason.BLOCKED_BY_CLIENT)
+            # async def block_resource(event: RequestPausedEvent):
+            #     nonlocal blocked_count
+            #     request_id = event['params']['requestId']
+            #     url = event['params']['request']['url']
+            #     blocked_count += 1
+            #     print(f"🚫 Blocked Image ({blocked_count}): {url[:60]}")
+            #     # Instantly drop image requests at client side
+            #     await tab.fail_request(request_id, ErrorReason.BLOCKED_BY_CLIENT)
 
-            # Only intercept 'Image' resource types to maximize network speed
-            await tab.enable_fetch_events(resource_type='Image')
-            await tab.on(FetchEvent.REQUEST_PAUSED, block_resource)
+            # # Only intercept 'Image' resource types to maximize network speed
+            # await tab.enable_fetch_events(resource_type='Image')
+            # await tab.on(FetchEvent.REQUEST_PAUSED, block_resource)
             # --- END HIGH PERFORMANCE IMAGE BLOCKING ---
             await asyncio.sleep(5)
             # visit google.com and then youtube.com after 10 seconds
