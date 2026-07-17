@@ -551,8 +551,6 @@ async def main():
         options.add_argument(f'--display=:99')
 
     options.add_argument("--enable-webgl")
-    # disable logos
-    options.add_argument("--blink-settings=imagesEnabled=false")
     # load data from cache
     options.add_argument(f"--user-data-dir={BUNDLE_DIR.resolve().as_posix()}")
 
@@ -570,6 +568,9 @@ async def main():
 
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
+    proxy_url = os.environ.get("PROXY_URL")
+    if proxy_url:
+        options.add_argument(f'--proxy-server={proxy_url}')
     # url encode password
     # proxy_url = os.environ.get("PROXY_URL")
     # if proxy_url:
@@ -619,18 +620,22 @@ async def main():
         #     print("--- All tender fetches completed. ---")
         async with Chrome(options=options) as browser:
             tab = await browser.start()
-            urls = ["https://www.facebook.com", "https://www.youtube.com"]
-            random.shuffle(urls)
+            # --- START HIGH PERFORMANCE IMAGE BLOCKING ---
+            blocked_count = 0
             
-            first_url = urls[0]
-            
-            # 2. Visit the first random site
-            print(f"🎲 Random choice selected! First up: {first_url}")
-            print(f"🚀 Navigating to {first_url}...")
-            await tab.go_to(first_url)
-            
-            # 3. Wait for 10 seconds
-            print("⏳ Waiting for 10 seconds...")
+            async def block_resource(event: RequestPausedEvent):
+                nonlocal blocked_count
+                request_id = event['params']['requestId']
+                url = event['params']['request']['url']
+                blocked_count += 1
+                print(f"🚫 Blocked Image ({blocked_count}): {url[:60]}")
+                # Instantly drop image requests at client side
+                await tab.fail_request(request_id, ErrorReason.BLOCKED_BY_CLIENT)
+
+            # Only intercept 'Image' resource types to maximize network speed
+            await tab.enable_fetch_events(resource_type='Image')
+            await tab.on(FetchEvent.REQUEST_PAUSED, block_resource)
+            # --- END HIGH PERFORMANCE IMAGE BLOCKING ---
             await asyncio.sleep(5)
             # visit google.com and then youtube.com after 10 seconds
             for config_item in tender_configs:
