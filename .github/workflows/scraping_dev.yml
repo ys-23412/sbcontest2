@@ -22,6 +22,7 @@ env:
     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     # IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
     # IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
+    PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
 
 jobs:
   # JOB 1: Camofox Dev Tenders
