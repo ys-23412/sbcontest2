@@ -168,28 +168,6 @@ jobs:
           pip install playwright
           playwright install chromium
 
-      - name: Create Bundle Directory
-        run: mkdir -p ./tenders_cache
-  
-      # Step 1: Compute a 14-day rotation token based on year and bi-week number
-      - name: Get Bi-Weekly Rotation Key
-        id: get-week2
-        run: |
-          WEEK_NUM=$(date +'%U')
-          YEAR=$(date +'%Y')
-          BI_WEEK=$(( WEEK_NUM / 2 ))
-          echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
-  
-      # Step 2: Restore the directory from cache if available
-      - name: Cache Local Bundles
-        id: cache-bundles
-        uses: actions/cache@v6
-        with:
-          path: ./tenders_cache
-          key: ${{ runner.os }}-web-bundles-tender-${{ steps.get-week.outputs.biweek }}
-          restore-keys: |
-            ${{ runner.os }}-web-bundles-tender-
-
       - name: Run Browser Automation and Record Xvfb Session
         run: |
           mkdir -p video_recordings
