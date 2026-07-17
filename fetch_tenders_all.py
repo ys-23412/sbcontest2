@@ -21,8 +21,23 @@ from pydoll.constants import Key, By, ScrollPosition
 
 BUNDLE_DIR = Path("./downloaded_bundles")
 
+# 1. Locate the expected Profile directory paths
+default_profile_dir = BUNDLE_DIR / "Default"
+
+# 2. Force create the folder tree if it doesn't exist
+default_profile_dir.mkdir(parents=True, exist_ok=True)
+
+# 3. Create empty placeholder files so nodriver doesn't throw a FileNotFoundError
+pref_file = default_profile_dir / "Preferences"
+pref_backup = default_profile_dir / "Preferences.backup"
+
+if not pref_file.exists():
+    pref_file.write_text(json.dumps({}))
+if not pref_backup.exists():
+    pref_backup.write_text(json.dumps({}))
+    
 # Global variable to track login status across different portal attempts
-LOGIN_DISABLED = False
+LOGIN_DISABLED = True
 async def action_scroll_and_hover(tab: Tab):
     """Simulates a user scrolling and moving the mouse naturally."""
     print("Executing: Scroll and Hover")
@@ -274,30 +289,30 @@ async def fetch_single_tender(tab: Tab, config: dict):
             href = url_result.get('result', {}).get('value', '')
             try:
                 pass
-                # if "login" in href or login_flag:
-                #     if not LOGIN_DISABLED:
-                #         # go to login page
-                #         await tab.go_to(f"{initial_url}/login")
-                #         print(f"Current page is login for {CITY_NAME}, proceeding with login...")
-                #         print("Entering email...")
-                #         email_input = await tab.find(tag_name="input", type="email", timeout=10)
-                #         await email_input.type_text(EMAIL, humanize=True)
-                #         submit_btn = await tab.find(tag_name="button", type="submit", timeout=5)
-                #         await submit_btn.click()
+                if "login" in href or login_flag:
+                    if not LOGIN_DISABLED:
+                        # go to login page
+                        await tab.go_to(f"{initial_url}/login")
+                        print(f"Current page is login for {CITY_NAME}, proceeding with login...")
+                        print("Entering email...")
+                        email_input = await tab.find(tag_name="input", type="email", timeout=10)
+                        await email_input.type_text(EMAIL, humanize=True)
+                        submit_btn = await tab.find(tag_name="button", type="submit", timeout=5)
+                        await submit_btn.click()
             
-                #         await asyncio.sleep(6) # Wait for password field to appear
+                        await asyncio.sleep(6) # Wait for password field to appear
     
-                #         print("Entering password...")
-                #         pass_input = await tab.find(tag_name="input", type="password", timeout=10)
-                #         await pass_input.type_text(PASSWORD, humanize=True)
-                #         submit_btn_pass = await tab.find(tag_name="button", type="submit", timeout=5)
-                #         await submit_btn_pass.click()
+                        print("Entering password...")
+                        pass_input = await tab.find(tag_name="input", type="password", timeout=10)
+                        await pass_input.type_text(PASSWORD, humanize=True)
+                        submit_btn_pass = await tab.find(tag_name="button", type="submit", timeout=5)
+                        await submit_btn_pass.click()
     
-                #         print("Login submitted. Waiting for opportunities page...")
-                #         LOGIN_DISABLED = True # Global flag: Don't try again for other portals
-                # else:
-                #     # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
-                #     print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
+                        print("Login submitted. Waiting for opportunities page...")
+                        LOGIN_DISABLED = True # Global flag: Don't try again for other portals
+                else:
+                    # await page.screenshot(path=f"{base_dir}/{CITY_NAME}_no_login.png")
+                    print(f"The current page for {CITY_NAME} is not a login page (or 'login' is not in the URL). Assuming already logged in or direct access.")
             except Exception as e:
                 traceback.print_exc()
                 LOGIN_DISABLED = True # Global flag: Don't try again for other portals
