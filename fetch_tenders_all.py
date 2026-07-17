@@ -522,6 +522,7 @@ async def main():
 
     # Define the list of tender configurations
     tender_configs = [
+        {"base_url_env_key": "TENDER_BASE_PRYCE_URL", "csv_file_name": "bonfire_pyrce_with_links.csv", "city_name": "powell river"},
         {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
         {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bctransit"},
         {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
@@ -537,7 +538,6 @@ async def main():
         {"base_url_env_key": "TENDER_BASE_COMOX_URL", "csv_file_name": "bonfire_comox_with_links.csv", "city_name": "comox"},
         {"base_url_env_key": "TENDER_BASE_ISLANDHEALTH_URL", "csv_file_name": "bonfire_islandhealth_with_links.csv", "city_name": "victoria"},
         {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
-        {"base_url_env_key": "TENDER_BASE_PRYCE_URL", "csv_file_name": "bonfire_pyrce_with_links.csv", "city_name": "powell river"},
     ]
 
     options = ChromiumOptions()
