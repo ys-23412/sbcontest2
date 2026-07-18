@@ -8,7 +8,7 @@ on:
     # close enough
     - cron: '34 15,19 * * 1-5'
     - cron: '53 23 * * 1-5'
-    - cron: '34 19 * * 6'
+    # - cron: '34 19 * * 6'
     - cron: '53 23 * * 6'
 
 # Prevent overlapping runs on the same branch
@@ -75,6 +75,28 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
+
+      - name: Create Bundle Directory
+        run: mkdir -p ./downloaded_bundles
+  
+      # Step 1: Compute a 14-day rotation token based on year and bi-week number
+      - name: Get Bi-Weekly Rotation Key
+        id: get-week
+        run: |
+          WEEK_NUM=$(date +'%U')
+          YEAR=$(date +'%Y')
+          BI_WEEK=$(( WEEK_NUM / 2 ))
+          echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
+  
+      # Step 2: Restore the directory from cache if available
+      - name: Cache Local Bundles
+        id: cache-bundles
+        uses: actions/cache@v6
+        with:
+          path: ./downloaded_bundles
+          key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
+          restore-keys: |
+            ${{ runner.os }}-web-bundles-
 
       - name: Run Browser Automation and Record Xvfb Session
         run: |
