@@ -8,8 +8,8 @@ on:
     # close enough
     - cron: '34 15,19 * * 1-5'
     - cron: '53 23 * * 1-5'
-    # - cron: '34 19 * * 6'
-    - cron: '53 23 * * 6'
+    - cron: '34 19 * * 6'
+    # - cron: '53 23 * * 6'
 
 # Prevent overlapping runs on the same branch
 concurrency:

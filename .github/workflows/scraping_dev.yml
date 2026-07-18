@@ -20,7 +20,6 @@ env:
     GH_WORKFLOW_NAME: ${{ github.workflow }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-    PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
 
 jobs:
   # JOB 1: Camofox Dev Tenders
