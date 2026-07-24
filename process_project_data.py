@@ -182,24 +182,64 @@ def parse_json_string(json_string):
   print("No valid JSON block enclosed by ```json or ``` found.")
   return None
 
+def calculate_issue_id_exact(target_dt: datetime) -> int:
+    """
+    Calculates issue_id assuming:
+    - Base Anchor: Issue 1240 = July 24, 2026
+    - 1 Issue published per week
+    - Skipped: The last 2 weeks of December every year
+    """
+    base_dt = datetime(2026, 7, 24, tzinfo=pytz.utc)
+    base_issue_id = 1240
+    
+    # Calculate full 7-day week steps from base date
+    weeks_delta = int((target_dt - base_dt).days // 7)
+    step = 1 if weeks_delta >= 0 else -1
+    
+    current_issue_id = base_issue_id
+    curr_dt = base_dt
+    
+    for _ in range(abs(weeks_delta)):
+        curr_dt += timedelta(weeks=step)
+        
+        # Check if the current week falls in the last two weeks of December (Dec 18 - Dec 31)
+        is_december_break = (curr_dt.month == 12 and curr_dt.day >= 18)
+        
+        # Increment/Decrement issue_id only if it's a valid publishing week
+        if not is_december_break:
+            current_issue_id += step
+            
+    return current_issue_id
+
 def get_latest_issue():
     api_url = os.getenv('YS_APIURL', 'http://localhost')
     agent_id = os.getenv('YS_AGENTID', 'AutoHarvest')
     latest_issue_url = f"{api_url}/api_get_latest_issue.php"
-    # make request to api
-    query_params = {
-        "agent": agent_id
-    }
-    latest_issue = requests.get(latest_issue_url, params=query_params)
-    # check status code
-    if latest_issue.status_code != 200:
-        raise Exception("Failed to get latest issue")
-    # parse response
-    latest_issue = latest_issue.json()
+    
+    query_params = {"agent": agent_id}
+    current_datetime_utc_aware = datetime.now(pytz.utc)
+    
+    try:
+        latest_issue_response = requests.get(latest_issue_url, params=query_params, timeout=10)
+        if latest_issue_response.status_code == 200:
+            latest_issue = latest_issue_response.json()
+        else:
+            latest_issue = []
+    except Exception:
+        latest_issue = []
 
-
-    current_datetime_utc_aware = datetime.now(pytz.utc) 
-    found_issue, is_new_tender_period = find_correct_issue_date(latest_issue, current_datetime_utc_aware)
+    # Fallback calculation if API fails or returns empty data
+    if not latest_issue:
+        calculated_issue_id = calculate_issue_id_exact(current_datetime_utc_aware)
+        
+        found_issue = {
+            "issue_id": calculated_issue_id,
+            "issue_date": current_datetime_utc_aware.strftime('%Y-%m-%d'),
+            "is_fallback": True
+        }
+        is_new_tender_period = False
+    else:
+        found_issue, is_new_tender_period = find_correct_issue_date(latest_issue, current_datetime_utc_aware)
 
     return {
        "issues": latest_issue,
