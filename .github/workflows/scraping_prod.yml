@@ -32,7 +32,7 @@ env:
 jobs:
   # JOB 1: Camofox Dev Tenders
   bonfire-tenders:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-26.04-arm
     # Job-specific Environment Variables
     env:
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
@@ -61,7 +61,7 @@ jobs:
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
 
       - name: Install system dependencies (Chrome/Xvfb)
@@ -69,14 +69,12 @@ jobs:
           curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt update
-          sudo apt install -y google-chrome-stable xvfb
+          sudo apt install -y google-chrome-stable
 
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
-          pip install playwright
-          playwright install chromium
 
       - name: Create Bundle Directory
         run: mkdir -p ./downloaded_bundles
@@ -91,19 +89,17 @@ jobs:
           echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
   
       # Step 2: Restore the directory from cache if available
-      - name: Cache Local Bundles
-        id: cache-bundles
-        uses: actions/cache@v6
-        with:
-          path: ./downloaded_bundles
-          key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
-          restore-keys: |
-            ${{ runner.os }}-web-bundles-
+      # - name: Cache Local Bundles
+      #   id: cache-bundles
+      #   uses: actions/cache@v6
+      #   with:
+      #     path: ./downloaded_bundles
+      #     key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-web-bundles-
 
       - name: Run Browser Automation
-        run: |
-          mkdir -p video_recordings
-          python fetch_tenders_all.py
+        run: python fetch_tenders_all.py
 
 
       - name: Upload Screenshots
