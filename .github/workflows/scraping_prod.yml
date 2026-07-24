@@ -58,10 +58,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
 
       - name: Install system dependencies (Chrome/Xvfb)
@@ -101,23 +101,33 @@ jobs:
       - name: Run Browser Automation and Record Xvfb Session
         run: |
           mkdir -p video_recordings
-          # Start Xvfb
-          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          export DISPLAY=:99
-          sleep 2
+          # Start Xvfb (Added -shmem for faster inter-process communication)
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset -shmem &
+          sleep 5
           
-          # Start FFmpeg recording
-          ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "video_recordings/session.mp4" &
+          # Start FFmpeg recording (Optimized for headless capture & lower CPU usage)
+          ffmpeg -y \
+            -f x11grab \
+            -framerate 25 \
+            -video_size 1920x1080 \
+            -draw_mouse 0 \
+            -i :99.0 \
+            -c:v libx264 \
+            -preset ultrafast \
+            -crf 23 \
+            -pix_fmt yuv420p \
+            -g 50 \
+            "video_recordings/session.mp4" &
           FFMPEG_PID=$!
           
           # Run Script
           echo "Running process_bids_tenders.py..."
           python fetch_tenders_all.py
           
-          # Stop Recording
-          kill -s SIGINT $FFMPEG_PID || true
+          # Stop Recording gracefully (SIGINT allows FFmpeg to write the MP4 moov atom)
+          kill -s SIGINT $FFMPEG_PID
           wait $FFMPEG_PID || true
-
+          
           echo "Video recording completed: video_recordings/session.mp4"
 
       - name: Upload Screenshots
