@@ -103,7 +103,7 @@ jobs:
           mkdir -p video_recordings
           # Start Xvfb
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          python process_bids_tenders.py
+          python fetch_tenders_all.py
 
       - name: Upload Screenshots
         if: always()
