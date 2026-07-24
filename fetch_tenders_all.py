@@ -567,7 +567,7 @@ async def main():
     #     display_var = os.environ.get("DISPLAY")
     #     print("display", display_var)
     #     options.add_argument(f'--display=:99')
-    options.add_argument('--headless')
+    # options.add_argument('--headless')
 
     options.add_argument("--enable-webgl")
     # load data from cache
