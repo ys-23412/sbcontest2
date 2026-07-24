@@ -32,7 +32,7 @@ env:
 jobs:
   # JOB 1: Camofox Dev Tenders
   bonfire-tenders:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26
     # Job-specific Environment Variables
     env:
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
@@ -76,59 +76,34 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
 
-      - name: Create Bundle Directory
-        run: mkdir -p ./downloaded_bundles
+      # - name: Create Bundle Directory
+      #   run: mkdir -p ./downloaded_bundles
   
       # Step 1: Compute a 14-day rotation token based on year and bi-week number
-      - name: Get Bi-Weekly Rotation Key
-        id: get-week
-        run: |
-          WEEK_NUM=$(date +'%U')
-          YEAR=$(date +'%Y')
-          BI_WEEK=$(( WEEK_NUM / 2 ))
-          echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
+      # - name: Get Bi-Weekly Rotation Key
+      #   id: get-week
+      #   run: |
+      #     WEEK_NUM=$(date +'%U')
+      #     YEAR=$(date +'%Y')
+      #     BI_WEEK=$(( WEEK_NUM / 2 ))
+      #     echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
   
       # Step 2: Restore the directory from cache if available
-      - name: Cache Local Bundles
-        id: cache-bundles
-        uses: actions/cache@v6
-        with:
-          path: ./downloaded_bundles
-          key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
-          restore-keys: |
-            ${{ runner.os }}-web-bundles-
+      # - name: Cache Local Bundles
+      #   id: cache-bundles
+      #   uses: actions/cache@v6
+      #   with:
+      #     path: ./downloaded_bundles
+      #     key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-web-bundles-
 
       - name: Run Browser Automation and Record Xvfb Session
         run: |
           mkdir -p video_recordings
-          # Start Xvfb (Added -shmem for faster inter-process communication)
-          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset -shmem &
-          sleep 5
-          
-          # Start FFmpeg recording (Optimized for headless capture & lower CPU usage)
-          ffmpeg -y \
-            -f x11grab \
-            -framerate 25 \
-            -video_size 1920x1080 \
-            -draw_mouse 0 \
-            -i :99.0 \
-            -c:v libx264 \
-            -preset ultrafast \
-            -crf 23 \
-            -pix_fmt yuv420p \
-            -g 50 \
-            "video_recordings/session.mp4" &
-          FFMPEG_PID=$!
-          
-          # Run Script
-          echo "Running process_bids_tenders.py..."
-          python fetch_tenders_all.py
-          
-          # Stop Recording gracefully (SIGINT allows FFmpeg to write the MP4 moov atom)
-          kill -s SIGINT $FFMPEG_PID
-          wait $FFMPEG_PID || true
-          
-          echo "Video recording completed: video_recordings/session.mp4"
+          # Start Xvfb
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+          python process_bids_tenders.py
 
       - name: Upload Screenshots
         if: always()
