@@ -563,13 +563,13 @@ async def main():
 
     options = ChromiumOptions()
     # Pydoll humanization and stealth
-    # if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
-    #     display_var = os.environ.get("DISPLAY")
-    #     print("display", display_var)
-    #     options.add_argument(f'--display=:99')
+    if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
+        display_var = os.environ.get("DISPLAY")
+        print("display", display_var)
+        options.add_argument(f'--display=:99')
     # options.add_argument('--headless')
 
-    options.add_argument("--enable-webgl")
+    # options.add_argument("--enable-webgl")
     # load data from cache
     options.add_argument(f"--user-data-dir={BUNDLE_DIR.resolve().as_posix()}")
 
