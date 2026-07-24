@@ -32,7 +32,7 @@ env:
 jobs:
   # JOB 1: Camofox Dev Tenders
   bonfire-tenders:
-    runs-on: macos-latest
+    runs-on: ubuntu-26.04
     # Job-specific Environment Variables
     env:
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
@@ -63,16 +63,13 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Setup Google Chrome
-        uses: browser-actions/setup-chrome@v2
-        with:
-          chrome-version: 'latest'
-      # - name: Install system dependencies (Chrome/Xvfb)
-      #   run: |
-      #    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
-      #    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-      #    sudo apt update
-      #    sudo apt install -y google-chrome-stable
+
+      - name: Install system dependencies (Chrome/Xvfb)
+        run: |
+         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
+         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+         sudo apt update
+         sudo apt install -y google-chrome-stable
 
       - name: Install Python dependencies
         run: |
