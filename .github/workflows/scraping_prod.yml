@@ -145,7 +145,7 @@ jobs:
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install system dependencies (Chrome/Xvfb)
         run: |
@@ -167,8 +167,6 @@ jobs:
           # Start Xvfb
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
           python process_bids_tenders.py
-          
-
 
       - name: Upload Screenshots
         if: always()
