@@ -32,7 +32,7 @@ env:
 jobs:
   # JOB 1: Camofox Dev Tenders
   bonfire-tenders:
-    runs-on: ubuntu-26
+    runs-on: ubuntu-latest
     # Job-specific Environment Variables
     env:
       EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
