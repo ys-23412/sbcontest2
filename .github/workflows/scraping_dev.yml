@@ -1,12 +1,12 @@
 name: Scrap Sites Dev
 on:
   workflow_dispatch:
-  schedule:
+  # schedule:
     # 8:30 AM PST (16:30 UTC)
     # 12:30 PM PST (20:30 UTC)
     # 5:00 PM PST (01:00 UTC next day)
     # close enough
-    - cron: '30 18,1 * * 0'
+    # - cron: '30 18,1 * * 0'
 
 env:
     PY_COLORS: "1"
@@ -61,54 +61,19 @@ jobs:
           curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt update
-          sudo apt install -y google-chrome-stable xvfb ffmpeg
+          sudo apt install -y google-chrome-stable
 
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
 
-      - name: Create Bundle Directory
-        run: mkdir -p ./downloaded_bundles
-  
-      # Step 1: Compute a 14-day rotation token based on year and bi-week number
-      - name: Get Bi-Weekly Rotation Key
-        id: get-week
-        run: |
-          WEEK_NUM=$(date +'%U')
-          YEAR=$(date +'%Y')
-          BI_WEEK=$(( WEEK_NUM / 2 ))
-          echo "biweek=${BI_WEEK}-${YEAR}" >> $GITHUB_OUTPUT
-  
-      # Step 2: Restore the directory from cache if available
-      - name: Cache Local Bundles
-        id: cache-bundles
-        uses: actions/cache@v6
-        with:
-          path: ./downloaded_bundles
-          key: ${{ runner.os }}-web-bundles-${{ steps.get-week.outputs.biweek }}
-          restore-keys: |
-            ${{ runner.os }}-web-bundles-
       - name: Run Browser Automation and Record Xvfb Session
         run: |
           mkdir -p video_recordings
           # Start Xvfb
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          sleep 2
-          
-          # Start FFmpeg recording
-          ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "video_recordings/session.mp4" &
-          FFMPEG_PID=$!
-          
-          # Run Script
-          echo "Running process_bids_tenders.py..."
           python fetch_tenders_all.py
-          
-          # Stop Recording
-          kill -s SIGINT $FFMPEG_PID || true
-          wait $FFMPEG_PID || true
-
-          echo "Video recording completed: video_recordings/session.mp4"
 
       - name: Upload Screenshots
         if: always()
@@ -162,8 +127,6 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
-          pip install playwright
-          playwright install chromium
 
       - name: Run Browser Automation and Record Xvfb Session
         run: |
