@@ -189,7 +189,7 @@ def calculate_issue_id_exact(target_dt: datetime) -> int:
     - 1 Issue published per week
     - Skipped: The last 2 weeks of December every year
     """
-    base_dt = datetime(2026, 7, 24, tzinfo=pytz.utc)
+    base_dt = datetime(2026, 7, 19, tzinfo=pytz.utc)
     base_issue_id = 1240
     
     # Calculate full 7-day week steps from base date
