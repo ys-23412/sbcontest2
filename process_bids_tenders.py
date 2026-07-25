@@ -121,20 +121,20 @@ async def scrap_bids_and_tenders_site(config: dict):
     # Handle Headless environment variables
     env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
     # url encode password
-    proxy_url = os.environ.get("PROXY_URL")
-    if proxy_url:
-        options.add_argument(f'--proxy-server={proxy_url}')
+    # proxy_url = os.environ.get("PROXY_URL")
+    # if proxy_url:
+    #     options.add_argument(f'--proxy-server={proxy_url}')
 
 
-    proxy = 'geo.iproyal.com:12321'
-    proxy_username = os.getenv('IPROYAL_USERNAME')
-    proxy_password = os.getenv('IPROYAL_PASSWORD')
-    proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
+    # proxy = 'geo.iproyal.com:12321'
+    # proxy_username = os.getenv('IPROYAL_USERNAME')
+    # proxy_password = os.getenv('IPROYAL_PASSWORD')
+    # proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
 
-    if proxy_username and proxy_password:
-        proxy_url = f'http://{proxy_auth}@{proxy}'
-        print("Using proxy:", proxy_url)
-        options.add_argument(f'--proxy-server={proxy_url}')
+    # if proxy_username and proxy_password:
+    #     proxy_url = f'http://{proxy_auth}@{proxy}'
+    #     print("Using proxy:", proxy_url)
+    #     options.add_argument(f'--proxy-server={proxy_url}')
 
     async with Chrome(options=options) as browser:
         try:
