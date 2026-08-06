@@ -41,6 +41,11 @@ if not pref_backup.exists():
     
 # Global variable to track login status across different portal attempts
 LOGIN_DISABLED = True
+
+def generate_session_id(length=8):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choices(characters, k=length))
+
 async def action_scroll_and_hover(tab: Tab):
     """Simulates a user scrolling and moving the mouse naturally."""
     print("Executing: Scroll and Hover")
@@ -590,7 +595,14 @@ async def main():
     proxy = 'geo.iproyal.com:12321'
     proxy_username = os.getenv('IPROYAL_USERNAME')
     proxy_password = os.getenv('IPROYAL_PASSWORD')
-    proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
+    session_id = generate_session_id()
+    proxy_auth = (
+        f"{proxy_username}:{proxy_password}"
+        f"_country-ca_city-vancouver"
+        f"_session-{session_id}"
+        f"_lifetime-30m_streaming-1"
+    )
+    # proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
 
     if proxy_username and proxy_password:
         proxy_url = f'http://{proxy_auth}@{proxy}'
