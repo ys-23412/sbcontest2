@@ -45,8 +45,6 @@ jobs:
       TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
       TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
       TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
-      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +65,26 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
+
+      - name: Install gdown
+        run: pip install gdown
+
+      - name: Download Google Drive File into Specific Folder
+        run: |
+          # 1. Create your target directory
+          mkdir -p ./downloaded_bundles || true
+          
+          # 2. Download directly into the folder using the -O flag
+          gdown "https://drive.google.com/uc?id=1mJW-emXnuHTiYivQpzwCiduSu1KxkM3d" -O archive.zip
+          
+          # Extract (-q for quiet mode so it doesn't flood CI logs)
+          unzip -q archive.zip -d ./downloaded_bundles
+
+          rm archive.zip
+
+      - name: Verify Download
+        run: |
+          ls -lh ./downloaded_bundles
 
       - name: Run Browser Automation and Record Xvfb Session
         run: |
