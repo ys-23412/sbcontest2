@@ -17,6 +17,8 @@ from pydoll.browser.tab import Tab
 from pydoll.constants import Key, By, ScrollPosition
 from pydoll.protocol.network.types import ErrorReason
 from pydoll.protocol.fetch.events import FetchEvent, RequestPausedEvent
+import random
+import string
 # Assuming you have a captcha solving utility like the one in your example
 # If not, you may need to find or create one. For this example, we will
 # assume a placeholder function exists.
