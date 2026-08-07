@@ -23,88 +23,88 @@ env:
 
 jobs:
   # JOB 1: Camofox Dev Tenders
-  tenders-dev:
-    runs-on: ubuntu-latest
-    # Job-specific Environment Variables
-    env:
-      EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
-      PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
-      TENDER_BASE_SAANICH_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
-      TENDER_BASE_BCTRANSIT_URL: ${{ secrets.TENDER_BASE_BCTRANSIT_URL }}
-      TENDER_BASE_UVIC_URL: ${{ secrets.TENDER_BASE_UVIC_URL }}
-      TENDER_BASE_NORTHCOW_URL: ${{ secrets.TENDER_BASE_NORTHCOW_URL }}
-      TENDER_BASE_VIC_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
-      TENDER_BASE_CVRD_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
-      TENDER_BASE_FNHA_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
-      TENDER_BASE_COURTENAY_URL: ${{ secrets.TENDER_BASE_COURTENAY_URL }}
-      TENDER_BASE_CENTRALSAANICH_URL: ${{ secrets.TENDER_BASE_CENTRALSAANICH_URL }}
-      TENDER_BASE_FRASERHEALTH_URL: ${{ secrets.TENDER_BASE_FRASERHEALTH_URL }}
-      TENDER_BASE_ICBC_URL: ${{ secrets.TENDER_BASE_ICBC_URL }}
-      TENDER_BASE_PHSA_URL: ${{ secrets.TENDER_BASE_PHSA_URL }}
-      TENDER_BASE_COMOX_URL: ${{ secrets.TENDER_BASE_COMOX_URL }}
-      TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
-      TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
-      TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
-      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
+  # tenders-dev:
+  #   runs-on: ubuntu-latest
+  #   # Job-specific Environment Variables
+  #   env:
+  #     EMAIL: ${{ secrets.TENDER_YS_EMAIL }}
+  #     PASSWORD: ${{ secrets.TENDER_YS_PASSWORD }}
+  #     TENDER_BASE_SAANICH_URL: ${{ secrets.TENDER_BASE_SAANICH_URL }}
+  #     TENDER_BASE_BCTRANSIT_URL: ${{ secrets.TENDER_BASE_BCTRANSIT_URL }}
+  #     TENDER_BASE_UVIC_URL: ${{ secrets.TENDER_BASE_UVIC_URL }}
+  #     TENDER_BASE_NORTHCOW_URL: ${{ secrets.TENDER_BASE_NORTHCOW_URL }}
+  #     TENDER_BASE_VIC_URL: ${{ secrets.TENDER_BASE_VIC_URL }}
+  #     TENDER_BASE_CVRD_URL: ${{ secrets.TENDER_BASE_CVRD_URL }}
+  #     TENDER_BASE_FNHA_URL: ${{ secrets.TENDER_BASE_FNHA_URL }}
+  #     TENDER_BASE_COURTENAY_URL: ${{ secrets.TENDER_BASE_COURTENAY_URL }}
+  #     TENDER_BASE_CENTRALSAANICH_URL: ${{ secrets.TENDER_BASE_CENTRALSAANICH_URL }}
+  #     TENDER_BASE_FRASERHEALTH_URL: ${{ secrets.TENDER_BASE_FRASERHEALTH_URL }}
+  #     TENDER_BASE_ICBC_URL: ${{ secrets.TENDER_BASE_ICBC_URL }}
+  #     TENDER_BASE_PHSA_URL: ${{ secrets.TENDER_BASE_PHSA_URL }}
+  #     TENDER_BASE_COMOX_URL: ${{ secrets.TENDER_BASE_COMOX_URL }}
+  #     TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
+  #     TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
+  #     TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
+  #     IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+  #     IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+  #     - name: Set up Python 3.12
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.13"
 
 
-      - name: Install system dependencies (Chrome/Xvfb)
-        run: |
-          curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt update
-          sudo apt install -y google-chrome-stable
+  #     - name: Install system dependencies (Chrome/Xvfb)
+  #       run: |
+  #         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
+  #         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+  #         sudo apt update
+  #         sudo apt install -y google-chrome-stable
 
-      - name: Install Python dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements_tenders.txt
+  #     - name: Install Python dependencies
+  #       run: |
+  #         pip install -r requirements.txt
+  #         pip install -r requirements_tenders.txt
 
-      - name: Run Browser Automation and Record Xvfb Session
-        run: |
-          mkdir -p video_recordings
-          # Start Xvfb
-          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          python fetch_tenders_all.py
+  #     - name: Run Browser Automation and Record Xvfb Session
+  #       run: |
+  #         mkdir -p video_recordings
+  #         # Start Xvfb
+  #         Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+  #         python fetch_tenders_all.py
 
-      - name: Upload Screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: camofox-screenshots
-          path: screenshots/
-          retention-days: 3
+  #     - name: Upload Screenshots
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: camofox-screenshots
+  #         path: screenshots/
+  #         retention-days: 3
 
-      - name: Upload Data (Python Script)
-        if: always()
-        run: python upload_tenders.py
+  #     - name: Upload Data (Python Script)
+  #       if: always()
+  #       run: python upload_tenders.py
 
-      - name: Validate Data
-        if: always()
-        run: python validate_tenders.py
+  #     - name: Validate Data
+  #       if: always()
+  #       run: python validate_tenders.py
 
-      - name: Upload Results Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tenders-bonfire-data
-          path: data/
-          retention-days: 3
+  #     - name: Upload Results Artifact
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: tenders-bonfire-data
+  #         path: data/
+  #         retention-days: 3
       
-      - name: Upload Video Recording
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xvfb-session-video-bonfire
-          path: video_recordings/session.mp4
+  #     - name: Upload Video Recording
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: xvfb-session-video-bonfire
+  #         path: video_recordings/session.mp4
   # JOB 2: Dev Bids and Tenders
   bids-and-tenders-dev:
     runs-on: ubuntu-latest
@@ -163,12 +163,12 @@ jobs:
           name: bids-data
           path: data/
 
-      - name: Upload Video Recording
-        if: always()
+      - name: Upload Browser Cache
         uses: actions/upload-artifact@v4
         with:
-          name: xvfb-session-video
-          path: video_recordings/session.mp4
+          retention-days: 1
+          path: downloaded_bundles
+          name: browser-cache
 
   # JOB 3: Scrap CRD Website Dev
   scrape-crd-dev:
