@@ -123,70 +123,72 @@ jobs:
         with:
           name: xvfb-session-video-bonfire
           path: video_recordings/session.mp4
+
+      
+      - name: Upload Browser Cache
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 1
+          path: downloaded_bundles
+          name: browser-cache
   # JOB 2: Dev Bids and Tenders
-  bids-and-tenders-dev:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # bids-and-tenders-dev:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+  #     - name: Set up Python 3.13
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.13"
 
-      - name: Install system dependencies (Chrome/Xvfb)
-        run: |
-          curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt update
-          sudo apt install -y google-chrome-stable xvfb ffmpeg
+  #     - name: Install system dependencies (Chrome/Xvfb)
+  #       run: |
+  #         curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor --yes --batch -o /usr/share/keyrings/google-chrome.gpg
+  #         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+  #         sudo apt update
+  #         sudo apt install -y google-chrome-stable xvfb ffmpeg
 
-      - name: Install Python dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements_tenders.txt
+  #     - name: Install Python dependencies
+  #       run: |
+  #         pip install -r requirements.txt
+  #         pip install -r requirements_tenders.txt
 
-      - name: Run Browser Automation and Record Xvfb Session
-        run: |
-          mkdir -p video_recordings
-          # Start Xvfb
-          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-          sleep 2
+  #     - name: Run Browser Automation and Record Xvfb Session
+  #       run: |
+  #         mkdir -p video_recordings
+  #         # Start Xvfb
+  #         Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+  #         sleep 2
           
-          # Start FFmpeg recording
-          ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "video_recordings/session.mp4" &
-          FFMPEG_PID=$!
+  #         # Start FFmpeg recording
+  #         ffmpeg -y -f x11grab -framerate 15 -video_size 1920x1080 -i :99.0 -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p "video_recordings/session.mp4" &
+  #         FFMPEG_PID=$!
           
-          # Run Script
-          echo "Running process_bids_tenders.py..."
-          python process_bids_tenders.py
+  #         # Run Script
+  #         echo "Running process_bids_tenders.py..."
+  #         python process_bids_tenders.py
           
-          # Stop Recording
-          kill -s SIGINT $FFMPEG_PID || true
-          wait $FFMPEG_PID || true
+  #         # Stop Recording
+  #         kill -s SIGINT $FFMPEG_PID || true
+  #         wait $FFMPEG_PID || true
 
-          echo "Video recording completed: video_recordings/session.mp4"
+  #         echo "Video recording completed: video_recordings/session.mp4"
 
-      - name: Upload Screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bids-screenshots
-          path: screenshots/
+  #     - name: Upload Screenshots
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bids-screenshots
+  #         path: screenshots/
 
-      - name: Upload Data
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bids-data
-          path: data/
+  #     - name: Upload Data
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bids-data
+  #         path: data/
 
-      - name: Upload Video Recording
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xvfb-session-video
-          path: video_recordings/session.mp4
 
   # JOB 3: Scrap CRD Website Dev
   scrape-crd-dev:
