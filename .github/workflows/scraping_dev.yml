@@ -22,7 +22,7 @@ env:
     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
 jobs:
-  JOB 1: Camofox Dev Tenders
+  # JOB 1: Camofox Dev Tenders
   tenders-dev:
     runs-on: ubuntu-latest
     # Job-specific Environment Variables
