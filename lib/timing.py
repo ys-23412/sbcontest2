@@ -92,7 +92,17 @@ def get_execution_window(now_pst: datetime) -> Tuple[datetime, datetime]:
              last_run_actual = last_run_actual.replace(tzinfo=ZoneInfo("America/Vancouver"))
         
         print(f"API Update: Overriding calculated start time ({start_time}) with last successful run ({last_run_actual})")
-        start_time = last_run_actual
+
+        # FIX: Implement the missing "2 days" reasonableness check (Circuit Breaker)
+        # Prevents massive data pulls if the last successful run was months ago
+        time_difference_seconds = abs((start_time - last_run_actual).total_seconds())
+        max_allowed_gap = timedelta(days=2).total_seconds()
+        
+        if time_difference_seconds <= max_allowed_gap:
+            print(f"API Update: Overriding calculated start time ({start_time}) with last successful run ({last_run_actual})")
+            start_time = last_run_actual
+        else:
+            print(f"API Update Rejected: Last run ({last_run_actual}) is older than 2 days. Falling back to default ({start_time}).")
     print("Using start_time", start_time)
     print("Using end_time", end_time)
     return start_time, end_time
