@@ -408,7 +408,7 @@ def get_project_type_id(project_data_entry):
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             contents = [
                 prompt
             ]
@@ -502,8 +502,6 @@ def map_data(params):
     # classified entries
 
     if ys_component_id != 13:
-        print(len(data))
-        print("Mapping Google Project Data?")
         for unclassified_entry in data:
             # copy unclassified_entry and remove details_link
             entry_copy = unclassified_entry.copy()
@@ -520,10 +518,7 @@ def map_data(params):
 
         if len(entries_with_project_types) == 0:
             print("do entries have project types?", entries_with_project_types)
-    
 
-    # print all the entries and save to data
-    # add datetime to the filename
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     filename = f"{file_name}_{current_date}_{region_name}.json"
     try:
@@ -561,10 +556,7 @@ def map_data(params):
             entry['ys_description'] = unmapped_entry['purpose'][:95]
             # remove bad characters like ' and replace with sql safe characters
             entry['ys_description'] = entry['ys_description'].replace("'", "''")
-        # strip everything past #, assume that means unit number
-        # if '#' in entry['ys_description']:
-        #     entry['ys_description'] = entry['ys_description'].split('#')[0]
-       #  entry['ys_description'] = unmapped_entry['address'].split('#')[0]
+
         entry['ys_component'] = current_ys_component_id
         # all status is ACTIVE We can ignore, we only want to process active anyway
         entry['ys_type'] = unmapped_entry.get('ys_project_type', 0)
@@ -582,8 +574,7 @@ def map_data(params):
                 # we want to still format the data, Replace Telephone with Ph: and Remove Email
                 fmt_application_contact = unmapped_entry['application_contact'].replace("Telephone", "Ph").replace("Email:", "")
                 ys_body['ys_enquiries'] = fmt_application_contact
-            # ys_body['ys_contractor'] = unmapped_entry['application_contact']
-        # TODO add LA - June 23/25
+
         fmt_date = date.today().strftime("%B %d/%y")
         ys_body['ys_internal_note'] = f"LA - {fmt_date} AUTOBOT"
 
@@ -664,13 +655,13 @@ def map_data(params):
             entry['project_step_id'] = 1001
 
         elif int(ys_component_id) == DataTypes.NEW_PROJECT.value:
-            # ys project is set to purpose
+            # ys project is set to purpose, think we dont scrap new project here yet.
             ys_body['ys_project'] = unmapped_entry['purpose']
             entry['ys_date'] = unmapped_entry['application_date']
             entry['ys_permit'] = unmapped_entry['folder_no']
             ys_body['ys_documents_drawings_link'] = unmapped_entry['details_link']
             ys_body['ys_sector'] = 'Private'
-            entry['project_step_id'] = 1001
+            entry['project_step_id'] = 1002
         elif int(ys_component_id) == DataTypes.BUILDING_PERMITS.value:
             pass
         else:
