@@ -187,7 +187,11 @@ def filter_bcbid_tenders(tender_records: List[Dict]) -> List[Dict]:
         # Check conditions
         is_unrelated_desc = any(phrase in description for phrase in unrelated_phrases_lower)
         is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
-        is_unrelated_org = any(org in org_issued_by for org in unrelated_organizations_lower)
+        # Check if excluded org is in either the issuing field OR the description
+        is_unrelated_org = any(
+            org in org_issued_by or org in description 
+            for org in unrelated_organizations_lower
+        )
         
         opp_id = record.get('Opportunity ID', 'Unknown ID')
         

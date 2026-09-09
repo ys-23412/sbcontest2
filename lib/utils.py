@@ -126,6 +126,7 @@ unrelated_commodities = [
 
 unrelated_organizations = [
     "City of Vancouver",
+    "City of Abbotsford"
 ]
 
 regional_districts = [
