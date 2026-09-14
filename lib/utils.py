@@ -185,6 +185,17 @@ def load_city_mapping(filepath="data/city.csv") -> dict:
     return city_mapping
 
 
+def clean_technical_noise(text: str) -> str:
+    """Removes HTML tags, code blocks, and common JS/web noise."""
+    # 1. Remove HTML tags (<script>...</script>, <div>, etc.)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    
+    # 2. Neutralize technical jargon/code calls (e.g., 'ajax', '.ajax(', '$.ajax')
+    # Replace technical instances of ajax with a placeholder so it won't match a city
+    text = re.sub(r'(\$\.|\b)ajax(\(|\b|\.|\/|\:)', ' ', text, flags=re.IGNORECASE)
+    
+    return text
+
 def find_bcbid_city_match(tender_record: dict, city_mapping: dict) -> str:
     """
     Searches for a valid city name in the 'Organization (Issued for)' or 
@@ -196,16 +207,17 @@ def find_bcbid_city_match(tender_record: dict, city_mapping: dict) -> str:
         tender_record.get('Opportunity Description', '')
     ]
     
-    # Sort cities by length descending so "North Vancouver" matches before "Vancouver"
     sorted_cities = sorted(city_mapping.keys(), key=len, reverse=True)
     
     for field in check_fields:
         if not field or not isinstance(field, str):
             continue
             
-        field_lower = field.lower()
+        # Clean out technical/code noise before checking
+        cleaned_field = clean_technical_noise(field)
+        field_lower = cleaned_field.lower()
+        
         for city_name in sorted_cities:
-            # Use regex boundaries \b to ensure we don't match 'Hope' inside 'Hopewell'
             if re.search(rf'\b{re.escape(city_name.lower())}\b', field_lower):
                 return city_name
                 
