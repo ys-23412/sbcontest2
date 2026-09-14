@@ -242,7 +242,16 @@ def process_and_send_bcbid_tenders(params: dict):
     unrelated_phrases_lower = [phrase.lower() for phrase in unrelated_phrases]
     unrelated_commodities_lower = [comm.lower() for comm in unrelated_commodities]
     unrelated_organizations_lower = [org.lower() for org in unrelated_organizations]
-    
+
+    cleaned_unrelated_orgs = []
+    for org in unrelated_organizations:
+        org_clean = org.lower().strip()
+        # Strip common municipal prefixes to extract the raw city name
+        for prefix in ["city of ", "city of", "town of ", "town of", "district of ", "district of"]:
+            if org_clean.startswith(prefix):
+                org_clean = org_clean[len(prefix):].strip()
+                break
+        cleaned_unrelated_orgs.append(org_clean)
     # filter out by commodities
     # Filter out unrelated records
     filtered_tender_records = []
@@ -268,6 +277,15 @@ def process_and_send_bcbid_tenders(params: dict):
         is_unrelated_comm = any(comm in unrelated_commodities_lower for comm in split_commodities_lower)
 
         is_unrelated_org = any(org in org_issued_by for org in unrelated_organizations_lower)
+
+        # Extract location/city from the record (checking common BC Bid location key fallbacks)
+        record_city = str(record.get('City', record.get('Location', ''))).lower().strip()
+        # Check if the stripped organization name matches the record's city
+        is_unrelated_city_match = record_city != '' and any(
+            stripped_org == record_city or stripped_org in record_city 
+            for stripped_org in cleaned_unrelated_orgs
+        )
+
         opp_id = record.get('Opportunity ID', 'Unknown ID')
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
@@ -278,8 +296,13 @@ def process_and_send_bcbid_tenders(params: dict):
         elif is_unrelated_org:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
+        elif is_unrelated_city_match:
+            print(f"⏭️ Skipping unrelated tender {opp_id}: Excluded organization match found for city '{record_city}'.")
+            print(f"Location/City: {record_city}\n") 
         else:
             filtered_tender_records.append(record)
+
+
     # save filtered tender records to file
     with open(f'data/{file_prefix}_filtered.json', 'w') as f:
         json.dump(filtered_tender_records, f, indent=4)
