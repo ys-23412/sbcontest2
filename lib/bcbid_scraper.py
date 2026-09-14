@@ -14,7 +14,7 @@ from pydoll.constants import By
 from pydoll.constants import ScrollPosition
 from pydoll.exceptions import FailedToStartBrowser
 from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, target_organizations, \
-scan_text_for_cities, DEFAULT_CITY
+scan_text_for_cities, clean_technical_noise, DEFAULT_CITY
 from datetime import datetime, timedelta
 
 FILE_DIR = "screenshots"
@@ -597,7 +597,8 @@ async def main():
                     city = find_bcbid_city_match(row_dict, CITY_MAPPING)
 
                     if city.lower() == DEFAULT_CITY:
-                        deep_scan_city = scan_text_for_cities(clean_text, CITY_MAPPING)
+                        no_tags_clean_text = clean_technical_noise(clean_text)
+                        deep_scan_city = scan_text_for_cities(no_tags_clean_text, CITY_MAPPING)
                         city = deep_scan_city
 
                     df.at[index, 'Email'] = email
