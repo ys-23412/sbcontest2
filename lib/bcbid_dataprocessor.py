@@ -169,7 +169,7 @@ def filter_bcbid_tenders(tender_records: List[Dict]) -> List[Dict]:
     unrelated_organizations_lower = [org.lower() for org in unrelated_organizations]
     
     filtered_tender_records = []
-    
+    excluded_records = []  # <--- ADD THIS
     for record in tender_records:
         # Safely get the description and normalize to lowercase
         description = record.get('Opportunity Description', '').lower()
@@ -198,12 +198,15 @@ def filter_bcbid_tenders(tender_records: List[Dict]) -> List[Dict]:
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
             print(f"Description: {description}")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         elif is_unrelated_comm:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
             print(f"Commodity: {raw_commodity}\n")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         elif is_unrelated_org:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         else:
             filtered_tender_records.append(record)
 
@@ -255,6 +258,7 @@ def process_and_send_bcbid_tenders(params: dict):
     # filter out by commodities
     # Filter out unrelated records
     filtered_tender_records = []
+    excluded_records = []  # <--- ADD THIS
     for record in tender_records:
         # Safely get the description and normalize to lowercase
         description = record.get('Opportunity Description', '').lower()
@@ -290,15 +294,19 @@ def process_and_send_bcbid_tenders(params: dict):
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
             print(f"Description: {description}")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         elif is_unrelated_comm:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
             print(f"Commodity: {raw_commodity}\n")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         elif is_unrelated_org:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         elif is_unrelated_city_match:
             print(f"⏭️ Skipping unrelated tender {opp_id}: Excluded organization match found for city '{record_city}'.")
             print(f"Location/City: {record_city}\n") 
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
         else:
             filtered_tender_records.append(record)
 
@@ -356,7 +364,53 @@ def process_and_send_bcbid_tenders(params: dict):
     if not os.path.exists("data"):
         os.makedirs("data")
 
-    print(f"📦 Grouped data into {len(grouped_data)} distinct cities/regions.")
+    try:
+        # 1. Save excluded entries to local JSON
+        with open(f'data/{file_prefix}_excluded.json', 'w') as f:
+            json.dump(excluded_records, f, indent=4)
+
+        if excluded_records and discord_webhook_url:
+            # 2. Group excluded records by City
+            excluded_by_city = {}
+            for item in excluded_records:
+                city = item['record'].get('City') or item['record'].get('Location') or 'Unspecified City'
+                if str(city).lower() == 'nan' or not str(city).strip():
+                    city = 'Unspecified City'
+                city = str(city).strip().title()
+
+                if city not in excluded_by_city:
+                    excluded_by_city[city] = []
+                excluded_by_city[city].append(item)
+
+            # 3. Create embed fields per city (respecting Discord's 25-field limit)
+            embed_fields = {}
+            for city, items in list(excluded_by_city.items())[:25]:
+                field_lines = []
+                for item in items:
+                    opp_id = item['opp_id']
+                    reason = item['reason']
+                    desc_snippet = (item['record'].get('Opportunity Description') or '')[:50].strip()
+                    field_lines.append(f"• `{opp_id}`: {reason}\n  _{desc_snippet}_")
+
+                field_value = "\n".join(field_lines)
+                # Discord caps individual field values at 1024 characters
+                if len(field_value) > 1024:
+                    field_value = field_value[:1020] + "..."
+
+                embed_fields[f"📍 {city} ({len(items)})"] = field_value
+
+            # 4. Send the embed immediately
+            color_code = 16753920  # Orange / Amber for exclusions
+            send_discord_embed(
+                webhook_url=discord_webhook_url,
+                title="🚫 BC Bid Harvester: Excluded Tenders",
+                description=f"Filtered out **{len(excluded_records)}** unrelated tenders for **{region_name}** prior to classification.",
+                fields=embed_fields,
+                color=color_code
+            )
+
+    except Exception as e:
+        print(f"⚠️ Failed to store or send excluded records to Discord: {e}")
 
     # 2. Iterate through each city and send separate API requests
     for city_name, city_entries in grouped_data.items():
