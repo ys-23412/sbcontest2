@@ -5,6 +5,7 @@ import lxml
 import re
 import pandas as pd
 import random
+import sys
 from io import StringIO
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
@@ -17,6 +18,8 @@ from lib.utils import find_bcbid_city_match, load_city_mapping, regional_distric
 scan_text_for_cities, clean_technical_noise, DEFAULT_CITY
 from datetime import datetime, timedelta
 
+
+sys.stdout.reconfigure(encoding="utf-8")
 FILE_DIR = "screenshots"
 
 def get_browser_options(headless=False):
