@@ -40,6 +40,7 @@ def get_browser_options(headless=False):
     # url encode password
     proxy_url = os.environ.get("PROXY_URL")
     if proxy_url:
+        print("Using Proxy url")
         options.add_argument(f'--proxy-server={proxy_url}')
     # if headless or env_headless:
     #     options.add_argument("--headless=new")

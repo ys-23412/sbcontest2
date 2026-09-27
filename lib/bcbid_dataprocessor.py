@@ -198,15 +198,15 @@ def filter_bcbid_tenders(tender_records: List[Dict]) -> List[Dict]:
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
             print(f"Description: {description}")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'record': record})
         elif is_unrelated_comm:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
             print(f"Commodity: {raw_commodity}\n")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'record': record})
         elif is_unrelated_org:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason,  'record': record})
         else:
             filtered_tender_records.append(record)
 
@@ -294,19 +294,19 @@ def process_and_send_bcbid_tenders(params: dict):
         if is_unrelated_desc:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to keyword match.")
             print(f"Description: {description}")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason,  'record': record})
         elif is_unrelated_comm:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to exact commodity match.")
             print(f"Commodity: {raw_commodity}\n")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason,  'record': record})
         elif is_unrelated_org:
             print(f"⏭️ Skipping unrelated tender {opp_id} due to excluded organization.")
             print(f"Organization: {record.get('Organization (Issued by)')}\n")
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'record': record})
         elif is_unrelated_city_match:
             print(f"⏭️ Skipping unrelated tender {opp_id}: Excluded organization match found for city '{record_city}'.")
             print(f"Location/City: {record_city}\n") 
-            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'match': matched_phrase, 'record': record})
+            excluded_records.append({'opp_id': opp_id, 'reason': reason, 'record': record})
         else:
             filtered_tender_records.append(record)
 
