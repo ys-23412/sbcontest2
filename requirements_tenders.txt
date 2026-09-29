@@ -1,4 +1,4 @@
-pydoll-python
+pydoll-python >= 3.0.0, < 4.0.0
 requests
 random-user-agent
 beautifulsoup4
