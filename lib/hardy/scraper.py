@@ -58,7 +58,7 @@ async def main():
         # Wait for the page to load fully
         await asyncio.sleep(random.uniform(3.0, 5.0))
    
-        page_source = await tab.page_source
+        page_source = await tab.page_source()
         
         print("Extracting bids...")
         soup = BeautifulSoup(page_source, 'html.parser')
@@ -137,7 +137,7 @@ async def main():
                 await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
                 
                 # --- Scrape logic for detail page ---
-                html_content = await tab.page_source
+                html_content = await tab.page_source()
                 page_soup = BeautifulSoup(html_content, 'html.parser')
                 
                 # Cleanup potentially distracting elements

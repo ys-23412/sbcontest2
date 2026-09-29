@@ -330,7 +330,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 print(f"Failed to login for {CITY_NAME}. Skipping.")
             # Log In look to element Log In, if so, set login flag to true
             await asyncio.sleep(random.uniform(4, 5))
-            page_source = await tab.page_source
+            page_source = await tab.page_source()
             with open(f"{base_dir}/{CITY_NAME}_bonfire.html", "w", encoding='utf-8', errors='ignore') as f:
                 f.write(page_source)
 
@@ -415,7 +415,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         # selector = "//body"
                         # await perform_human_loop(tab, selector, 1)
                         # print(f"Failed to solve captcha challenge for detail page {full_link}. Skipping.")
-                        new_page_source = await tab.page_source
+                        new_page_source = await tab.page_source()
                         with open(f"{base_dir}/{CITY_NAME}_tender_scrap_{index}.html", "w", encoding='utf-8', errors='ignore') as f:
                             f.write(new_page_source)
 
@@ -436,7 +436,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         status_val = row.get('Status')
                         ref_val = row.get('Ref. #')
                         project_val = row.get('Project')
-                        new_page_source = await tab.page_source
+                        new_page_source = await tab.page_source()
                         detail_soup = BeautifulSoup(new_page_source, 'html.parser')
 
                         # Mechanism 2: Fallback to checking the new div-based layout inside the details page
@@ -472,7 +472,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                             if not ref_val: ref_val = div_data.get('Ref. #')
                             if not project_val: project_val = div_data.get('Project')
                         # Mechanism 3: Final emergency fallback for open_date
-                        new_page_source = await tab.page_source
+                        new_page_source = await tab.page_source()
                         detail_soup = BeautifulSoup(new_page_source, 'html.parser')
                         if not open_date:
                             # Search the entire soup for an element containing "Open Date:"

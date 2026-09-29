@@ -149,7 +149,7 @@ async def scrap_bids_and_tenders_site(config: dict):
         print(f'Page loaded for {region_name}, waiting for captcha to be handled...')
         await asyncio.sleep(5)
 
-        page_source = await tab.page_source
+        page_source = await tab.page_source()
         os.makedirs(base_dir, exist_ok=True)
         with open(f'{base_dir}/page_source_{region_name}.html', 'w', errors='ignore') as f:
             f.write(page_source)
@@ -262,7 +262,7 @@ async def scrap_bids_and_tenders_site(config: dict):
             
             if details_url:
                 await tab.go_to(details_url)
-                page_source = await tab.page_source
+                page_source = await tab.page_source()
                 values = parse_bid_details_from_html(page_source)
             
             merged_dict = {**row_dict, **values}

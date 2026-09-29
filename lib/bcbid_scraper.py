@@ -5,6 +5,7 @@ import lxml
 import re
 import pandas as pd
 import random
+import json
 import sys
 from io import StringIO
 from pydoll.browser.chromium import Chrome
@@ -250,6 +251,14 @@ async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
             
     return False
 
+def chunk_list(lst, n=3):
+    """Splits a list into n roughly equal parts, skipping empty chunks."""
+    if not lst:
+        return []
+    n = min(n, len(lst))  # Ensure we don't create empty slices if len < n
+    k, m = divmod(len(lst), n)
+    return [lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
+
 async def main():
     opts = get_browser_options()
     
@@ -263,20 +272,32 @@ async def main():
         min_date = (datetime.now() - timedelta(days=days_to_check)).strftime('%Y-%m-%d')
         max_date = datetime.now().strftime('%Y-%m-%d')
 
-        # Create our scan sequences for the dual extraction
-        # consider splitting target organizations if it gets better.
+        min_date = (datetime.now() - timedelta(days=days_to_check)).strftime('%Y-%m-%d')
+        max_date = datetime.now().strftime('%Y-%m-%d')
+
+        # -------------------------------------------------------------
+        # Split target_organizations into 3 parts based on length
+        # -------------------------------------------------------------
+        org_chunks = chunk_list(target_organizations, n=3)
+        print(f"Total target organizations: {len(target_organizations)} across {len(org_chunks)} batches:")
+        for idx, chunk in enumerate(org_chunks, 1):
+            print(f"  - Batch {idx}: {len(chunk)} organizations")
+
+        # Build scan definitions
         scans = [
             {
                 "name": "Region Scan",
                 "input_id": "body_x_selRfpIdAreaLevelAreaNode_search",
                 "values": regional_districts
-            },
-            {
-                "name": "Organization Scan",
-                "input_id": "body_x_selBpmIdOrgaLevelOrgaNode_search", 
-                "values": target_organizations
             }
         ]
+
+        for i, chunk in enumerate(org_chunks, 1):
+            scans.append({
+                "name": f"Organization Scan Part {i}",
+                "input_id": "body_x_selBpmIdOrgaLevelOrgaNode_search", 
+                "values": chunk
+            })
         # if directory exists
         if not os.path.exists(FILE_DIR):
             # remove directory
@@ -307,17 +328,48 @@ async def main():
             # 1. Set specific scan entity filters (Region or Organizations)
             try:
                 print(f"Setting text filters for {scan['name']}...")
+                control_id = scan['input_id'].replace('_search', '')
                 filter_search = await tab.find(scan['input_id'], timeout=15)
-                await filter_search.click()
-                # also click on the parent element
-                # await filter_search.parent().click()
 
                 for value_tag in scan['values']:
-                    print(f"Typing: {value_tag}")
-                    await filter_search.type_text(value_tag, humanize=False)
-                    await asyncio.sleep(random.uniform(0.5, 0.7))
-                    await tab.keyboard.press(Key.ENTER)
-                    await asyncio.sleep(random.uniform(0.5, 1.2))
+                    # 1 attempt + 2 retry (2 attempts total)
+                    for attempt in range(3):
+                        print(f"Typing: {value_tag}" + (" (retry)" if attempt > 0 else ""))
+                        
+                        await filter_search.click()
+                        await filter_search.type_text(value_tag, humanize=False)
+                        # api loading times, should be bigger
+                        await asyncio.sleep(random.uniform(1, 1.3))
+                        await tab.keyboard.press(Key.ENTER)
+                        await asyncio.sleep(random.uniform(0.5, 0.7))
+
+                        # Check if value_tag text now exists inside the dropdown values container
+                        check_script = f"""
+                            (() => {{
+                                const wrapper = document.querySelector('div[data-selector="{control_id}"] .values-container');
+                                return wrapper ? wrapper.innerText.toLowerCase().includes({json.dumps(value_tag.lower())}) : false;
+                            }})()
+                        """
+                        res = await tab.execute_script(check_script, return_by_value=True, await_promise=True)
+                        is_inserted = res.get('result', {}).get('result', {}).get('value', False)
+
+                        if is_inserted:
+                            print(f"✓ Confirmed: {value_tag}")
+                            break
+                        
+                        # If failed on first attempt, clear search box to prepare for the retry
+                        if attempt == 0:
+                            print(f"⚠️ Value not found in tags, clearing and retrying: {value_tag}")
+                            await tab.execute_script(f"""
+                                (() => {{
+                                    const input = document.getElementById('{scan["input_id"]}');
+                                    if (input) {{
+                                        input.value = '';
+                                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    }}
+                                }})()
+                            """)
+                            await asyncio.sleep(0.5)
 
                 await tab.keyboard.press(Key.ESCAPE)
             except Exception as e:
@@ -415,7 +467,7 @@ async def main():
                     try:
                         # Wait for AJAX table to fully load
                         await asyncio.sleep(8)
-                        page_source = await tab.page_source
+                        page_source = await tab.page_source()
                         
                         # Save the page source to an html page
                         with open(f'{FILE_DIR}/{scan["name"].replace(" ", "_")}_page_{page}.html', 'w', encoding='utf-8') as f:
@@ -454,7 +506,7 @@ async def main():
                                 return isClassDisabled || nextBtn.disabled;
                             })()
                         """, return_by_value=True, await_promise=True)
-                        print(f"Next button is disabled: {scriptReturnResult}")
+                        print(f"Next button status: {scriptReturnResult}")
 
                         try:
                             is_disabled = scriptReturnResult.get('result', {}).get('result', {}).get('value')
@@ -568,7 +620,7 @@ async def main():
                     if not success:
                         print(f"Warning: Could not definitively find general info tab on {url}")
 
-                    page_source = await tab.page_source
+                    page_source = await tab.page_source()
                     clean_text = re.sub(r'<[^>]+>', ' ', page_source)
                     clean_text = re.sub(r'\s+', ' ', clean_text)
 

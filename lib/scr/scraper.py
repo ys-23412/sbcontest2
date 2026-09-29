@@ -60,7 +60,7 @@ async def main():
         # Wait for the table to populate
         await asyncio.sleep(random.uniform(3.0, 5.0))
    
-        page_source = await tab.page_source
+        page_source = await tab.page_source()
         
         print("Extracting table...")
         dfs = pd.read_html(StringIO(page_source))
@@ -166,7 +166,7 @@ async def main():
                 await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
                 
                 # --- Scrape logic for SRD Detail Page ---
-                html_content = await tab.page_source
+                html_content = await tab.page_source()
                 soup = BeautifulSoup(html_content, 'html.parser')
                 
                 for aside in soup.find_all('aside'):

@@ -94,7 +94,7 @@ async def extract_tables():
         
         print("Extracting page source...")
         # Get the full page source of the rendered DOM
-        page_source = await tab.page_source
+        page_source = await tab.page_source()
         
         print("Parsing tables with pandas...")
         try:
@@ -171,7 +171,7 @@ async def extract_tables():
                 await asyncio.sleep(3) # Wait for page to render
 
                 # 1. Parse the page for general info (Summary, Description, Dates)
-                page_source = await tab.page_source
+                page_source = await tab.page_source()
                 soup = BeautifulSoup(page_source, 'html.parser')
 
                 df.at[index, 'Publication date'] = safe_extract(soup, '.field--name-field-tender-publication-date time')
@@ -213,7 +213,7 @@ async def extract_tables():
                     print(f"⚠️ Could not click Contact tab (it may already be open or missing): {e}")
 
                 # 3. Get updated page source after click and parse Contact Information
-                page_source = await tab.page_source
+                page_source = await tab.page_source()
                 soup = BeautifulSoup(page_source, 'html.parser')
 
                 # Organization
