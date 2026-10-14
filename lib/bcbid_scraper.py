@@ -211,7 +211,7 @@ async def navigate_to_opportunities(tab: Tab):
         
         try:
             await tab.scroll.by(ScrollPosition.DOWN, 500, humanize=True)
-            await tab.find_or_wait_element(By.XPATH, selector, timeout=40000)
+            await tab.query(selector, timeout=40000)
             print("Found the Opportunities header!")
         except Exception as e:
             print(f"Timed out waiting for text: {e}")
@@ -319,7 +319,7 @@ async def main():
                 print("Target not found after actions. Forcing navigation/wait...")
                 try:
                     await tab.go_to(url)
-                    await tab.find_or_wait_element(By.XPATH, selector, timeout=15)
+                    await tab.query(selector, timeout=15)
                     await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_recovery_success.png')
                 except Exception as e:
                     print(f"Final recovery failed: {e}")
