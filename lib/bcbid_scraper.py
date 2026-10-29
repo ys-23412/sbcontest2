@@ -278,7 +278,7 @@ async def main():
         # -------------------------------------------------------------
         # Split target_organizations into 3 parts based on length
         # -------------------------------------------------------------
-        org_chunks = chunk_list(target_organizations, n=3)
+        org_chunks = chunk_list(target_organizations, n=1)
         print(f"Total target organizations: {len(target_organizations)} across {len(org_chunks)} batches:")
         for idx, chunk in enumerate(org_chunks, 1):
             print(f"  - Batch {idx}: {len(chunk)} organizations")
