@@ -274,7 +274,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
         # Create a new page for each tender within the existing browser instance
         print(f"Navigating to {BASE_URL} page...")
         initial_url = f'{BASE_URL}'
-        async with tab.expect_and_bypass_cloudflare_captcha():
+        async with tab.expect_cloudflare_turnstile():
             await tab.go_to(initial_url)
         login_flag = False
         try:
@@ -405,7 +405,7 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         if index < 2:
                             time_to_wait_captcha = 15 if 'fraserhealth' in full_link else 15
                             
-                            async with tab.expect_and_bypass_cloudflare_captcha(time_to_wait_captcha=time_to_wait_captcha):
+                            async with tab.expect_cloudflare_turnstile(time_to_wait_captcha=time_to_wait_captcha):
                                 await tab.go_to(full_link)
                         else:
                             # Direct navigation for everything else
@@ -600,7 +600,7 @@ async def main():
     session_id = generate_session_id()
     proxy_auth = (
         f"{proxy_username}:{proxy_password}"
-        f"_country-ca_city-vancouver"
+        f"_country-ca"
         f"_session-{session_id}"
         f"_lifetime-30m_streaming-1"
     )
