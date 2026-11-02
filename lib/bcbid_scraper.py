@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 sys.stdout.reconfigure(encoding="utf-8")
 FILE_DIR = "screenshots"
 
-def get_browser_options(headless=False):
+def get_browser_options(headless=True):
     """
     Returns a configured ChromiumOptions object with stealth settings.
     """
