@@ -65,7 +65,56 @@ def safe_extract(soup, selector, is_list=False, join_str=", "):
             # Replace multiple spaces/newlines with a single space
             return " ".join(element.get_text(separator=" ", strip=True).split())
         return None
-        
+
+async def _page_title(tab):
+    try:
+        result = await tab.execute_script("document.title", return_by_value=True)
+        return result.get('result', {}).get('result', {}).get('value')
+    except Exception:
+        return None
+
+
+async def load_results_page(tab, url, attempts=3, table_timeout=30, poll_interval=0.5):
+    """
+    Navigate to the results page and wait until the results table is in the DOM.
+
+    Retries the navigation (with a growing pause) when the table never shows up.
+    If every attempt fails, saves the last page's HTML and a screenshot to FILE_DIR
+    so the failure can be inspected from the workflow artifact, and returns that HTML.
+    """
+    page_source = ""
+    for attempt in range(1, attempts + 1):
+        print(f"Navigating to the target URL (attempt {attempt}/{attempts})...")
+        try:
+            await tab.go_to(url, timeout=60)
+        except Exception as e:
+            print(f"⚠️ Navigation error: {e}")
+
+        waited = 0.0
+        while waited < table_timeout:
+            page_source = await tab.page_source()
+            if "<table" in page_source:
+                print(f"✅ Results table loaded after ~{waited:.1f}s")
+                return page_source
+            await asyncio.sleep(poll_interval)
+            waited += poll_interval
+
+        title = await _page_title(tab)
+        print(f"⚠️ No results table after {table_timeout}s (title={title!r}, html length={len(page_source)})")
+        if attempt < attempts:
+            await asyncio.sleep(10 * attempt)
+
+    # Keep evidence of what the site served for debugging
+    try:
+        with open(os.path.join(FILE_DIR, "listing_failure.html"), "w", encoding="utf-8") as f:
+            f.write(page_source)
+        await tab.take_screenshot(os.path.join(FILE_DIR, "listing_failure.png"), quality=80, beyond_viewport=True)
+        print(f"Saved failing page to {FILE_DIR}/listing_failure.html/.png")
+    except Exception as e:
+        print(f"⚠️ Could not save failure snapshot: {e}")
+    return page_source
+
+
 # 2. Pydoll Automation Script
 async def extract_tables():
     print("Launching Chrome via Pydoll...")
@@ -81,20 +130,9 @@ async def extract_tables():
         validation_result = await tab.execute_script("Intl.DateTimeFormat().resolvedOptions().timeZone", return_by_value=True, await_promise=True)
         validated_timezone = validation_result.get('result', {}).get('result', {}).get('value')
         
-        print("Navigating to the target URL...")
-        await tab.go_to(target_url)
-        
-        # Give the page's dynamic content (tables, dynamic lists) some time to load
-        print("Waiting for dynamic content to render...")
-        await asyncio.sleep(5) 
-        
-        # Give the page's dynamic content (tables, dynamic lists) some time to load
-        print("Waiting for dynamic content to render...")
-        await asyncio.sleep(5) 
-        
-        print("Extracting page source...")
-        # Get the full page source of the rendered DOM
-        page_source = await tab.page_source()
+        # Wait for the results table instead of a fixed sleep, retrying the
+        # navigation if the site serves a page without it (error/maintenance/slow load).
+        page_source = await load_results_page(tab, target_url)
         
         print("Parsing tables with pandas...")
         try:
