@@ -1,0 +1,44 @@
+name: Weekly Scraper Tests
+
+# Checks that the Single Day Schedule scrapers (RDN, Port Hardy, SRD/scr, CanadaBuys)
+# still match their websites' page structure, and posts the result to Discord.
+on:
+  workflow_dispatch: # Allows manual trigger
+  schedule:
+    - cron: '0 17 * * 0' # Sundays 17:00 UTC (9-10am Pacific)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PY_COLORS: "1"
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+  GH_WORKFLOW_NAME: ${{ github.workflow }}
+  # Uncomment to route test requests through the scraping proxy if a site starts blocking runner IPs
+  # SCRAPER_TEST_PROXY: ${{ secrets.PROXY_URL_WITH_PASS }}
+
+jobs:
+  scraper_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_tenders.txt
+          pip install pytest
+
+      - name: Run tests and report to Discord
+        run: python -m tests.run_and_report
