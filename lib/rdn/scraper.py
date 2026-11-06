@@ -1,19 +1,27 @@
 import asyncio
 import os
+import re
 import time
-from bs4 import BeautifulSoup
-import lxml.html
-import pandas as pd
 import random
-from io import StringIO
+from datetime import datetime, timedelta
+from urllib.parse import urljoin
+
+import pandas as pd
+from bs4 import BeautifulSoup
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
-from pydoll.browser.tab import Tab
-from pydoll.constants import By
-from pydoll.constants import ScrollPosition
-from datetime import datetime, timedelta
 
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_rdn"
+
+# The RDN site moved from rdn.bc.ca to rdn.ca (old URLs redirect here).
+BASE_URL = "https://www.rdn.ca"
+LISTING_URL = f"{BASE_URL}/government/current-bid-opportunities"
+
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+PHONE_RE = re.compile(r"(?:Phone|Tel|Telephone)\s*:?\s*([\d().\s-]{7,})", re.IGNORECASE)
+# Lines inside the contact paragraph that are not the person's name / title
+CONTACT_SKIP_RE = re.compile(r"^(phone|tel|telephone|fax|cell|email|e-mail)\b", re.IGNORECASE)
+
 
 def get_browser_options(headless=False):
     """
@@ -31,7 +39,6 @@ def get_browser_options(headless=False):
         'safebrowsing': {'enabled': True},
     }
 
-    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
     proxy_url = os.environ.get("PROXY_URL")
     if proxy_url:
         options.add_argument(f'--proxy-server={proxy_url}')
@@ -42,188 +49,211 @@ def get_browser_options(headless=False):
     })
     return options
 
+
+# --- Parsing helpers (pure functions, no browser needed) ---
+
+def _field_text(container, field_name):
+    """Text of a Drupal field (e.g. 'post-date') inside container, or ''."""
+    field = container.find('div', class_=f'field--name-field-{field_name}')
+    if not field:
+        return ""
+    item = field.find(class_='field__item')
+    return item.get_text(" ", strip=True) if item else ""
+
+
+def _field_datetime(container, field_name):
+    """ISO datetime attribute of a Drupal date field, or ''."""
+    field = container.find('div', class_=f'field--name-field-{field_name}')
+    if not field:
+        return ""
+    time_tag = field.find('time')
+    return time_tag.get('datetime', '') if time_tag else ""
+
+
+def parse_listing(html):
+    """
+    Parse the RDN "Current Bid Opportunities" page into a DataFrame.
+
+    The page is a Drupal view (div.view-bid-opportunities) of div.list-item cards,
+    each holding a title link plus Status / Post Date / Updated Date / Closing Time fields.
+    Column names match the old table layout so the data processor keeps working.
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    view = soup.find('div', class_='view-bid-opportunities')
+    if view is None:
+        # Fail loudly: an empty result here would be mistaken for "no new bids".
+        raise ValueError("RDN bid listing view not found - the page structure has likely changed again.")
+
+    rows = []
+    for item in view.find_all('div', class_='list-item'):
+        link = item.find('a', class_='list-item__link') or item.find('a', href=True)
+        if not link:
+            continue
+        rows.append({
+            'Bid Opportunity': link.get_text(" ", strip=True),
+            'Status': _field_text(item, 'status'),
+            'Posted': _field_text(item, 'post-date'),
+            'Updated': _field_text(item, 'updated-date'),
+            'Closing': _field_text(item, 'closing-time'),
+            'Closing ISO': _field_datetime(item, 'closing-time'),
+            'Opportunity Url': urljoin(BASE_URL, link.get('href', '')),
+        })
+
+    columns = ['Bid Opportunity', 'Status', 'Posted', 'Updated', 'Closing', 'Closing ISO', 'Opportunity Url']
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _parse_contact(paragraph):
+    """
+    Pull name / title / email / phone out of the contact paragraph.
+
+    Handles both layouts seen on RDN pages:
+      - "Name, Job Title<br>Email: x@rdn.bc.ca"
+      - "<strong>Header:</strong><br>Name<br>Job Title<br>Department<br>Phone: ...<br>Email: ..."
+    """
+    for strong in paragraph.find_all(['strong', 'b']):
+        strong.decompose()  # header such as "Submissions and Questions are to be directed to:"
+    for br in paragraph.find_all('br'):
+        br.replace_with('\n')
+
+    text = paragraph.get_text()
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    mailto = paragraph.find('a', href=lambda h: h and h.lower().startswith('mailto:'))
+    if mailto:
+        email = mailto.get_text(strip=True) or mailto['href'][len('mailto:'):]
+    else:
+        match = EMAIL_RE.search(text)
+        email = match.group(0) if match else ""
+
+    phone_match = PHONE_RE.search(text)
+    phone = phone_match.group(1).strip() if phone_match else ""
+
+    people_lines = [l for l in lines if not CONTACT_SKIP_RE.match(l) and not EMAIL_RE.search(l)]
+    contact_name, job_title = "", ""
+    if people_lines:
+        first = people_lines[0]
+        if ',' in first:
+            contact_name, job_title = (part.strip() for part in first.split(',', 1))
+        else:
+            contact_name = first
+            job_title = people_lines[1] if len(people_lines) > 1 else "N/A"
+
+    return {'contact_name': contact_name, 'job_title': job_title, 'email': email, 'phone': phone}
+
+
+def parse_detail(html):
+    """Extract description, contact info and document link from a single bid page."""
+    soup = BeautifulSoup(html, 'html.parser')
+    for aside in soup.find_all('aside'):
+        aside.decompose()
+
+    result = {
+        'description': "",
+        'contact_name': "",
+        'job_title': "",
+        'email': "",
+        'phone': "",
+        'document_url': "",
+    }
+
+    body_div = soup.find('div', class_='field--name-body')
+    if body_div:
+        paragraphs = body_div.find_all('p')
+        # First paragraph with real text (some pages start with an empty <p>)
+        for p in paragraphs:
+            text = p.get_text(" ", strip=True)
+            if text:
+                result['description'] = text
+                break
+
+        contact_p = None
+        for p in paragraphs:
+            if p.find('a', href=lambda h: h and h.lower().startswith('mailto:')) or EMAIL_RE.search(p.get_text()):
+                contact_p = p
+                break
+        if contact_p is not None:
+            result.update(_parse_contact(contact_p))
+
+    doc_field = soup.find('div', class_='views-field-field-documents')
+    if doc_field:
+        a_tag = doc_field.find('a', href=True)
+        if a_tag:
+            result['document_url'] = urljoin(BASE_URL, a_tag['href'])
+
+    return result
+
+
+def _parse_date(date_str):
+    try:
+        clean_str = str(date_str).replace('Posted:', '').strip()
+        return pd.to_datetime(clean_str)
+    except Exception:
+        return pd.NaT
+
+
 # --- Main Scraper Logic ---
 async def main():
     opts = get_browser_options()
-    
+
     async with Chrome(options=opts) as browser:
         print("Starting browser...")
         tab = await browser.start()
-        
+
         if not os.path.exists(FILE_DIR):
             os.mkdir(FILE_DIR)
 
-        url = "https://rdn.bc.ca/current-bid-opportunities"
-        print(f"Navigating to {url}...")
-        await tab.go_to(url)
-        
-        # Wait for the table to populate
+        print(f"Navigating to {LISTING_URL}...")
+        await tab.go_to(LISTING_URL)
+
+        # Give the page time to settle
         await asyncio.sleep(random.uniform(3.0, 5.0))
-   
+
         page_source = await tab.page_source()
-        
-        print("Extracting table...")
-        dfs = pd.read_html(StringIO(page_source))
-        
-        # RDN's table headers typically include 'Bid Opportunity', 'Posted', 'Updated', 'Closing'
-        target_df = None
-        for df in dfs:
-            if any('Bid Opportunity' in str(c) for c in df.columns):
-                target_df = df
-                break
-                
-        if target_df is None:
-            # Fallback to the first table if exact header matching fails
-            target_df = dfs[0] if len(dfs) > 0 else None
-            
-        if target_df is None:
-            print("No tables found on the page.")
-            return
 
-        # Extract underlying URLs using lxml
-        tree = lxml.html.fromstring(page_source)
-        # Find the table containing our headers
-        tables = tree.xpath("//table[.//th[contains(., 'Bid Opportunity')]]")
-        if not tables:
-             tables = tree.xpath("//table")
-             
-        urls = []
-        if tables:
-            # Skip the header row, target rows with <td>
-            rows = tables[0].xpath(".//tr[td]")
-            for row in rows:
-                # The bid link is located in the first column for RDN
-                hrefs = row.xpath("./td[1]//a/@href")
-                if hrefs:
-                    href = hrefs[0]
-                    # Ensure relative URLs are resolved
-                    if href.startswith('/'):
-                        href = f"https://rdn.bc.ca{href}"
-                    urls.append(href)
-                else:
-                    urls.append("")
-        
-        # Align URLs with the Pandas DataFrame
-        if len(urls) == len(target_df):
-            target_df['Opportunity Url'] = urls
-        else:
-            print(f"Warning: Row mismatch. Table has {len(target_df)} rows, found {len(urls)} URLs.")
-            target_df['Opportunity Url'] = pd.Series(urls)
-
-        # Parse the 'Posted' dates
-        # RDN text often looks like "March 5, 2026" or "Posted: March 5, 2026"
-        def parse_date(date_str):
-            try:
-                clean_str = str(date_str).replace('Posted:', '').strip()
-                return pd.to_datetime(clean_str)
-            except:
-                return pd.NaT
-
-        posted_col = next((col for col in target_df.columns if 'Posted' in str(col)), None)
-        
-        if posted_col is not None:
-            target_df['Parsed Date'] = target_df[posted_col].apply(parse_date)
-        else:
-            print("Could not locate 'Posted' column. Skipping date filtering.")
-            target_df['Parsed Date'] = pd.NaT 
+        print("Extracting bid list...")
+        target_df = parse_listing(page_source)
+        target_df['Parsed Date'] = target_df['Posted'].apply(_parse_date)
 
         print(f"Found {len(target_df)} total bids.")
-        
-        # Define "newly" posted as within the last 7 days
+
+        # Define "newly" posted as within the last N days
         days_threshold = 5
         cutoff_date = pd.to_datetime(datetime.now() - timedelta(days=days_threshold))
-        
-        # Filter dataframe for recent dates
+
         new_bids = target_df[target_df['Parsed Date'] >= cutoff_date].copy()
         print(f"Found {len(new_bids)} new bids posted in the last {days_threshold} days.")
-        
-        # Save the filtered results
+
         new_bids.to_csv(f"{FILE_DIR}/rdn_new_bids_raw.csv", index=False)
-        
-        # List to hold enriched data
+
         enriched_results = []
 
-        # Iterate through the filtered links
         for index, row in new_bids.iterrows():
             link = row.get('Opportunity Url')
-            title = row.iloc[0] 
-            
-            # Create a base record from the existing row data
+            title = row['Bid Opportunity']
             record = row.to_dict()
-            
+
             if pd.notna(link) and str(link).startswith('http'):
                 print(f"Navigating to new bid: {str(title)[:35]}... -> {link}")
                 await tab.go_to(link)
-                
-                await asyncio.sleep(random.uniform(2.0, 4.0))
-                
-                # Cleanup and Screenshot
-                safe_title = "".join([c for c in str(title) if c.isalnum() or c==' ']).rstrip()[:25]
-                await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
-                
-                # --- Scrape logic ---
-                html_content = await tab.page_source()
-                soup = BeautifulSoup(html_content, 'html.parser')
-                
-                for aside in soup.find_all('aside'):
-                    aside.decompose()
-                    
-                description = ""
-                email = ""
-                contact_name = ""
-                job_title = ""
-                
-                body_div = soup.find('div', class_='field--name-body')
-                if body_div:
-                    paragraphs = body_div.find_all('p')
-                    if paragraphs:
-                        description = paragraphs[0].get_text(strip=True)
-                        
-                    mailto_link = body_div.find('a', href=lambda href: href and href.startswith('mailto:'))
-                    if mailto_link:
-                        email = mailto_link.get_text(strip=True)
-                        
-                        parent_p = mailto_link.find_parent('p')
-                        if parent_p:
-                            for br in parent_p.find_all('br'):
-                                br.replace_with('\n')
-                            
-                            contact_text = parent_p.get_text()
-                            lines = [line.strip() for line in contact_text.split('\n') if line.strip()]
-                            
-                            for i, line in enumerate(lines):
-                                if 'Email:' in line or email in line:
-                                    if i > 0:
-                                        full_contact_line = lines[i-1]
-                                        parts = full_contact_line.split(',')
-                                        if len(parts) > 1:
-                                            # e.g. "Keona Wiley, Parks Planner"
-                                            contact_name = parts[0].strip()
-                                            job_title = parts[1].strip()
-                                        else:
-                                            contact_name = full_contact_line
-                                            job_title = "N/A"
-                                    break
-                
-                # Update the record with newly scraped fields
-                record.update({
-                    'contact_name': contact_name,
-                    'job_title': job_title,
-                    'email': email,
-                    'description': description
-                })
-                
-                print(f"Extracted -> Name: {contact_name} | Title: {job_title} | Email: {email}")
-                enriched_results.append(record)
-            else:
-                # If no link, still append the original record to maintain index alignment
-                enriched_results.append(record)
 
-        # Convert enriched results to a new DataFrame and save
+                await asyncio.sleep(random.uniform(2.0, 4.0))
+
+                safe_title = "".join([c for c in str(title) if c.isalnum() or c == ' ']).rstrip()[:25]
+                await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
+
+                details = parse_detail(await tab.page_source())
+                record.update(details)
+
+                print(f"Extracted -> Name: {details['contact_name']} | Title: {details['job_title']} | Email: {details['email']}")
+
+            enriched_results.append(record)
+
         enriched_df = pd.DataFrame(enriched_results)
         enriched_df.to_csv(f"{FILE_DIR}/rdn_enriched_bids.csv", index=False)
 
         print(f"Scraping task complete. Saved {len(enriched_df)} enriched records.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

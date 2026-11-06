@@ -25,7 +25,7 @@ def extract_rdn_tender_data(html_content: str) -> dict:
     soup = BeautifulSoup(html_content, 'html.parser')
     
     # 1. Extract Title & Opportunity ID
-    title_elem = soup.find('h1', class_='title')
+    title_elem = soup.find('h1', class_='page-title') or soup.find('h1', class_='title')
     title = title_elem.text.strip() if title_elem else ""
     
     # Assuming ID is the first token (e.g., "26-019")
@@ -47,7 +47,7 @@ def extract_rdn_tender_data(html_content: str) -> dict:
         if a_tag and 'href' in a_tag.attrs:
             # Append base URL if it's a relative path
             href = a_tag['href']
-            doc_link = href if href.startswith('http') else f"https://www.rdn.bc.ca{href}"
+            doc_link = href if href.startswith('http') else f"https://www.rdn.ca{href}"
             
     return {
         'Opportunity ID': opp_id,
@@ -58,6 +58,45 @@ def extract_rdn_tender_data(html_content: str) -> dict:
         'Organization (Issued by)': 'Regional District of Nanaimo',
         'Type': 'Request for Proposal' # Explicitly stated in the description
     }
+
+def _get_closing_datetime(tender_record: dict):
+    """
+    Closing date/time for a bid, in Pacific time.
+
+    Prefers the 'Closing' text shown on the page (e.g. "November 20, 2026 at 3:00 PM"),
+    then the ISO 'Closing ISO' value (UTC; the site's offset is sometimes an hour off
+    from what it displays), then falls back to 'Parsed Date' (the posted date) as
+    older CSVs did.
+    """
+    def _present(value):
+        return value is not None and not (isinstance(value, float) and pd.isna(value)) and str(value).strip() != ''
+
+    closing_text = tender_record.get('Closing')
+    if _present(closing_text):
+        closing_text = str(closing_text).strip()
+        for fmt in ("%B %d, %Y at %I:%M %p", "%B %d, %Y"):
+            try:
+                return datetime.strptime(closing_text, fmt)
+            except ValueError:
+                pass
+        try:
+            parsed = dateparser.parse(closing_text.replace(' at ', ' '))
+            if parsed:
+                return parsed
+        except Exception:
+            pass
+
+    closing_iso = tender_record.get('Closing ISO')
+    if _present(closing_iso):
+        try:
+            return datetime.fromisoformat(str(closing_iso).replace('Z', '+00:00')).astimezone(ZoneInfo("America/Vancouver"))
+        except ValueError:
+            pass
+
+    posted = tender_record.get('Parsed Date')
+    if _present(posted):
+        return dateparser.parse(str(posted))
+    return None
 
 def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict) -> dict:
     """
@@ -126,19 +165,17 @@ def _map_rdn_tender_entry(tender_record: dict, params: dict, city_mapping: dict)
     entry['ys_date'] = datetime.now().strftime('%Y-%m-%d') # Fallback to today if issue date isn't on page
     
     is_windows = platform.system() == "Windows"
-    closing_date_str = tender_record.get('Parsed Date')
-    
-    if closing_date_str:
-        parsed_date_close = dateparser.parse(closing_date_str)
-        if parsed_date_close:
-            if is_windows:
-                fmt = "%#m/%#d/%Y - %#I %p"
-            else:
-                fmt = "%-m/%-d/%Y - %-I %p"
-            
-            ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
-            review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
-            entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
+    parsed_date_close = _get_closing_datetime(tender_record)
+
+    if parsed_date_close:
+        if is_windows:
+            fmt = "%#m/%#d/%Y - %#I %p"
+        else:
+            fmt = "%-m/%-d/%Y - %-I %p"
+
+        ys_body['ys_closing'] = parsed_date_close.strftime(fmt)
+        review_date_obj = parsed_date_close.date() + relativedelta(months=+1)
+        entry['review_date'] = review_date_obj.strftime("%Y-%m-%d")
 
     entry['project_step_id'] = 1001
 
