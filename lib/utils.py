@@ -90,7 +90,6 @@ unrelated_commodities = [
     "Automation control devices and components and accessories",
     "Process control or packaged automation systems",
     "Laboratory and scientific equipment",
-    "Environmental Services",
     "Refuse collection and disposal",
     "Employee assistance programs",
     "Cleaning and janitorial services",
