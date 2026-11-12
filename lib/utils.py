@@ -67,20 +67,15 @@ health_stuff = [
 ]
 
 economic_stuff = [
-    "Economic analysis",
-    "Environmental economics advisory services",
     "Management advisory services",
     "Management and Business Professionals and Administrative Services"
 ]
 
 forestry_stuff = [
     "Silviculture",
-    "Forestry management",
 ]
 
 unrelated_commodities = [
-    "Commercial painting service",
-    "Snow Removal Services",
     "Security Guard Services",
     "Security and protection software",
     "Live animals",
@@ -90,20 +85,12 @@ unrelated_commodities = [
     "Automation control devices and components and accessories",
     "Process control or packaged automation systems",
     "Laboratory and scientific equipment",
-    "Refuse collection and disposal",
     "Employee assistance programs",
-    "Cleaning and janitorial services",
-    "Archaeological services",
     "Respiration air supplying self contained breathing apparatus or accessories",
     "Information Technology Service Delivery",
     "Chemical fertilizers and plant nutrients",
-    "Environmental monitoring",
-    "Forest monitoring or evaluation",
-    "Parks and gardens and orchards",
     "Forest resources management services",
-    "Drainage services",
     "Investigative Service",
-    "Traveling water screens",
     "Noise pollution",
     "Mailing or mail pick up or delivery services",
     "Printed publications",
