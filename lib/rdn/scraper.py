@@ -8,8 +8,9 @@ from urllib.parse import urljoin
 
 import pandas as pd
 from bs4 import BeautifulSoup
-from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
+
+from lib.browser_fallback import run_with_fallback
 
 FILE_DIR = os.environ.get("FILE_DIR") or "screenshots_rdn"
 
@@ -23,9 +24,12 @@ PHONE_RE = re.compile(r"(?:Phone|Tel|Telephone)\s*:?\s*([\d().\s-]{7,})", re.IGN
 CONTACT_SKIP_RE = re.compile(r"^(phone|tel|telephone|fax|cell|email|e-mail)\b", re.IGNORECASE)
 
 
-def get_browser_options(headless=False):
+def get_browser_options(headless=None, use_proxy=True):
     """
     Returns a configured ChromiumOptions object with stealth settings.
+
+    headless:  None keeps the browser default (as before); True/False forces it.
+    use_proxy: route through PROXY_URL when it is set.
     """
     options = ChromiumOptions()
     current_time = int(time.time())
@@ -39,8 +43,11 @@ def get_browser_options(headless=False):
         'safebrowsing': {'enabled': True},
     }
 
+    if headless is not None:
+        options.headless = headless
+
     proxy_url = os.environ.get("PROXY_URL")
-    if proxy_url:
+    if use_proxy and proxy_url:
         options.add_argument(f'--proxy-server={proxy_url}')
 
     options.browser_preferences.update({
@@ -193,66 +200,64 @@ def _parse_date(date_str):
 
 
 # --- Main Scraper Logic ---
+async def scrape(tab):
+    if not os.path.exists(FILE_DIR):
+        os.mkdir(FILE_DIR)
+
+    print(f"Navigating to {LISTING_URL}...")
+    await tab.go_to(LISTING_URL)
+
+    # Give the page time to settle
+    await asyncio.sleep(random.uniform(3.0, 5.0))
+
+    page_source = await tab.page_source()
+
+    print("Extracting bid list...")
+    target_df = parse_listing(page_source)
+    target_df['Parsed Date'] = target_df['Posted'].apply(_parse_date)
+
+    print(f"Found {len(target_df)} total bids.")
+
+    # Define "newly" posted as within the last N days
+    days_threshold = 5
+    cutoff_date = pd.to_datetime(datetime.now() - timedelta(days=days_threshold))
+
+    new_bids = target_df[target_df['Parsed Date'] >= cutoff_date].copy()
+    print(f"Found {len(new_bids)} new bids posted in the last {days_threshold} days.")
+
+    new_bids.to_csv(f"{FILE_DIR}/rdn_new_bids_raw.csv", index=False)
+
+    enriched_results = []
+
+    for index, row in new_bids.iterrows():
+        link = row.get('Opportunity Url')
+        title = row['Bid Opportunity']
+        record = row.to_dict()
+
+        if pd.notna(link) and str(link).startswith('http'):
+            print(f"Navigating to new bid: {str(title)[:35]}... -> {link}")
+            await tab.go_to(link)
+
+            await asyncio.sleep(random.uniform(2.0, 4.0))
+
+            safe_title = "".join([c for c in str(title) if c.isalnum() or c == ' ']).rstrip()[:25]
+            await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
+
+            details = parse_detail(await tab.page_source())
+            record.update(details)
+
+            print(f"Extracted -> Name: {details['contact_name']} | Title: {details['job_title']} | Email: {details['email']}")
+
+        enriched_results.append(record)
+
+    enriched_df = pd.DataFrame(enriched_results)
+    enriched_df.to_csv(f"{FILE_DIR}/rdn_enriched_bids.csv", index=False)
+
+    print(f"Scraping task complete. Saved {len(enriched_df)} enriched records.")
+
+
 async def main():
-    opts = get_browser_options()
-
-    async with Chrome(options=opts) as browser:
-        print("Starting browser...")
-        tab = await browser.start()
-
-        if not os.path.exists(FILE_DIR):
-            os.mkdir(FILE_DIR)
-
-        print(f"Navigating to {LISTING_URL}...")
-        await tab.go_to(LISTING_URL)
-
-        # Give the page time to settle
-        await asyncio.sleep(random.uniform(3.0, 5.0))
-
-        page_source = await tab.page_source()
-
-        print("Extracting bid list...")
-        target_df = parse_listing(page_source)
-        target_df['Parsed Date'] = target_df['Posted'].apply(_parse_date)
-
-        print(f"Found {len(target_df)} total bids.")
-
-        # Define "newly" posted as within the last N days
-        days_threshold = 5
-        cutoff_date = pd.to_datetime(datetime.now() - timedelta(days=days_threshold))
-
-        new_bids = target_df[target_df['Parsed Date'] >= cutoff_date].copy()
-        print(f"Found {len(new_bids)} new bids posted in the last {days_threshold} days.")
-
-        new_bids.to_csv(f"{FILE_DIR}/rdn_new_bids_raw.csv", index=False)
-
-        enriched_results = []
-
-        for index, row in new_bids.iterrows():
-            link = row.get('Opportunity Url')
-            title = row['Bid Opportunity']
-            record = row.to_dict()
-
-            if pd.notna(link) and str(link).startswith('http'):
-                print(f"Navigating to new bid: {str(title)[:35]}... -> {link}")
-                await tab.go_to(link)
-
-                await asyncio.sleep(random.uniform(2.0, 4.0))
-
-                safe_title = "".join([c for c in str(title) if c.isalnum() or c == ' ']).rstrip()[:25]
-                await tab.take_screenshot(f'{FILE_DIR}/bid_{index}_{safe_title.replace(" ", "_")}.png', quality=90, beyond_viewport=True)
-
-                details = parse_detail(await tab.page_source())
-                record.update(details)
-
-                print(f"Extracted -> Name: {details['contact_name']} | Title: {details['job_title']} | Email: {details['email']}")
-
-            enriched_results.append(record)
-
-        enriched_df = pd.DataFrame(enriched_results)
-        enriched_df.to_csv(f"{FILE_DIR}/rdn_enriched_bids.csv", index=False)
-
-        print(f"Scraping task complete. Saved {len(enriched_df)} enriched records.")
+    await run_with_fallback(scrape, get_browser_options, label="rdn")
 
 
 if __name__ == "__main__":
