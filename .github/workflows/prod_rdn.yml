@@ -62,6 +62,9 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Pydoll script
+        # Tries direct first (original -> headless -> headed), PROXY_URL only as the last resort.
+        # Each attempt can take ~1-2 min when a site times out, so allow for all four.
+        timeout-minutes: 20
         run: python -m lib.rdn.scraper
 
       - name: Upload Raw Data for Processing
@@ -146,6 +149,9 @@ jobs:
           pip install pandas pydoll-python requests lxml unidecode python-dateutil html5lib beautifulsoup4
             
       - name: Run Port Hardy Pydoll script
+        # Tries direct first (original -> headless -> headed), PROXY_URL only as the last resort.
+        # Each attempt can take ~1-2 min when a site times out, so allow for all four.
+        timeout-minutes: 20
         run: python -m lib.hardy.scraper
 
       - name: Upload Port Hardy Raw Data for Processing
