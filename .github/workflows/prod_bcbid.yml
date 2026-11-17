@@ -10,8 +10,8 @@ on:
     # 6:00 PM PST (01:00 UTC next day)
     # we do not want the throttle the api, shift the time slightly.
     # - cron: '21 15,19 * * 1-5'
-    - cron: '33 15,19 * * 1-5'
-    - cron: '33 23 * * 1-5'
+    - cron: '33 14,18 * * 1-5'
+    - cron: '33 22 * * 1-5'
     # - cron: '21 16 * * 6'
     - cron: '33 23 * * 6'
 
