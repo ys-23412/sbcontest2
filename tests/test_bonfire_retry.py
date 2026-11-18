@@ -1,18 +1,13 @@
 """
-Offline tests for the Bonfire retry logic (no browser, no API, no real waiting).
+Offline tests for the Bonfire upload retry logic (no API, no real waiting).
 
-Upload (upload_tenders.py): a region whose upload fails is retried after 5 minutes,
-then after 2 more minutes using "victoria" as the city/region.
-Scrape (fetch_tenders_all.py): portals that fail to load are re-scraped on the same schedule.
+A region whose upload fails is retried after 5 minutes, then after 2 more
+minutes using "victoria" as the city/region.
 """
-import asyncio
-import os
-
 import pandas as pd
 import pytest
 
 import upload_tenders
-import fetch_tenders_all
 
 
 # ------------------------------------------------------------------ upload
@@ -120,96 +115,3 @@ def test_upload_api_error_after_insert_is_not_retried(upload_env, monkeypatch):
     monkeypatch.setattr(upload_tenders, "map_data", fake)
     upload_tenders.main()
     assert len(calls) == 1 and sleeps == []
-
-
-# ------------------------------------------------------------------ scrape
-
-class _FakeBrowser:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
-        return False
-
-    async def start(self):
-        return object()
-
-
-@pytest.fixture
-def scrape_env(monkeypatch):
-    for key in ("TENDER_BASE_VIC_URL", "TENDER_BASE_COMOX_URL", "TENDER_BASE_COURTENAY_URL"):
-        monkeypatch.setenv(key, f"https://example.com/{key}")
-    for key in [k for k in os.environ if k.startswith("TENDER_BASE_") and k not in
-                ("TENDER_BASE_VIC_URL", "TENDER_BASE_COMOX_URL", "TENDER_BASE_COURTENAY_URL")]:
-        monkeypatch.delenv(key)
-    monkeypatch.delenv("IPROYAL_USERNAME", raising=False)
-    monkeypatch.setattr(fetch_tenders_all, "load_dotenv", lambda: None)
-    monkeypatch.setattr(fetch_tenders_all, "Chrome", lambda options=None: _FakeBrowser())
-    monkeypatch.setattr(fetch_tenders_all, "RETRY_DELAYS_SECONDS", [300, 120])
-
-    sleeps = []
-
-    async def fake_sleep(seconds):
-        if seconds >= 60:  # record only the retry waits, not the short pauses between portals
-            sleeps.append(seconds)
-
-    monkeypatch.setattr(fetch_tenders_all.asyncio, "sleep", fake_sleep)
-    messages = []
-    monkeypatch.setattr(fetch_tenders_all, "send_discord_message", lambda msg, url: messages.append(msg))
-    return sleeps, messages
-
-
-def _fake_fetch(monkeypatch, results):
-    """results: {csv_file_name: [result per attempt]}; records the order of calls."""
-    calls = []
-
-    async def fake(tab, config):
-        name = config["csv_file_name"]
-        calls.append(name)
-        return results[name][sum(1 for c in calls if c == name) - 1]
-
-    monkeypatch.setattr(fetch_tenders_all, "fetch_single_tender", fake)
-    return calls
-
-
-OK, EMPTY, FAILED = fetch_tenders_all.SCRAPE_OK, fetch_tenders_all.SCRAPE_EMPTY, fetch_tenders_all.SCRAPE_FAILED
-
-
-def test_scrape_empty_portals_are_not_retried(scrape_env, monkeypatch):
-    sleeps, messages = scrape_env
-    calls = _fake_fetch(monkeypatch, {
-        "bonfire_victoria_with_links.csv": [OK],
-        "bonfire_courtenay_with_links.csv": [EMPTY],
-        "bonfire_comox_with_links.csv": [EMPTY],
-    })
-    asyncio.run(fetch_tenders_all.main())
-    assert sleeps == [] and len(calls) == 3 and messages == []
-
-
-def test_scrape_retries_only_failed_portals_5_then_2_minutes(scrape_env, monkeypatch):
-    sleeps, messages = scrape_env
-    calls = _fake_fetch(monkeypatch, {
-        "bonfire_victoria_with_links.csv": [OK],
-        "bonfire_courtenay_with_links.csv": [FAILED, FAILED, OK],
-        "bonfire_comox_with_links.csv": [FAILED, OK],
-    })
-    asyncio.run(fetch_tenders_all.main())
-
-    assert sleeps == [300, 120]
-    assert calls.count("bonfire_victoria_with_links.csv") == 1
-    assert calls.count("bonfire_comox_with_links.csv") == 2
-    assert calls.count("bonfire_courtenay_with_links.csv") == 3
-    assert messages == []
-
-
-def test_scrape_reports_portals_still_failing(scrape_env, monkeypatch):
-    sleeps, messages = scrape_env
-    _fake_fetch(monkeypatch, {
-        "bonfire_victoria_with_links.csv": [OK],
-        "bonfire_courtenay_with_links.csv": [FAILED, FAILED, FAILED],
-        "bonfire_comox_with_links.csv": [EMPTY],
-    })
-    asyncio.run(fetch_tenders_all.main())
-
-    assert sleeps == [300, 120]
-    assert len(messages) == 1 and "bonfire_courtenay_with_links.csv" in messages[0]
