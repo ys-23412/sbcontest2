@@ -12,7 +12,29 @@ from lib.timing import get_execution_window
 from dotenv import load_dotenv
 from lib.discord import send_discord_embed
 import re
+import copy
+import time
 from lib.utils import unrelated_phrases, unrelated_commodities
+
+# Wait before each retry of failed uploads: 5 minutes after the first failure, then 2 minutes.
+# Override with e.g. BONFIRE_RETRY_DELAYS="300,120" (seconds, comma separated).
+RETRY_DELAYS_SECONDS = [int(s) for s in os.getenv("BONFIRE_RETRY_DELAYS", "300,120").split(",") if s.strip()]
+# After failing twice in a row, the last attempt sends the records under this city/region instead.
+FALLBACK_CITY = "victoria"
+
+
+def send_to_api(job, city_name):
+    """Send one region's records through map_data. Raises if the upload failed before inserting."""
+    entries = copy.deepcopy(job["entries"])  # map_data may modify the records it is given
+    for entry in entries:
+        entry['city_name'] = city_name
+    return map_data({
+        "data": entries,
+        "region_name": city_name,
+        'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
+        'file_prefix': 'tenders',
+        'tender_authority': job["authority"],
+    })
 
 def clean_column_names(df):
     """
@@ -111,6 +133,7 @@ def main():
     regions_processed = []
     regions_failed = []
     regions_empty = []
+    upload_jobs = []  # regions with records to send, filled while reading the CSVs
     
     for config in csv_configs:
         csv_file = config["file_name"]
@@ -156,51 +179,72 @@ def main():
             # apply hardcoded city_name
             filtered_tenders_df['city_name'] = city_name
             
-            # Convert DataFrame to a list of dictionaries for map_data
-            filtered_entries = filtered_tenders_df.to_dict('records')
+            # Convert DataFrame to a list of dictionaries; sent after all regions are prepared
+            upload_jobs.append({
+                "authority": authority,
+                "city_name": city_name,
+                "entries": filtered_tenders_df.to_dict('records'),
+                "num_records": num_records,
+            })
 
-            # Send to map_data
-            try:
-                map_result = map_data({
-                    "data": filtered_entries,
-                    "region_name": city_name, # Use the hardcoded city name as the region
-                    'hide_tiny_url': os.getenv('HIDE_TINY_URL', False),
-                    'file_prefix': 'tenders',
-                    'tender_authority': authority, # Dynamic tender authority
-                })
-
-                print("Map result:", map_result)
-                # Extract stats from the map_result dictionary
-                try:
-                    current_success = map_result.get("inserted_entries", 0)
-                    current_failed = map_result.get("failed_entries", 0)
-                except Exception as e:
-                    current_success = 0
-                    current_failed = num_records
-                
-                # If map_data hit a total API error, ensure we account for the missing records
-                if map_result.get("status") == "api_error" and current_success == 0:
-                    current_failed = num_records
-
-                total_success += current_success
-                total_failed += current_failed
-                
-                if current_failed == 0:
-                    regions_processed.append(f"✅ **{authority}**: {current_success} sent")
-                else:
-                    regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed")
-            except Exception as e:
-                # IF DEV CHECK FOR LATEST_ISSUE UPDATE
-                # print full stack trace
-                traceback.print_exc()
-                print(f"❌ Failed to process data for {authority}: {e}")
-                total_failed += num_records
-                regions_failed.append(f"❌ **{authority}**: Failed ({num_records} records lost)")
-                
         else:
             regions_empty.append(authority)
             print(f"No recent tenders found in {csv_file}. No data sent to map_data for {city_name.capitalize()}.")
-            
+
+    # --- SEND TO API, RETRYING REGIONS WHOSE UPLOAD FAILED ---
+    # Attempt 1 for everyone; failures retry after 5 minutes, then after 2 more minutes
+    # with FALLBACK_CITY as the city/region. map_data only raises before anything is
+    # inserted, so a retry can't create duplicates.
+    pending = upload_jobs
+    for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+        is_last = attempt == len(RETRY_DELAYS_SECONDS)
+        if attempt > 0:
+            delay = RETRY_DELAYS_SECONDS[attempt - 1]
+            names = ", ".join(job["authority"] for job in pending)
+            note = f" using '{FALLBACK_CITY}' as the city" if is_last else ""
+            print(f"\n🔁 Upload retry {attempt}/{len(RETRY_DELAYS_SECONDS)} in {delay // 60}m{delay % 60:02d}s{note} for: {names}")
+            time.sleep(delay)
+
+        still_failing = []
+        for job in pending:
+            authority, num_records = job["authority"], job["num_records"]
+            city_for_attempt = FALLBACK_CITY if (is_last and attempt > 0) else job["city_name"]
+            try:
+                map_result = send_to_api(job, city_for_attempt)
+            except Exception as e:
+                traceback.print_exc()
+                print(f"❌ Attempt {attempt + 1} failed for {authority}: {e}")
+                job["last_error"] = str(e)
+                still_failing.append(job)
+                continue
+
+            print("Map result:", map_result)
+            current_success = map_result.get("inserted_entries", 0)
+            current_failed = map_result.get("failed_entries", 0)
+            # If map_data hit a total API error, ensure we account for the missing records
+            if map_result.get("status") == "api_error" and current_success == 0:
+                current_failed = num_records
+
+            total_success += current_success
+            total_failed += current_failed
+
+            retry_note = f" (attempt {attempt + 1}{', as ' + city_for_attempt if city_for_attempt != job['city_name'] else ''})" if attempt > 0 else ""
+            if current_failed == 0:
+                regions_processed.append(f"✅ **{authority}**: {current_success} sent{retry_note}")
+            else:
+                regions_processed.append(f"⚠️ **{authority}**: {current_success} success, {current_failed} failed{retry_note}")
+
+        pending = still_failing
+        if not pending:
+            break
+
+    for job in pending:
+        total_failed += job["num_records"]
+        regions_failed.append(
+            f"❌ **{job['authority']}**: Failed after {len(RETRY_DELAYS_SECONDS) + 1} attempts "
+            f"({job['num_records']} records lost): {job.get('last_error', '')[:120]}"
+        )
+
     # --- SEND DISCORD NOTIFICATION ---
     discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     if total_found > 0 or regions_failed:

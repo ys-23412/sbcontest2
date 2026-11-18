@@ -702,13 +702,24 @@ def map_data(params):
     # print response text to index.html
     # send api request to api_insert_into_data.php
 
+    if not filled_entries_resp.ok or not filled_entries_resp.text.strip():
+        # Log what the fill API actually sent back before .json() raises on it
+        print(f"⚠️ Fill API returned HTTP {filled_entries_resp.status_code} "
+              f"({len(filled_entries_resp.text)} chars): {filled_entries_resp.text[:500]!r}")
     filled_entries = filled_entries_resp.json()
 
     with open(f"data/{file_prefix}_with_fill_{filename}_{region_name}.json", "w") as f:
         json.dump(filled_entries, f)
 
+    # Errors from here on are caught and reported in stats rather than raised, so that any
+    # exception escaping map_data means nothing was inserted (and the caller can safely retry).
     insert_into_data_url = f"{api_url}/api_insert_into_data.php"
-    insert_into_data_resp = requests.post(insert_into_data_url, json=filled_entries)
+    try:
+        insert_into_data_resp = requests.post(insert_into_data_url, json=filled_entries)
+    except requests.RequestException as req_err:
+        print(f"Insert request failed: {req_err}")
+        stats["status"] = "api_error"
+        return stats
     try:
         # check for 500 then if so raise errro
         insert_into_data_resp.raise_for_status()
@@ -727,6 +738,7 @@ def map_data(params):
 
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
+        stats["status"] = "api_error"
     except Exception as err:
         print(f'Other error occurred: {err}')
         # see if we can parse json from the response, ignore text that is not json

@@ -10,6 +10,7 @@ import traceback
 import re
 import json
 from pathlib import Path
+from lib.discord import send_discord_message
 # Pydoll Imports
 from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
@@ -43,6 +44,15 @@ if not pref_backup.exists():
     
 # Global variable to track login status across different portal attempts
 LOGIN_DISABLED = True
+
+# Outcomes of fetch_single_tender
+SCRAPE_OK = "ok"          # CSV written
+SCRAPE_EMPTY = "empty"    # portal loaded but has no open opportunities
+SCRAPE_FAILED = "failed"  # page/table didn't load or an error was raised
+
+# Wait before each retry of failed portals: 5 minutes after the first failure, then 2 minutes.
+# Override with e.g. BONFIRE_RETRY_DELAYS="300,120" (seconds, comma separated).
+RETRY_DELAYS_SECONDS = [int(s) for s in os.getenv("BONFIRE_RETRY_DELAYS", "300,120").split(",") if s.strip()]
 
 def generate_session_id(length=8):
     characters = string.ascii_letters + string.digits
@@ -374,6 +384,10 @@ async def fetch_single_tender(tab: Tab, config: dict):
                         if len(row_data) == len(header_list):
                             all_rows_data.append(row_data)
 
+            # DataTables renders a "No data available" cell when a portal genuinely has
+            # no opportunities; without it, an empty result means the table never loaded.
+            table_reported_empty = dataTables_scroll_soup.find('td', class_='dataTables_empty') is not None
+
             if not all_rows_data:
                 print(f"No data rows found in the table for {CITY_NAME}.")
                 content_df = pd.DataFrame(columns=header_list)
@@ -531,14 +545,25 @@ async def fetch_single_tender(tab: Tab, config: dict):
                 final_df.to_csv(output_path, index=False)
                 print(f"Scraping complete for {CITY_NAME}. Data saved to {output_path}")
                 print(final_df)
-            else:
-                print(f"No project detail data was collected for {CITY_NAME}.")
-            
+                return SCRAPE_OK
+
+            print(f"No project detail data was collected for {CITY_NAME}.")
+            if all_rows_data and content_df.empty:
+                # Rows were there but all closed/cancelled/awarded
+                return SCRAPE_EMPTY
+            if not all_rows_data and table_reported_empty:
+                return SCRAPE_EMPTY
+            # Either the table never loaded, or open rows existed but no detail page could be read
+            print(f"⚠️ Treating {CITY_NAME} as a failed scrape (table missing or details unreadable).")
+            return SCRAPE_FAILED
+
         except Exception as e:
             print(f"Error during main scraping process for {CITY_NAME}: {e}")
+            return SCRAPE_FAILED
 
     except Exception as e:
         print(f"An error occurred during browser operation for {CITY_NAME}: {e}")
+        return SCRAPE_FAILED
     finally:
         print("page should be safe here")
         pass
@@ -636,21 +661,45 @@ async def main():
             # --- END HIGH PERFORMANCE IMAGE BLOCKING ---
             await asyncio.sleep(5)
             # visit google.com and then youtube.com after 10 seconds
+            pending = []
             for config_item in tender_configs:
                 base_url = os.getenv(config_item['base_url_env_key'])
                 if not base_url:
                     print(f"Skipping {config_item['city_name']} - No URL found.")
                     continue
-                
-                current_config = {
+                pending.append({
                     "base_url": base_url,
                     "csv_file_name": config_item['csv_file_name'],
                     "city_name": config_item['city_name']
-                }
-                
-                await fetch_single_tender(tab, current_config)
-                # Short rest between different portals
-                await asyncio.sleep(random.uniform(2, 5))
+                })
+
+            # First pass over every portal, then retry only the ones that failed
+            for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+                if attempt > 0:
+                    delay = RETRY_DELAYS_SECONDS[attempt - 1]
+                    names = ", ".join(c['csv_file_name'] for c in pending)
+                    print(f"\n🔁 Retry {attempt}/{len(RETRY_DELAYS_SECONDS)} in {delay // 60}m{delay % 60:02d}s for: {names}")
+                    await asyncio.sleep(delay)
+
+                failed = []
+                for current_config in pending:
+                    result = await fetch_single_tender(tab, current_config)
+                    if result == SCRAPE_FAILED:
+                        failed.append(current_config)
+                    # Short rest between different portals
+                    await asyncio.sleep(random.uniform(2, 5))
+
+                pending = failed
+                if not pending:
+                    break
+
+            if pending:
+                names = ", ".join(c['csv_file_name'] for c in pending)
+                print(f"❌ Still failing after {len(RETRY_DELAYS_SECONDS) + 1} attempts: {names}")
+                send_discord_message(
+                    f"🤖 Bonfire scrape: still failing after {len(RETRY_DELAYS_SECONDS) + 1} attempts: {names}",
+                    os.getenv("DISCORD_WEBHOOK_URL"),
+                )
 
     except Exception as e:
         has_errors = True
