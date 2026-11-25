@@ -545,40 +545,45 @@ async def fetch_single_tender(tab: Tab, config: dict):
         # if page:
         #     await page.close() # Close the page after use
 
-async def main():
-    load_dotenv() # Load environment variables from .env file
+# --- Browser / proxy bandwidth settings ---
+# Measured locally (2 portals, 18 tenders) through a byte-counting proxy:
+#   fresh profile, old settings ........ 71.6 MB, ~92% of it Chrome's own background
+#                                        downloads (optimization-guide models, component
+#                                        updates, Safe Browsing lists), not Bonfire
+#   reused profile, old settings ........ 9.6 MB
+# Everything Chrome fetches goes through the paid proxy, so: keep the profile between
+# runs (workflow cache), switch off Chrome's background downloads, and send hosts that
+# don't need a Canadian residential IP around the proxy.
+PROXY_HOST = 'geo.iproyal.com:12321'
 
-    # Define the list of tender configurations
-    tender_configs = [
-        {"base_url_env_key": "TENDER_BASE_PRYCE_URL", "csv_file_name": "bonfire_pyrce_with_links.csv", "city_name": "powell river"},
-        {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
-        {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bctransit"},
-        {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
-        {"base_url_env_key": "TENDER_BASE_SAANICH_URL", "csv_file_name": "bonfire_saanich_with_links.csv", "city_name": "saanich"},
-        {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north cowichan"},
-        {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
-        {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
-        {"base_url_env_key": "TENDER_BASE_COURTENAY_URL", "csv_file_name": "bonfire_courtenay_with_links.csv", "city_name": "courtenay"},
-        {"base_url_env_key": "TENDER_BASE_CENTRALSAANICH_URL", "csv_file_name": "bonfire_central_saanich_with_links.csv", "city_name": "central saanich"},
-        {"base_url_env_key": "TENDER_BASE_FRASERHEALTH_URL", "csv_file_name": "bonfire_fraserhealth_with_links.csv", "city_name": "fraser health"},
-        {"base_url_env_key": "TENDER_BASE_ICBC_URL", "csv_file_name": "bonfire_icbc_with_links.csv", "city_name": "icbc"},
-        {"base_url_env_key": "TENDER_BASE_PHSA_URL", "csv_file_name": "bonfire_phsa_with_links.csv", "city_name": "phsa"},
-        {"base_url_env_key": "TENDER_BASE_COMOX_URL", "csv_file_name": "bonfire_comox_with_links.csv", "city_name": "comox"},
-        {"base_url_env_key": "TENDER_BASE_ISLANDHEALTH_URL", "csv_file_name": "bonfire_islandhealth_with_links.csv", "city_name": "victoria"},
-        {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
-    ]
+# Only Bonfire (*.bonfirehub.ca) and the Cloudflare challenge need to come from the proxy IP.
+PROXY_BYPASS_HOSTS = [
+    "*.google.com", "*.googleapis.com", "*.googleusercontent.com", "*.gstatic.com",
+    "*.gvt1.com", "*.gvt2.com", "*.google-analytics.com", "*.googletagmanager.com",
+    "*.doubleclick.net", "*.pendo.io", "*.vidyard.com", "*.trackjs.com",
+    "*.amazonaws.com", "assets.bonfirehub.com",
+]
 
+# Chrome features that download data in the background (not needed for scraping)
+BANDWIDTH_FLAGS = [
+    "--disable-component-update",
+    "--disable-background-networking",
+    "--safebrowsing-disable-auto-update",
+    "--disable-features=OptimizationGuideModelDownloading,OptimizationHintsFetching,"
+    "OptimizationTargetPrediction,OptimizationHints,Translate,MediaRouter,AutofillServerCommunication",
+    "--disk-cache-size=104857600",  # cap the HTTP cache at 100 MB so the saved profile stays small
+    "--password-store=basic",       # cookies stay readable when the profile moves between runners
+]
+
+
+def build_browser_options(user_data_dir, proxy_server=None):
+    """Chrome options for the Bonfire scrape. proxy_server may embed user:pass (pydoll handles auth)."""
     options = ChromiumOptions()
-    # Pydoll humanization and stealth
     if not os.environ.get("NODRIVER_HEADLESS") == "True" and os.environ.get("DISPLAY", ":99"):
-        display_var = os.environ.get("DISPLAY")
-        print("display", display_var)
-        options.add_argument(f'--display=:99')
-    # options.add_argument('--headless')
+        options.add_argument('--display=:99')
 
-    # options.add_argument("--enable-webgl")
-    # load data from cache
-    options.add_argument(f"--user-data-dir={BUNDLE_DIR.resolve().as_posix()}")
+    # Reuse the persisted profile: cookies (Cloudflare clearance) and cached Bonfire assets
+    options.add_argument(f"--user-data-dir={user_data_dir}")
 
     current_time = int(time.time())
     number_last = random.randint(3, 10)
@@ -589,29 +594,61 @@ async def main():
             'exit_type': 'Normal',
             'password_manager_enabled': False
         },
-        'safebrowsing': {'enabled': True},
+        # Safe Browsing list updates were ~9 MB per run through the proxy
+        'safebrowsing': {'enabled': False},
     }
 
-    # Handle Headless environment variables
-    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    proxy = 'geo.iproyal.com:12321'
+    for flag in BANDWIDTH_FLAGS:
+        options.add_argument(flag)
+
+    if proxy_server:
+        options.add_argument(f'--proxy-server={proxy_server}')
+        options.add_argument(f'--proxy-bypass-list={";".join(PROXY_BYPASS_HOSTS)}')
+    return options
+
+
+# Bonfire portals to scrape, in order
+TENDER_CONFIGS = [
+    {"base_url_env_key": "TENDER_BASE_PRYCE_URL", "csv_file_name": "bonfire_pyrce_with_links.csv", "city_name": "powell river"},
+    {"base_url_env_key": "TENDER_BASE_UVIC_URL", "csv_file_name": "bonfire_uvic_with_links.csv", "city_name": "uvic"},
+    {"base_url_env_key": "TENDER_BASE_BCTRANSIT_URL", "csv_file_name": "bonfire_bc_transit_with_links.csv", "city_name": "bctransit"},
+    {"base_url_env_key": "TENDER_BASE_VIC_URL", "csv_file_name": "bonfire_victoria_with_links.csv", "city_name": "victoria"},
+    {"base_url_env_key": "TENDER_BASE_SAANICH_URL", "csv_file_name": "bonfire_saanich_with_links.csv", "city_name": "saanich"},
+    {"base_url_env_key": "TENDER_BASE_NORTHCOW_URL", "csv_file_name": "bonfire_north_cowichan_with_links.csv", "city_name": "north cowichan"},
+    {"base_url_env_key": "TENDER_BASE_CVRD_URL", "csv_file_name": "bonfire_cvrd_with_links.csv", "city_name": "cvrd"},
+    {"base_url_env_key": "TENDER_BASE_FNHA_URL", "csv_file_name": "bonfire_fnha_with_links.csv", "city_name": "fnha"},
+    {"base_url_env_key": "TENDER_BASE_COURTENAY_URL", "csv_file_name": "bonfire_courtenay_with_links.csv", "city_name": "courtenay"},
+    {"base_url_env_key": "TENDER_BASE_CENTRALSAANICH_URL", "csv_file_name": "bonfire_central_saanich_with_links.csv", "city_name": "central saanich"},
+    {"base_url_env_key": "TENDER_BASE_FRASERHEALTH_URL", "csv_file_name": "bonfire_fraserhealth_with_links.csv", "city_name": "fraser health"},
+    {"base_url_env_key": "TENDER_BASE_ICBC_URL", "csv_file_name": "bonfire_icbc_with_links.csv", "city_name": "icbc"},
+    {"base_url_env_key": "TENDER_BASE_PHSA_URL", "csv_file_name": "bonfire_phsa_with_links.csv", "city_name": "phsa"},
+    {"base_url_env_key": "TENDER_BASE_COMOX_URL", "csv_file_name": "bonfire_comox_with_links.csv", "city_name": "comox"},
+    {"base_url_env_key": "TENDER_BASE_ISLANDHEALTH_URL", "csv_file_name": "bonfire_islandhealth_with_links.csv", "city_name": "victoria"},
+    {"base_url_env_key": "TENDER_BASE_VIU_URL", "csv_file_name": "bonfire_viu_with_links.csv", "city_name": "victoria"},
+]
+
+
+async def main():
+    load_dotenv() # Load environment variables from .env file
+
+    tender_configs = TENDER_CONFIGS
+
+    proxy_server = None
     proxy_username = os.getenv('IPROYAL_USERNAME')
     proxy_password = os.getenv('IPROYAL_PASSWORD')
-    session_id = generate_session_id()
-    proxy_auth = (
-        f"{proxy_username}:{proxy_password}"
-        f"_country-ca"
-        f"_session-{session_id}"
-        f"_lifetime-30m_streaming-1"
-    )
-    # proxy_auth = f'{proxy_username}:{proxy_password}_country-ca_city-vancouver_session-EWassIZ9_lifetime-30m_streaming-1'
-
     if proxy_username and proxy_password:
-        proxy_url = f'http://{proxy_auth}@{proxy}'
-        print("Using proxy:", proxy_url)
-        options.add_argument(f'--proxy-server={proxy_url}')
+        proxy_auth = (
+            f"{proxy_username}:{proxy_password}"
+            f"_country-ca"
+            f"_session-{generate_session_id()}"
+            f"_lifetime-30m_streaming-1"
+        )
+        proxy_server = f'http://{proxy_auth}@{PROXY_HOST}'
+        print(f"Using proxy {PROXY_HOST} for Bonfire/Cloudflare only; bypassing: {', '.join(PROXY_BYPASS_HOSTS)}")
     else:
         print("No proxy used")
+
+    options = build_browser_options(BUNDLE_DIR.resolve().as_posix(), proxy_server)
 
     print("--- Initializing Pydoll Browser ---")
     has_errors = False

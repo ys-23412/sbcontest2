@@ -45,6 +45,9 @@ jobs:
       TENDER_BASE_ISLANDHEALTH_URL: ${{ secrets.TENDER_BASE_ISLANDHEALTH_URL }}
       TENDER_BASE_VIU_URL: ${{ secrets.TENDER_BASE_VIU_URL }}
       TENDER_BASE_PRYCE_URL: ${{ secrets.TENDER_BASE_PRYCE_URL }}
+      # Same proxy as prod so dev runs exercise the proxy path
+      IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
+      IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -66,10 +69,22 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements_tenders.txt
 
+      - name: Restore browser profile (cookies + HTTP cache) from the last run
+        id: profile-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: downloaded_bundles
+          key: bonfire-profile-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            bonfire-profile-
+
       - name: Install gdown
+        if: steps.profile-cache.outputs.cache-matched-key == ''
         run: pip install gdown
 
       - name: Download Google Drive File into Specific Folder
+        # Fallback seed profile, only when no cached profile exists yet
+        if: steps.profile-cache.outputs.cache-matched-key == ''
         run: |
           # 1. Create your target directory
           mkdir -p ./downloaded_bundles || true
@@ -87,11 +102,30 @@ jobs:
           ls -lh ./downloaded_bundles
 
       - name: Run Browser Automation and Record Xvfb Session
+        id: scrape
         run: |
           mkdir -p video_recordings
           # Start Xvfb
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
           python fetch_tenders_all.py
+
+      - name: Tidy browser profile before caching
+        if: steps.scrape.outcome == 'success'
+        run: |
+          cd downloaded_bundles
+          # drop crash reports, metrics and GPU shader caches; remove profile locks
+          rm -rf Crashpad BrowserMetrics BrowserMetrics-spare.pma CrashpadMetrics-active.pma
+          rm -rf GrShaderCache ShaderCache GPUPersistentCache DawnGraphiteCache DawnWebGPUCache
+          rm -rf Default/GPUCache Default/DawnGraphiteCache Default/DawnWebGPUCache
+          rm -f SingletonLock SingletonCookie SingletonSocket
+          du -sh .
+
+      - name: Save browser profile for the next run
+        if: steps.scrape.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: downloaded_bundles
+          key: bonfire-profile-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload Screenshots
         if: always()
