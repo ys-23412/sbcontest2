@@ -110,8 +110,16 @@ jobs:
           python fetch_tenders_all.py
 
       - name: Tidy browser profile before caching
+        id: tidy
         if: steps.scrape.outcome == 'success'
         run: |
+          # Only keep the profile if the scrape actually produced data (portal errors don't fail the step)
+          if ls screenshots/bonfire_*_with_links.csv >/dev/null 2>&1; then
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Bonfire CSVs were written; not saving this profile"
+            echo "save=false" >> "$GITHUB_OUTPUT"
+          fi
           cd downloaded_bundles
           # drop crash reports, metrics and GPU shader caches; remove profile locks
           rm -rf Crashpad BrowserMetrics BrowserMetrics-spare.pma CrashpadMetrics-active.pma
@@ -121,7 +129,7 @@ jobs:
           du -sh .
 
       - name: Save browser profile for the next run
-        if: steps.scrape.outcome == 'success'
+        if: steps.tidy.outputs.save == 'true'
         uses: actions/cache/save@v4
         with:
           path: downloaded_bundles

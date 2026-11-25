@@ -17,6 +17,8 @@ from pydoll.browser.tab import Tab
 from pydoll.constants import Key, By, ScrollPosition
 from pydoll.protocol.network.types import ErrorReason
 from pydoll.protocol.fetch.events import FetchEvent, RequestPausedEvent
+from pydoll.protocol.fetch.types import AuthChallengeResponseType
+from pydoll.commands import FetchCommands
 import random
 import string
 # Assuming you have a captcha solving utility like the one in your example
@@ -607,6 +609,42 @@ def build_browser_options(user_data_dir, proxy_server=None):
     return options
 
 
+async def enable_proxy_auth(browser, username, password):
+    """
+    Answer the proxy's login prompt for the whole session.
+
+    pydoll's built-in handling (credentials embedded in --proxy-server) pauses every
+    request until the first login prompt but only releases the *first* paused request.
+    That used to work because Chrome's own background traffic hit the proxy first; with
+    that traffic now switched off/bypassed, page loads stayed paused and every Page.navigate
+    timed out on CI. These handlers stay registered, so nothing is left paused.
+    """
+    await browser.enable_fetch_events(handle_auth_requests=True)
+
+    async def release(event):
+        try:
+            await browser.continue_request(event['params']['requestId'])
+        except Exception as e:
+            print(f"⚠️ Could not release paused request: {e}")
+
+    async def answer_login(event):
+        params = event['params']
+        from_proxy = params.get('authChallenge', {}).get('source') == 'Proxy'
+        try:
+            await browser._execute_command(FetchCommands.continue_request_with_auth(
+                params['requestId'],
+                auth_challenge_response=(AuthChallengeResponseType.PROVIDE_CREDENTIALS if from_proxy
+                                         else AuthChallengeResponseType.DEFAULT),
+                proxy_username=username if from_proxy else None,
+                proxy_password=password if from_proxy else None,
+            ))
+        except Exception as e:
+            print(f"⚠️ Could not answer auth challenge: {e}")
+
+    await browser.on(FetchEvent.REQUEST_PAUSED, release)
+    await browser.on(FetchEvent.AUTH_REQUIRED, answer_login)
+
+
 # Bonfire portals to scrape, in order
 TENDER_CONFIGS = [
     {"base_url_env_key": "TENDER_BASE_PRYCE_URL", "csv_file_name": "bonfire_pyrce_with_links.csv", "city_name": "powell river"},
@@ -637,13 +675,15 @@ async def main():
     proxy_username = os.getenv('IPROYAL_USERNAME')
     proxy_password = os.getenv('IPROYAL_PASSWORD')
     if proxy_username and proxy_password:
-        proxy_auth = (
-            f"{proxy_username}:{proxy_password}"
+        # IPRoyal reads the targeting options from the password
+        proxy_password = (
+            f"{proxy_password}"
             f"_country-ca"
             f"_session-{generate_session_id()}"
             f"_lifetime-30m_streaming-1"
         )
-        proxy_server = f'http://{proxy_auth}@{PROXY_HOST}'
+        # No credentials in the URL: enable_proxy_auth() answers the login prompt instead
+        proxy_server = f'http://{PROXY_HOST}'
         print(f"Using proxy {PROXY_HOST} for Bonfire/Cloudflare only; bypassing: {', '.join(PROXY_BYPASS_HOSTS)}")
     else:
         print("No proxy used")
@@ -655,6 +695,8 @@ async def main():
     try:
         async with Chrome(options=options) as browser:
             tab = await browser.start()
+            if proxy_server:
+                await enable_proxy_auth(browser, proxy_username, proxy_password)
             # --- START HIGH PERFORMANCE IMAGE BLOCKING ---
             # blocked_count = 0
             
