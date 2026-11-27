@@ -16,9 +16,9 @@ scraper even when they are set.
 
 A browser-check block or a proxy connection error (`ERR_PROXY_CONNECTION_FAILED`,
 `ERR_TUNNEL_CONNECTION_FAILED`, `ERR_TIMED_OUT`, ...) moves on to the next attempt.
-Each attempt launches Chrome on its own proxy. The proxy login (the `user:pass@`
-in `PROXY_URL`) is split off the URL and answered for the whole session by
-`answer_proxy_auth`; it is never printed or sent to Discord.
+Each attempt launches Chrome on its own proxy. The proxy login stays in the URL
+(`http://user:pass@host:port`): pydoll takes it off the Chrome command line and
+answers the proxy itself. It is never printed or sent to Discord.
 
 Only the first `BCBID_MAX_ATTEMPTS` entries of that list are tried. By default
 that is squid, then direct (two attempts); the third slot is only filled when
@@ -35,8 +35,6 @@ Tuning (all optional env vars):
 | `BCBID_USE_OPEN_PROXIES` | `0` | Set to `1` to try free proxies as a last resort |
 | `BCBID_OPEN_PROXY_LIMIT` | `2` | Max free proxies to health-check |
 | `BCBID_BROWSER_CHECK_WAIT` | `30` | Seconds to wait for the check to pass |
-| `BCBID_APPLY_FINGERPRINT` | `1` | pydoll v3 stealth fingerprint/humanized input |
-| `BCBID_FINGERPRINT_TIMEZONE` | `America/Vancouver` | Must match the proxy exit IP |
 
 ### reCAPTCHA v3 — what pydoll can and cannot do
 
@@ -45,12 +43,23 @@ BC Bid's check page is an **invisible reCAPTCHA v3**: it calls
 → submits `mainForm`. There is no puzzle to click and no answer to compute.
 
 Pydoll v3's captcha helper is Cloudflare Turnstile **only**; its own docs say
-"It does not handle reCAPTCHA or hCaptcha". What actually passes v3 is the
-stealth layer this code turns on: `tab.apply_fingerprint()` (a coherent Canadian
-browser identity) plus humanized mouse/scroll/type interactions, on a clean IP.
-If the check still refuses us, the runner starts a new browser on a new IP.
-Free open proxies exist (already used by `web_requests.py`) but their IP
-reputation is poor, so they are opt-in and last.
+"It does not handle reCAPTCHA or hCaptcha". The scraper therefore only waits on
+the check page, with pydoll's humanized mouse/scroll input, and if the check
+still refuses it the runner starts a new browser on the next connection.
+Free open proxies exist (already used by `web_requests.py`) but they are slow
+and widely blocked, so they are opt-in and last.
+
+### No pydoll profiles
+
+The scraper uses neither kind of profile:
+
+- **Fingerprint profile** (`tab.apply_fingerprint()`): optional in pydoll, which
+  ships none ("bring your own"). Its docs say a profile has to describe the real
+  machine and exit IP, and that an inconsistent one is worse than an untouched
+  browser. Applying one also stops pydoll answering the proxy login, so every
+  navigation through the Squid proxy fails with `ERR_INVALID_AUTH_CREDENTIALS`.
+- **Saved browser profile** (a Chrome user-data directory): pydoll starts each
+  browser in a temporary one, and nothing here needs state between runs.
 
 
 For the proxy used, we setup a free google cloud platform and the following instructions

@@ -160,7 +160,6 @@ def test_dead_proxy_on_the_recovery_reload_fails_the_attempt(env, monkeypatch):
 
     monkeypatch.setattr(scraper, "Chrome", lambda options=None: FakeBrowser())
     monkeypatch.setattr(scraper, "perform_human_loop", no_element)
-    monkeypatch.setattr(scraper, "APPLY_FINGERPRINT", False)
     monkeypatch.setattr(scraper, "_alert", lambda message: None)
 
     with pytest.raises(RuntimeError, match="ERR_PROXY_CONNECTION_FAILED"):

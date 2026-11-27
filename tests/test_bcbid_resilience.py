@@ -1,4 +1,4 @@
-"""Offline tests for BC Bid proxy failover and pydoll v3 stealth wiring."""
+"""Offline tests for the BC Bid connection fallback (Squid first, then direct)."""
 import asyncio
 
 import pytest
@@ -6,25 +6,28 @@ import pytest
 from lib import bcbid_resilience as resilience
 from lib import bcbid_scraper as scraper
 
+SQUID = "http://squid-user:s3cret@squid.example:3128"
+
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    for name in ("PROXY_URL", "BCBID_USE_OPEN_PROXIES", "BCBID_OPEN_PROXY_LIMIT"):
+    for name in ("PROXY_URL", "BCBID_USE_OPEN_PROXIES", "BCBID_OPEN_PROXY_LIMIT", "NODRIVER_HEADLESS"):
         monkeypatch.delenv(name, raising=False)
 
 
+def _proxy_args(options):
+    return [arg for arg in options.arguments if arg.startswith("--proxy-server")]
+
+
+# --- the attempt list -------------------------------------------------------
+
 def test_attempts_are_squid_then_direct(monkeypatch, clean_env):
-    monkeypatch.setenv("PROXY_URL", "http://user:pass@squid.example:3128")
+    monkeypatch.setenv("PROXY_URL", SQUID)
     attempts = resilience.build_proxy_attempts()
 
     assert [a.name for a in attempts] == ["squid", "direct"]
-    # Squid's user:pass@ is split off and answered by answer_proxy_auth (pydoll's
-    # own handling of embedded credentials breaks once a fingerprint is applied).
-    assert attempts[0].proxy_url == "http://squid.example:3128"
-    assert (attempts[0].username, attempts[0].password) == ("user", "pass")
+    assert attempts[0].proxy_url == SQUID  # handed to pydoll as it is, login included
     assert attempts[1].uses_proxy is False
-    assert not any("pass" in a.describe() for a in attempts)
-    assert all(a.headless is False for a in attempts)
 
     # One attempt only: it has to be the proxy, not the direct line.
     assert [a.name for a in resilience.build_proxy_attempts(max_attempts=1)] == ["squid"]
@@ -38,11 +41,10 @@ def test_without_proxy_url_the_only_attempt_is_direct(monkeypatch, clean_env):
 
 
 def test_iproyal_is_never_used_for_bc_bid(monkeypatch, clean_env):
-    """The workflows may still export the IPRoyal secrets for other scrapers."""
-    monkeypatch.setenv("PROXY_URL", "http://squid.example:3128")
+    """Other scrapers' workflows may still export the IPRoyal secrets."""
+    monkeypatch.setenv("PROXY_URL", SQUID)
     monkeypatch.setenv("IPROYAL_USERNAME", "user")
     monkeypatch.setenv("IPROYAL_PASSWORD", "pass")
-    monkeypatch.setenv("BCBID_IPROYAL_SESSIONS", "2")
 
     attempts = resilience.build_proxy_attempts()
 
@@ -50,8 +52,18 @@ def test_iproyal_is_never_used_for_bc_bid(monkeypatch, clean_env):
     assert not any("iproyal" in str(a).lower() for a in attempts)
 
 
+def test_open_proxies_are_opt_in(monkeypatch, clean_env):
+    assert not any(a.name.startswith("open-proxy") for a in resilience.build_proxy_attempts())
+
+    monkeypatch.setenv("BCBID_USE_OPEN_PROXIES", "1")
+    monkeypatch.setattr(resilience, "_healthy_open_proxies", lambda limit: ["http://1.2.3.4:8080"])
+    attempts = resilience.build_proxy_attempts()
+    assert attempts[-1].name == "open-proxy-1"
+    assert attempts[-1].proxy_url == "http://1.2.3.4:8080"
+
+
 def test_max_attempts_caps_the_list_and_skips_open_proxy_checks(monkeypatch, clean_env):
-    monkeypatch.setenv("PROXY_URL", "http://squid.example:3128")
+    monkeypatch.setenv("PROXY_URL", SQUID)
     monkeypatch.setenv("BCBID_USE_OPEN_PROXIES", "1")
 
     def must_not_run(limit):
@@ -85,22 +97,48 @@ def test_open_proxy_health_check_is_bounded(monkeypatch, clean_env):
     assert len(calls) == resilience.OPEN_PROXY_MAX_CHECKS
 
 
+# --- credentials ------------------------------------------------------------
+
 def test_describe_never_shows_proxy_credentials():
-    squid = resilience.ProxyAttempt("squid", proxy_url="http://user:s3cret@squid.example:3128")
+    squid = resilience.ProxyAttempt("squid", proxy_url=SQUID)
     assert squid.describe() == "squid (proxy http://***@squid.example:3128)"
-    assert "s3cret" not in squid.describe() and "user" not in squid.describe()
+    assert "s3cret" not in squid.describe() and "squid-user" not in squid.describe()
     assert resilience.ProxyAttempt("direct").describe() == "direct (direct)"
     plain = resilience.ProxyAttempt("open-proxy-1", proxy_url="http://1.2.3.4:8080")
     assert plain.describe() == "open-proxy-1 (proxy http://1.2.3.4:8080)"
+    assert resilience.redact_proxy_url("user:p@ss@10.0.0.1:3128") == "***@10.0.0.1:3128"
 
 
-def test_proxy_credentials_are_split_off_the_url():
-    split = resilience.split_proxy_credentials
-    assert split("http://user:p%40ss@squid.example:3128") == ("http://squid.example:3128", "user", "p%40ss")
-    assert split("http://user:p@ss:word@10.0.0.1:3128") == ("http://10.0.0.1:3128", "user", "p@ss:word")
-    assert split("user:pass@10.0.0.1:3128") == ("10.0.0.1:3128", "user", "pass")
-    assert split("http://squid.example:3128") == ("http://squid.example:3128", None, None)
-    assert split("socks5://1.2.3.4:1080") == ("socks5://1.2.3.4:1080", None, None)
+def test_pydoll_takes_the_proxy_login_off_the_command_line(clean_env):
+    """What we rely on instead of our own proxy login code."""
+    from pydoll.browser.managers.proxy_manager import ProxyManager
+
+    options = scraper.get_browser_options(proxy_url=SQUID)
+    assert _proxy_args(options) == [f"--proxy-server={SQUID}"]
+
+    has_login, (username, password) = ProxyManager(options).get_proxy_credentials()
+
+    assert has_login is True
+    assert (username, password) == ("squid-user", "s3cret")
+    assert _proxy_args(options) == ["--proxy-server=http://squid.example:3128"]
+
+
+# --- failure detection ------------------------------------------------------
+
+@pytest.mark.parametrize("message", [
+    "net::ERR_PROXY_CONNECTION_FAILED",
+    "net::ERR_TUNNEL_CONNECTION_FAILED",
+    "Page.navigate timed out: net::ERR_TIMED_OUT",
+    "Navigation to https://bcbid.gov.bc.ca/ failed: net::ERR_TOO_MANY_RETRIES",  # proxy rejects our login
+    "Navigation to https://bcbid.gov.bc.ca/ failed: net::ERR_INVALID_AUTH_CREDENTIALS",
+])
+def test_detects_proxy_failures(message):
+    assert resilience.is_proxy_failure(RuntimeError(message))
+
+
+def test_site_block_and_browser_start_are_not_proxy_failures():
+    assert not resilience.is_proxy_failure(scraper.BrowserCheckBlocked("wrong captcha answer"))
+    assert not resilience.is_proxy_failure(scraper.FailedToStartBrowser("chrome exited"))
 
 
 def test_env_numbers_survive_empty_and_bad_values(monkeypatch):
@@ -112,55 +150,7 @@ def test_env_numbers_survive_empty_and_bad_values(monkeypatch):
     assert resilience.env_int("BCBID_OPEN_PROXY_LIMIT", 2) == 4
 
 
-def test_open_proxies_are_opt_in(monkeypatch, clean_env):
-    assert not any(a.name.startswith("open-proxy") for a in resilience.build_proxy_attempts())
-
-    monkeypatch.setenv("BCBID_USE_OPEN_PROXIES", "1")
-    monkeypatch.setattr(resilience, "_healthy_open_proxies", lambda limit: ["http://1.2.3.4:8080"])
-    attempts = resilience.build_proxy_attempts()
-    assert attempts[-1].name == "open-proxy-1"
-    assert attempts[-1].proxy_url == "http://1.2.3.4:8080"
-
-
-@pytest.mark.parametrize("message", [
-    "net::ERR_PROXY_CONNECTION_FAILED",
-    "net::ERR_TUNNEL_CONNECTION_FAILED",
-    "Page.navigate timed out: net::ERR_TIMED_OUT",
-    "Navigation to https://bcbid.gov.bc.ca/ failed: net::ERR_TOO_MANY_RETRIES",  # proxy rejects our login
-    "Navigation to https://bcbid.gov.bc.ca/ failed: net::ERR_INVALID_AUTH_CREDENTIALS",
-    "FailedToStartBrowser: chrome exited",
-])
-def test_detects_proxy_failures(message):
-    assert resilience.is_proxy_failure(RuntimeError(message))
-
-
-def test_site_block_is_not_a_proxy_failure():
-    assert not resilience.is_proxy_failure(scraper.BrowserCheckBlocked("wrong captcha answer"))
-
-
-def test_fingerprint_uses_real_chrome_version_and_canadian_locale(monkeypatch):
-    fingerprint = resilience.build_fingerprint("Chrome/140.0.7339.80")
-    assert "Chrome/140." in fingerprint["user_agent"]
-    assert fingerprint["timezone"] == "America/Vancouver"
-    assert fingerprint["locale"]["languages"] == ["en-CA", "en"]
-    assert fingerprint["screen"]["width"] == 1920
-    assert "geolocation" not in fingerprint  # never contradict the proxy's real location
-
-    monkeypatch.setenv("BCBID_FINGERPRINT_TIMEZONE", "America/Toronto")
-    assert resilience.build_fingerprint()["timezone"] == "America/Toronto"
-
-    # browser.get_version() returns a CDP dict in pydoll v3, incl. headless UA.
-    version = {
-        "product": "Chrome/158.0.8127.88",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) HeadlessChrome/158.0.0.0",
-    }
-    ua = resilience.build_fingerprint(version)["user_agent"]
-    assert "Chrome/158." in ua and "HeadlessChrome" not in ua
-
-
-def _proxy_args(options):
-    return [arg for arg in options.arguments if arg.startswith("--proxy-server")]
-
+# --- the browser each attempt gets ------------------------------------------
 
 def test_browser_options_only_add_proxy_when_attempt_asks(monkeypatch, clean_env):
     monkeypatch.setenv("PROXY_URL", "http://squid.example:3128")
@@ -169,14 +159,22 @@ def test_browser_options_only_add_proxy_when_attempt_asks(monkeypatch, clean_env
     assert _proxy_args(direct) == []  # PROXY_URL alone must never proxy an attempt
     assert direct.headless is True
 
-    through_proxy = scraper.get_browser_options(headless=False, proxy_url="http://squid.example:3128")
+    through_proxy = scraper.get_browser_options(proxy_url="http://squid.example:3128")
     assert _proxy_args(through_proxy) == ["--proxy-server=http://squid.example:3128"]
     assert through_proxy.headless is False
 
 
+def test_browser_identity_is_left_alone(clean_env):
+    """No profile: nothing overrides the User-Agent or the browser's languages."""
+    options = scraper.get_browser_options(proxy_url=SQUID)
+    assert not any(arg.startswith(("--user-agent", "--accept-lang", "--lang")) for arg in options.arguments)
+    assert "intl" not in options.browser_preferences
+    assert not hasattr(resilience, "build_fingerprint")
+
+
 def test_each_attempt_launches_chrome_on_its_own_proxy(monkeypatch, clean_env):
     """Each attempt must reach its own proxy: not PROXY_URL for all of them, not the direct line."""
-    monkeypatch.setenv("PROXY_URL", "http://squid-user:squid-pass@squid.example:3128")
+    monkeypatch.setenv("PROXY_URL", SQUID)
     monkeypatch.setenv("BCBID_USE_OPEN_PROXIES", "1")
     monkeypatch.setattr(resilience, "_healthy_open_proxies", lambda limit: ["http://1.2.3.4:8080"])
     launched = []
@@ -194,61 +192,53 @@ def test_each_attempt_launches_chrome_on_its_own_proxy(monkeypatch, clean_env):
             asyncio.run(scraper.scrape_attempt(attempt))
 
     assert launched == [
-        ["--proxy-server=http://squid.example:3128"],  # credentials never reach the command line
+        [f"--proxy-server={SQUID}"],
         [],
         ["--proxy-server=http://1.2.3.4:8080"],
     ]
 
 
-class FakeAuthBrowser:
-    """Records what answer_proxy_auth sends over the browser connection."""
+def test_an_attempt_never_applies_a_fingerprint_profile(monkeypatch, clean_env):
+    """apply_fingerprint() would switch off pydoll's proxy login (ERR_INVALID_AUTH_CREDENTIALS)."""
+    calls = []
 
-    def __init__(self, fingerprint_handler=None):
-        self._fingerprint_fetch_callback = fingerprint_handler
-        self.handlers, self.continued, self.commands, self.fetch = {}, [], [], []
+    class Stop(Exception):
+        pass
 
-    async def enable_fetch_events(self, handle_auth_requests=False):
-        self.fetch.append(handle_auth_requests)
+    class Tab:
+        async def apply_fingerprint(self, *args, **kwargs):
+            calls.append("apply_fingerprint")
 
-    async def on(self, event, callback):
-        self.handlers[event] = callback
+        async def go_to(self, url, timeout=None):
+            calls.append("go_to")
+            raise Stop
 
-    async def continue_request(self, request_id):
-        self.continued.append(request_id)
+    class Browser:
+        async def __aenter__(self):
+            return self
 
-    async def _execute_command(self, command):
-        self.commands.append(command)
+        async def __aexit__(self, *exc):
+            return False
+
+        async def start(self):
+            return Tab()
+
+        async def enable_fetch_events(self, *args, **kwargs):
+            calls.append("enable_fetch_events")
+
+    monkeypatch.setattr(scraper, "Chrome", lambda options=None: Browser())
+    monkeypatch.setattr(scraper, "FILE_DIR", "screenshots")
+    with pytest.raises(Stop):
+        asyncio.run(scraper.scrape_attempt(resilience.ProxyAttempt("squid", proxy_url=SQUID)))
+
+    assert calls == ["go_to"]
 
 
-def test_proxy_auth_answers_only_the_proxy_and_releases_requests_once():
-    from pydoll.protocol.fetch.events import FetchEvent
-
-    async def run(browser):
-        await resilience.answer_proxy_auth(browser, "user", "pass")
-        await browser.handlers[FetchEvent.REQUEST_PAUSED]({"params": {"requestId": "r1"}})
-        await browser.handlers[FetchEvent.AUTH_REQUIRED](
-            {"params": {"requestId": "r2", "authChallenge": {"source": "Proxy"}}})
-        await browser.handlers[FetchEvent.AUTH_REQUIRED](
-            {"params": {"requestId": "r3", "authChallenge": {"source": "Server"}}})
-        return browser
-
-    plain = asyncio.run(run(FakeAuthBrowser()))
-    assert plain.fetch == [True]
-    assert plain.continued == ["r1"]
-    proxy_answer, site_answer = (c["params"]["authChallengeResponse"] for c in plain.commands)
-    assert proxy_answer == {"response": "ProvideCredentials", "username": "user", "password": "pass"}
-    assert site_answer == {"response": "Default"}  # never hand proxy credentials to a website
-
-    # With a fingerprint applied, pydoll already releases every paused request;
-    # releasing it again fails on every request.
-    fingerprinted = asyncio.run(run(FakeAuthBrowser(fingerprint_handler=7)))
-    assert fingerprinted.continued == []
-    assert len(fingerprinted.commands) == 2
-
+# --- the runner -------------------------------------------------------------
 
 def test_main_falls_back_to_direct_after_a_browser_check_on_squid(monkeypatch, clean_env):
     attempts = [
-        resilience.ProxyAttempt("squid", "http://squid.example:3128", "user", "pass"),
+        resilience.ProxyAttempt("squid", SQUID),
         resilience.ProxyAttempt("direct"),
     ]
     monkeypatch.setattr(scraper, "build_proxy_attempts", lambda max_attempts=None: attempts)
@@ -278,9 +268,9 @@ def test_main_falls_back_to_direct_after_a_browser_check_on_squid(monkeypatch, c
     assert alerts == []  # first attempt was a retry, second one succeeded
 
 
-def test_main_alerts_once_after_all_proxies_fail(monkeypatch, clean_env):
+def test_main_alerts_once_after_all_attempts_fail(monkeypatch, clean_env):
     attempts = [
-        resilience.ProxyAttempt("squid", "http://user:s3cret@squid:3128"),
+        resilience.ProxyAttempt("squid", SQUID),
         resilience.ProxyAttempt("direct"),
     ]
     monkeypatch.setattr(scraper, "build_proxy_attempts", lambda max_attempts=None: attempts)

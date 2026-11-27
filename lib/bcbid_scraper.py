@@ -19,8 +19,6 @@ from lib.utils import find_bcbid_city_match, load_city_mapping, regional_distric
 scan_text_for_cities, clean_technical_noise, DEFAULT_CITY
 from lib.bcbid_resilience import (
     ProxyAttempt,
-    answer_proxy_auth,
-    build_fingerprint,
     build_proxy_attempts,
     env_int,
     is_proxy_failure,
@@ -31,9 +29,6 @@ from datetime import datetime, timedelta
 sys.stdout.reconfigure(encoding="utf-8")
 FILE_DIR = "screenshots"
 
-# pydoll v3's stealth layer (fingerprint + humanized interactions) is what gives
-# BC Bid's *passive* reCAPTCHA v3 check a chance; pydoll has no v3 solve API.
-APPLY_FINGERPRINT = os.getenv("BCBID_APPLY_FINGERPRINT", "1") == "1"
 MAX_ATTEMPTS = max(1, env_int("BCBID_MAX_ATTEMPTS", 3))
 ATTEMPT_PAUSE_SECONDS = float(os.getenv("BCBID_ATTEMPT_PAUSE") or 5)
 # Only the final failed attempt should page Discord; retries are expected.
@@ -42,12 +37,15 @@ SEND_BLOCK_ALERT = True
 
 def get_browser_options(headless=None, proxy_url=None):
     """
-    Returns a configured ChromiumOptions object with pydoll v3 stealth settings.
+    Returns a configured ChromiumOptions object.
 
-    headless: None keeps pydoll's default (headful, which reCAPTCHA v3 likes).
+    headless: None keeps pydoll's default (headful).
     proxy_url: the proxy of *this* attempt (Squid or an open proxy) or None
                for a direct connection. BC Bid used to always use PROXY_URL,
                so a dead proxy killed every run.
+
+    The browser's own identity is left alone: no fingerprint profile, no
+    User-Agent or language override (see lib/bcbid_resilience.py).
     """
     options = ChromiumOptions()
     current_time = int(time.time())
@@ -66,12 +64,9 @@ def get_browser_options(headless=None, proxy_url=None):
     if headless is not None:
         options.headless = headless
 
-    # pydoll warns that overriding Accept-Language at fingerprint time moves it
-    # out of Chrome's header order. Set it at launch so it matches en-CA locale.
-    options.set_accept_languages("en-CA,en")
-
     if proxy_url:
-        # Credentials never go here: scrape_attempt answers the proxy login itself.
+        # May be http://user:pass@host:port. pydoll takes the credentials off
+        # the Chrome command line and answers the proxy login itself.
         options.add_argument(f'--proxy-server={proxy_url}')
 
     options.browser_preferences = {
@@ -378,26 +373,15 @@ def chunk_list(lst, n=3):
 
 async def scrape_attempt(attempt: ProxyAttempt):
     """Run one whole scrape in a fresh browser, optionally through `attempt`'s proxy."""
-    opts = get_browser_options(headless=attempt.headless, proxy_url=attempt.proxy_url)
+    opts = get_browser_options(proxy_url=attempt.proxy_url)
     print(f"Starting BC Bid browser: {attempt.describe()}")
 
     async with Chrome(options=opts) as browser:
         tab = await browser.start()
 
-        # Turn on pydoll v3's stealth layer before navigating: coherent identity
-        # for BC Bid's invisible reCAPTCHA v3 (no solver API exists in pydoll).
-        if APPLY_FINGERPRINT:
-            try:
-                version = await browser.get_version()
-                await tab.apply_fingerprint(build_fingerprint(version))
-                print("Applied pydoll v3 fingerprint + humanized interactions.")
-            except Exception as e:
-                print(f"Could not apply pydoll fingerprint: {e}")
-
-        # Keep this after apply_fingerprint(): both enable Fetch on the browser
-        # connection and the last one decides whether proxy logins are handled.
-        if attempt.username:
-            await answer_proxy_auth(browser, attempt.username, attempt.password)
+        # Do not call tab.apply_fingerprint() here: besides not being needed, it
+        # re-enables Fetch without auth handling, which stops pydoll answering the
+        # proxy login (every Squid navigation: ERR_INVALID_AUTH_CREDENTIALS).
 
         url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
         days_to_check = int(os.getenv('DAYS_TO_CHECK', 1))
