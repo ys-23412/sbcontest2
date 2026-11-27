@@ -222,7 +222,7 @@ async def navigate_to_opportunities(tab: Tab):
         if not os.path.exists(FILE_DIR):
             # remove directory
             os.mkdir(FILE_DIR)
-        await opps_link.click(humanize=True)
+        await opps_link.click()
         await asyncio.sleep(3)
         await tab.take_screenshot(f'{FILE_DIR}/trying_to_login.png', quality=90, beyond_viewport=True)
         await asyncio.sleep(4)  # Wait for portal redirection
@@ -467,8 +467,10 @@ async def scrape_attempt(attempt: ProxyAttempt):
                     for typing_try in range(3):
                         print(f"Typing: {value_tag}" + (" (retry)" if typing_try > 0 else ""))
                         
-                        await filter_search.click(humanize=True)
-                        await filter_search.type_text(value_tag, humanize=True)
+                        # Plain click and typing on purpose: the humanized versions
+                        # broke the filter entry. Keep humanize off here.
+                        await filter_search.click()
+                        await filter_search.type_text(value_tag, humanize=False)
                         # api loading times, should be bigger
                         await asyncio.sleep(random.uniform(1, 1.3))
                         await tab.keyboard.press(Key.ENTER)
