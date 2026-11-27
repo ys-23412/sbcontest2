@@ -251,6 +251,74 @@ async def perform_human_loop(tab: Tab, selector: str, max_attempts=2):
             
     return False
 
+class BrowserCheckBlocked(Exception):
+    """BC Bid's "Browser check" (reCAPTCHA) page refused this browser."""
+
+
+# How long to give BC Bid's check page to let us through before calling it a block
+BROWSER_CHECK_WAIT_SECONDS = int(os.getenv("BCBID_BROWSER_CHECK_WAIT", 30))
+
+
+def looks_like_browser_check(page_source: str) -> bool:
+    """True when the HTML is BC Bid's /bas/browser_check page rather than the page we asked for."""
+    if not page_source:
+        return False
+    return bool(
+        re.search(r'<h1[^>]*class="[^"]*maintitle[^"]*"[^>]*>\s*Browser check', page_source, re.IGNORECASE)
+        or re.search(r'<title[^>]*>\s*Browser check', page_source, re.IGNORECASE)
+    )
+
+
+def browser_check_rejected(page_source: str) -> bool:
+    """True when the check page says the captcha answer was refused."""
+    return bool(page_source) and "wrong captcha answer" in page_source.lower()
+
+
+async def stop_if_browser_check(tab: Tab, selector: str, context: str) -> bool:
+    """
+    Call when the expected element (selector) has not shown up.
+
+    - Not on the browser-check page: returns False and the caller carries on as before.
+    - On the check page: waits (without reloading, which only triggers another check) for
+      BC Bid to let the browser through. Returns True if the expected element appears.
+    - Still on the check page after BROWSER_CHECK_WAIT_SECONDS, or the page reports a
+      wrong captcha answer: saves a screenshot and the HTML, alerts Discord and raises
+      BrowserCheckBlocked so the run stops and fails.
+    """
+    page_source = await tab.page_source()
+    if not looks_like_browser_check(page_source):
+        return False
+
+    print(f"BC Bid is showing its 'Browser check' page ({context}). Waiting up to {BROWSER_CHECK_WAIT_SECONDS}s...")
+    waited = 0
+    while waited < BROWSER_CHECK_WAIT_SECONDS and not browser_check_rejected(page_source):
+        await asyncio.sleep(3)
+        waited += 3
+        if await tab.query(selector, timeout=1, raise_exc=False):
+            print("Browser check passed; continuing.")
+            return True
+        page_source = await tab.page_source()
+        if not looks_like_browser_check(page_source):
+            return False
+
+    reason = "wrong captcha answer" if browser_check_rejected(page_source) else f"still on the check page after {waited}s"
+    message = f"BC Bid scraper blocked by BC Bid's browser check ({context}): {reason}. Run stopped; no retry."
+    print(f"::error title=BC Bid browser check::{message}")
+    try:
+        os.makedirs(FILE_DIR, exist_ok=True)
+        with open(f'{FILE_DIR}/browser_check_blocked.html', 'w', encoding='utf-8') as f:
+            f.write(page_source)
+        await tab.take_screenshot(f'{FILE_DIR}/browser_check_blocked.png', quality=90, beyond_viewport=True)
+    except Exception as e:
+        print(f"Could not save browser check evidence: {e}")
+    try:
+        from lib.discord import send_discord_message
+        send_discord_message(f"🚫 {message} @grandfleet", os.getenv('DISCORD_WEBHOOK_URL'))
+    except Exception as e:
+        print(f"Could not send Discord alert: {e}")
+    raise BrowserCheckBlocked(message)
+
+
 def chunk_list(lst, n=3):
     """Splits a list into n roughly equal parts, skipping empty chunks."""
     if not lst:
@@ -317,14 +385,23 @@ async def main():
             success = await perform_human_loop(tab, selector)
 
             if not success:
+                # Raises BrowserCheckBlocked (stops the run) if BC Bid's check page refuses us
+                success = await stop_if_browser_check(tab, selector, scan['name'])
+
+            if not success:
                 print("Target not found after actions. Forcing navigation/wait...")
+                recovered = False
                 try:
                     await tab.go_to(url)
                     await tab.query(selector, timeout=15)
                     await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_recovery_success.png')
+                    recovered = True
                 except Exception as e:
                     print(f"Final recovery failed: {e}")
                     await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_final_timeout.png')
+                if not recovered:
+                    # The reload may have landed on the check page
+                    await stop_if_browser_check(tab, selector, scan['name'])
 
             # 1. Set specific scan entity filters (Region or Organizations)
             try:
@@ -604,6 +681,7 @@ async def main():
                 if col not in df.columns:
                     df[col] = ""
 
+            blocked_error = None
             for index, row in df.iterrows():
                 try:
                     url = row.get('Opportunity Url')
@@ -617,6 +695,9 @@ async def main():
 
                     selector = "//h2[contains(text(), 'RFx General Information')]"
                     success = await perform_human_loop(tab, selector, max_attempts=1)
+
+                    if not success:
+                        success = await stop_if_browser_check(tab, selector, f"detail page {url}")
 
                     if not success:
                         print(f"Warning: Could not definitively find general info tab on {url}")
@@ -663,10 +744,17 @@ async def main():
                     df.at[index, 'Phone'] = phone
                     df.at[index, 'City'] = city
 
+                except BrowserCheckBlocked as blocked:
+                    # Stop visiting further pages; keep what was collected, then fail the run
+                    blocked_error = blocked
+                    break
                 except Exception as e:
                     print(f"Error processing {url}: {e}")
 
             df.to_csv(csv_path, index=False, encoding='utf-8')
+            if blocked_error:
+                print(f"Saved partial contact details to {csv_path} before stopping.")
+                raise blocked_error
             print(f"Successfully processed URLs and updated {csv_path} with Contact fields.")
 
 if __name__ == "__main__":
