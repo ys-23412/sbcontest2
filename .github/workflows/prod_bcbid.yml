@@ -78,7 +78,8 @@ jobs:
           python -m lib.bcbid_scraper
 
       - name: Upload Raw Data for Processing
-        if: success()
+        # always(): keep screenshots when the scraper fails (e.g. blocked by BC Bid's browser check)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           # Use a unique name per python version
