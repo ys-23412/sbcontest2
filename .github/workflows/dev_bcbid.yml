@@ -15,9 +15,6 @@ on:
     #- cron: '53 0 * * 2'
 
 env:
-  IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-  IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
-  IPROYAL_API_TOKEN: ${{ secrets.IPROYAL_API_TOKEN }}
   PY_COLORS: "1"
   DISPLAY: ":99"
   # Optional: PROXY_URL: ${{ steps.get_proxy.outputs.PROXY_URL }} if you re-enable proxy fetching
@@ -29,6 +26,7 @@ env:
   GH_WORKFLOW_NAME: ${{ github.workflow }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+  PROXY_URL: ${{ secrets.PROXY_URL_WITH_PASS }}
   DAYS_TO_CHECK: 2
 
 jobs:
@@ -132,8 +130,6 @@ jobs:
   #     YS_COMPONENTID: 10
   #     HIDE_TINY_URL: True
   #     DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-  #     IPROYAL_USERNAME: ${{ secrets.IPROYAL_USERNAME }}
-  #     IPROYAL_PASSWORD: ${{ secrets.IPROYAL_PASSWORD }}
   #   strategy:
   #     fail-fast: false
   #     max-parallel: 6

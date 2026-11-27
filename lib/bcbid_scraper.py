@@ -17,15 +17,35 @@ from pydoll.constants import ScrollPosition
 from pydoll.exceptions import FailedToStartBrowser
 from lib.utils import find_bcbid_city_match, load_city_mapping, regional_districts, target_organizations, \
 scan_text_for_cities, clean_technical_noise, DEFAULT_CITY
+from lib.bcbid_resilience import (
+    ProxyAttempt,
+    build_proxy_attempts,
+    env_int,
+    is_proxy_failure,
+)
 from datetime import datetime, timedelta
 
 
 sys.stdout.reconfigure(encoding="utf-8")
 FILE_DIR = "screenshots"
 
-def get_browser_options(headless=True):
+MAX_ATTEMPTS = max(1, env_int("BCBID_MAX_ATTEMPTS", 3))
+ATTEMPT_PAUSE_SECONDS = float(os.getenv("BCBID_ATTEMPT_PAUSE") or 5)
+# Only the final failed attempt should page Discord; retries are expected.
+SEND_BLOCK_ALERT = True
+
+
+def get_browser_options(headless=None, proxy_url=None):
     """
-    Returns a configured ChromiumOptions object with stealth settings.
+    Returns a configured ChromiumOptions object.
+
+    headless: None keeps pydoll's default (headful).
+    proxy_url: the proxy of *this* attempt (Squid or an open proxy) or None
+               for a direct connection. BC Bid used to always use PROXY_URL,
+               so a dead proxy killed every run.
+
+    The browser's own identity is left alone: no fingerprint profile, no
+    User-Agent or language override (see lib/bcbid_resilience.py).
     """
     options = ChromiumOptions()
     current_time = int(time.time())
@@ -39,15 +59,15 @@ def get_browser_options(headless=True):
         'safebrowsing': {'enabled': True},
     }
 
-    # Handle Headless environment variables
-    env_headless = os.environ.get("NODRIVER_HEADLESS") == "True"
-    # url encode password
-    proxy_url = os.environ.get("PROXY_URL")
+    if os.environ.get("NODRIVER_HEADLESS") == "True":
+        headless = True
+    if headless is not None:
+        options.headless = headless
+
     if proxy_url:
-        print("Using Proxy url")
+        # May be http://user:pass@host:port. pydoll takes the credentials off
+        # the Chrome command line and answers the proxy login itself.
         options.add_argument(f'--proxy-server={proxy_url}')
-    # if headless or env_headless:
-    #     options.add_argument("--headless=new")
 
     options.browser_preferences = {
         'profile': {'exit_type': 'Normal'},
@@ -256,7 +276,7 @@ class BrowserCheckBlocked(Exception):
 
 
 # How long to give BC Bid's check page to let us through before calling it a block
-BROWSER_CHECK_WAIT_SECONDS = int(os.getenv("BCBID_BROWSER_CHECK_WAIT", 30))
+BROWSER_CHECK_WAIT_SECONDS = env_int("BCBID_BROWSER_CHECK_WAIT", 30)
 
 
 def looks_like_browser_check(page_source: str) -> bool:
@@ -274,22 +294,40 @@ def browser_check_rejected(page_source: str) -> bool:
     return bool(page_source) and "wrong captcha answer" in page_source.lower()
 
 
+async def humanize_browser_check(tab: Tab):
+    """
+    pydoll v3's contribution to reCAPTCHA v3: real, humanized mouse/scroll input
+    while Google scores the session. reCAPTCHA v3 has no puzzle to click; pydoll
+    documents that its captcha helper is Turnstile-only, but its human-like
+    interactions are what behavioural challenges score.
+    """
+    if getattr(tab, "mouse", None) is None:  # offline fake tabs in tests
+        return
+    action = random.choice((action_wide_mouse_sweep, action_hesitant_scroll, action_reading_pause))
+    try:
+        await action(tab)
+    except Exception as exc:
+        print(f"Browser-check humanized action failed: {exc}")
+
+
 async def stop_if_browser_check(tab: Tab, selector: str, context: str) -> bool:
     """
     Call when the expected element (selector) has not shown up.
 
     - Not on the browser-check page: returns False and the caller carries on as before.
     - On the check page: waits (without reloading, which only triggers another check) for
-      BC Bid to let the browser through. Returns True if the expected element appears.
+      BC Bid to let the browser through, using pydoll's humanized interactions while the
+      invisible reCAPTCHA v3 scores us. Returns True if the expected element appears.
     - Still on the check page after BROWSER_CHECK_WAIT_SECONDS, or the page reports a
       wrong captcha answer: saves a screenshot and the HTML, alerts Discord and raises
-      BrowserCheckBlocked so the run stops and fails.
+      BrowserCheckBlocked so the run stops and fails (or the runner rotates the IP).
     """
     page_source = await tab.page_source()
     if not looks_like_browser_check(page_source):
         return False
 
-    print(f"BC Bid is showing its 'Browser check' page ({context}). Waiting up to {BROWSER_CHECK_WAIT_SECONDS}s...")
+    print(f"BC Bid is showing its 'Browser check' page ({context}). Waiting up to {BROWSER_CHECK_WAIT_SECONDS}s "
+          f"for pydoll's humanized reCAPTCHA v3 handling...")
     waited = 0
     while waited < BROWSER_CHECK_WAIT_SECONDS and not browser_check_rejected(page_source):
         await asyncio.sleep(3)
@@ -300,9 +338,10 @@ async def stop_if_browser_check(tab: Tab, selector: str, context: str) -> bool:
         page_source = await tab.page_source()
         if not looks_like_browser_check(page_source):
             return False
+        await humanize_browser_check(tab)
 
     reason = "wrong captcha answer" if browser_check_rejected(page_source) else f"still on the check page after {waited}s"
-    message = f"BC Bid scraper blocked by BC Bid's browser check ({context}): {reason}. Run stopped; no retry."
+    message = f"BC Bid scraper blocked by BC Bid's browser check ({context}): {reason}."
     print(f"::error title=BC Bid browser check::{message}")
     try:
         os.makedirs(FILE_DIR, exist_ok=True)
@@ -311,12 +350,17 @@ async def stop_if_browser_check(tab: Tab, selector: str, context: str) -> bool:
         await tab.take_screenshot(f'{FILE_DIR}/browser_check_blocked.png', quality=90, beyond_viewport=True)
     except Exception as e:
         print(f"Could not save browser check evidence: {e}")
-    try:
-        from lib.discord import send_discord_message
-        send_discord_message(f"🚫 {message} @grandfleet", os.getenv('DISCORD_WEBHOOK_URL'))
-    except Exception as e:
-        print(f"Could not send Discord alert: {e}")
-    raise BrowserCheckBlocked(message)
+
+    blocked = BrowserCheckBlocked(message)
+    blocked.alerted = False
+    if SEND_BLOCK_ALERT:
+        try:
+            from lib.discord import send_discord_message
+            send_discord_message(f"🚫 {message} @grandfleet", os.getenv('DISCORD_WEBHOOK_URL'))
+            blocked.alerted = True
+        except Exception as e:
+            print(f"Could not send Discord alert: {e}")
+    raise blocked
 
 
 def chunk_list(lst, n=3):
@@ -327,13 +371,18 @@ def chunk_list(lst, n=3):
     k, m = divmod(len(lst), n)
     return [lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
 
-async def main():
-    opts = get_browser_options()
-    
+async def scrape_attempt(attempt: ProxyAttempt):
+    """Run one whole scrape in a fresh browser, optionally through `attempt`'s proxy."""
+    opts = get_browser_options(proxy_url=attempt.proxy_url)
+    print(f"Starting BC Bid browser: {attempt.describe()}")
+
     async with Chrome(options=opts) as browser:
-        print("Starting browser...")
         tab = await browser.start()
-        
+
+        # Do not call tab.apply_fingerprint() here: besides not being needed, it
+        # re-enables Fetch without auth handling, which stops pydoll answering the
+        # proxy login (every Squid navigation: ERR_INVALID_AUTH_CREDENTIALS).
+
         url = "https://bcbid.gov.bc.ca/page.aspx/en/rfp/request_browse_public"
         days_to_check = int(os.getenv('DAYS_TO_CHECK', 1))
         # Calculate consistent dates for both passes
@@ -398,6 +447,10 @@ async def main():
                     recovered = True
                 except Exception as e:
                     print(f"Final recovery failed: {e}")
+                    if is_proxy_failure(e) and not global_all_dfs:
+                        # Nothing collected and the connection is gone: let the
+                        # runner retry on another proxy instead of "succeeding" empty.
+                        raise
                     await tab.take_screenshot(f'{FILE_DIR}/{scan["name"]}_final_timeout.png')
                 if not recovered:
                     # The reload may have landed on the check page
@@ -411,9 +464,11 @@ async def main():
 
                 for value_tag in scan['values']:
                     # 1 attempt + 2 retry (2 attempts total)
-                    for attempt in range(3):
-                        print(f"Typing: {value_tag}" + (" (retry)" if attempt > 0 else ""))
+                    for typing_try in range(3):
+                        print(f"Typing: {value_tag}" + (" (retry)" if typing_try > 0 else ""))
                         
+                        # Plain click and typing on purpose: the humanized versions
+                        # broke the filter entry. Keep humanize off here.
                         await filter_search.click()
                         await filter_search.type_text(value_tag, humanize=False)
                         # api loading times, should be bigger
@@ -436,7 +491,7 @@ async def main():
                             break
                         
                         # If failed on first attempt, clear search box to prepare for the retry
-                        if attempt == 0:
+                        if typing_try == 0:
                             print(f"⚠️ Value not found in tags, clearing and retrying: {value_tag}")
                             await tab.execute_script(f"""
                                 (() => {{
@@ -757,12 +812,65 @@ async def main():
                 raise blocked_error
             print(f"Successfully processed URLs and updated {csv_path} with Contact fields.")
 
-if __name__ == "__main__":
+
+def _alert(message):
     try:
-        asyncio.run(main())
-    except FailedToStartBrowser as e:
         from lib.discord import send_discord_message
-        discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-        send_discord_message(f"BC Bid Scraper Failed to start the browser @grandfleet: {e}", discord_webhook_url)
-        raise FailedToStartBrowser(f"Failed to start the browser: {e}")
+        send_discord_message(f"🚫 {message} @grandfleet", os.getenv('DISCORD_WEBHOOK_URL'))
+    except Exception as e:
+        print(f"Could not send Discord alert: {e}")
+
+
+async def main():
+    """
+    Run the scrape with a fresh browser per attempt, moving to the next
+    connection when BC Bid's browser check refuses us or the proxy cannot connect.
+
+    Attempt order: Squid PROXY_URL -> direct -> (opt-in) free proxies.
+    Only the final failure pages Discord and fails the job.
+    """
+    global SEND_BLOCK_ALERT
+    attempts = build_proxy_attempts(max_attempts=MAX_ATTEMPTS)
+    failures = []
+    print(f"[BC Bid] {len(attempts)} attempt(s) planned: "
+          + ", ".join(attempt.describe() for attempt in attempts))
+    try:
+        for number, attempt in enumerate(attempts, 1):
+            print(f"[BC Bid] Attempt {number}/{len(attempts)}: {attempt.describe()}")
+            # Retries are expected: don't spam Discord until the last one.
+            SEND_BLOCK_ALERT = number == len(attempts)
+            try:
+                await scrape_attempt(attempt)
+            except Exception as exc:
+                if isinstance(exc, BrowserCheckBlocked):
+                    kind = "browser check (reCAPTCHA v3) refused us"
+                elif isinstance(exc, FailedToStartBrowser):
+                    kind = "browser failed to start"
+                elif is_proxy_failure(exc):
+                    kind = "proxy failed to connect" if attempt.uses_proxy else "network error"
+                else:
+                    kind = "unexpected error"
+                detail = f"{attempt.describe()}: {type(exc).__name__}: {exc}"
+                failures.append(detail)
+                print(f"[BC Bid] Attempt {number} failed ({kind}): {exc}")
+
+                if number < len(attempts):
+                    print("[BC Bid] Retrying with a fresh browser / IP...")
+                    await asyncio.sleep(ATTEMPT_PAUSE_SECONDS)
+                    continue
+
+                message = f"BC Bid scraper failed after {len(attempts)} attempt(s): {'; '.join(failures)}"
+                print(f"::error title=BC Bid scraper failed::{message}")
+                if not getattr(exc, "alerted", False):
+                    _alert(message)
+                raise
+            else:
+                print(f"[BC Bid] Attempt {number} ({attempt.describe()}) succeeded.")
+                return
+    finally:
+        SEND_BLOCK_ALERT = True
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
