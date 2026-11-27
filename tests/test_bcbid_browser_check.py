@@ -49,6 +49,10 @@ class FakeTab:
 def env(tmp_path, monkeypatch):
     monkeypatch.setattr(scraper, "FILE_DIR", str(tmp_path))
     monkeypatch.setattr(scraper, "BROWSER_CHECK_WAIT_SECONDS", 30)
+    # Keep these offline tests deterministic even when CI exports proxy secrets.
+    monkeypatch.setattr(scraper, "MAX_ATTEMPTS", 1)
+    monkeypatch.delenv("PROXY_URL", raising=False)
+    monkeypatch.setattr(scraper, "SEND_BLOCK_ALERT", True)
     sleeps, alerts = [], []
 
     async def fake_sleep(seconds):
@@ -128,3 +132,37 @@ def test_main_stops_with_an_error_and_does_not_reload(env, monkeypatch):
 
     assert len(tab.navigations) == 1
     assert len(alerts) == 1
+
+
+def test_dead_proxy_on_the_recovery_reload_fails_the_attempt(env, monkeypatch):
+    """Page never became Opportunities and the reload dies: raise, don't 'succeed' with no data."""
+    tab = FakeTab(["<html><body>Something else</body></html>"])
+
+    async def go_to(url, timeout=None):
+        tab.navigations.append(url)
+        if len(tab.navigations) > 1:
+            raise RuntimeError(f"Navigation to {url} failed: net::ERR_PROXY_CONNECTION_FAILED")
+
+    tab.go_to = go_to
+
+    class FakeBrowser:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def start(self):
+            return tab
+
+    async def no_element(tab, selector, max_attempts=2):
+        return False
+
+    monkeypatch.setattr(scraper, "Chrome", lambda options=None: FakeBrowser())
+    monkeypatch.setattr(scraper, "perform_human_loop", no_element)
+    monkeypatch.setattr(scraper, "APPLY_FINGERPRINT", False)
+    monkeypatch.setattr(scraper, "_alert", lambda message: None)
+
+    with pytest.raises(RuntimeError, match="ERR_PROXY_CONNECTION_FAILED"):
+        asyncio.run(scraper.main())
+    assert len(tab.navigations) == 2
